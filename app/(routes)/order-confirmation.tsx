@@ -29,7 +29,7 @@ export default function OrderConfirmationScreen() {
             </View>
           </View>
 
-          <TouchableOpacity style={styles.continueButton} onPress={() => router.replace('/(tabs)/')}>
+          <TouchableOpacity style={styles.continueButton} onPress={() => router.replace('/')}>
             <Text style={styles.continueButtonText}>Continue Shopping</Text>
           </TouchableOpacity>
         </View>

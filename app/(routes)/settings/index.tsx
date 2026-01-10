@@ -117,7 +117,7 @@ export default function SettingsScreen() {
 
           {/* Quick links: Addresses and Payment Methods */}
           <View style={[styles.settingCard, { backgroundColor: cardBackgroundColor, marginTop: 12 }]}> 
-            <TouchableOpacity onPress={() => router.push('/(routes)/shipping/')} style={[styles.settingRow, { paddingVertical: 14 }]}> 
+            <TouchableOpacity onPress={() => router.push('/shipping')} style={[styles.settingRow, { paddingVertical: 14 }]}> 
               <Ionicons name="location-outline" size={20} color={cardTextColor} style={styles.icon} />
               <Text style={[styles.settingLabel, { color: cardTextColor }]}>Manage Addresses</Text>
               <Ionicons name="chevron-forward" size={20} color={cardTextColor} />

@@ -89,7 +89,7 @@ export default function SellerProfileScreen() {
 
   const handleToggleWishlist = (id: string) => {
     const action = wishlistIds.includes(id) ? 'remove' : 'add';
-    toggleWishlist({ productId: id, action });
+    toggleWishlist(id);
   };
 
   const context = useSharedValue({ y: 0 });
