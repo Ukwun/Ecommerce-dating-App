@@ -1,7 +1,7 @@
-import express from 'express';
-import DatingProfile from '../models/DatingProfile.js';
-import User from '../models/User.js';
-import authMiddleware from '../middleware/auth.js';
+const express = require('express');
+const DatingProfile = require('../models/DatingProfile');
+const User = require('../models/User');
+const authMiddleware = require('../middleware/auth');
 
 const router = express.Router();
 
@@ -393,4 +393,4 @@ router.post('/profile/unblock/:userId', authMiddleware, async (req, res) => {
   }
 });
 
-export default router;
+module.exports = router;

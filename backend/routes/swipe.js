@@ -1,9 +1,9 @@
-import express from 'express';
-import Swipe from '../models/Swipe.js';
-import Match from '../models/Match.js';
-import Conversation from '../models/Conversation.js';
-import DatingProfile from '../models/DatingProfile.js';
-import authMiddleware from '../middleware/auth.js';
+const express = require('express');
+const Swipe = require('../models/Swipe');
+const Match = require('../models/Match');
+const Conversation = require('../models/Conversation');
+const DatingProfile = require('../models/DatingProfile');
+const authMiddleware = require('../middleware/auth');
 
 const router = express.Router();
 
@@ -411,4 +411,4 @@ const calculateProfileCompleteness = (profile) => {
   return Math.round((completeness / maxPoints) * 100);
 };
 
-export default router;
+module.exports = router;
