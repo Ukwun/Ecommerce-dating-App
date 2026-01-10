@@ -10,7 +10,7 @@ export default function Onboardingscreen() {
     return (
         <View style={[styles.container, { backgroundColor: '#f5f5f5' }]}> 
             <Image 
-                source={require("@/assets/onboarding/onboarding.jpg")}
+                source={require("../../assets/onboarding/onboarding.jpg")}
                 style={styles.backgroundImage}
                 resizeMode="cover"
             />
@@ -67,7 +67,7 @@ const styles = StyleSheet.create({
     },
     contentContainer: {
         flex: 1,
-        justifyContent: 'flex-end',
+        justifyContent: 'center',
         alignItems: 'center',
         paddingBottom: 50,
         paddingHorizontal: 20,

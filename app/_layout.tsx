@@ -1,60 +1,39 @@
-import { DarkTheme, DefaultTheme, ThemeProvider } from '@react-navigation/native';
-import { useFonts } from 'expo-font';
-import { Stack } from 'expo-router';
-import * as SplashScreen from 'expo-splash-screen';
-import { StatusBar } from 'expo-status-bar';
-import { useEffect } from 'react';
-import 'react-native-reanimated';
-import "./globals.css";
-import { useColorScheme } from '@/hooks/use-color-scheme';
+import { Slot } from 'expo-router';
+import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
-import Providers from '../config/providers';
+import Toast from 'react-native-toast-message';
+import { AuthProvider } from '@/hooks/AuthContext';
+import { CartProvider } from '@/hooks/CartContext';
+import { CheckoutProvider } from '@/hooks/CheckoutContext';
+import { ThemeProvider } from '@/hooks/useTheme';
+import { SharedElementProvider } from '@/hooks/useSharedElement';
+import { LogBox } from 'react-native';
 
-// Prevent the splash screen from auto-hiding before asset loading is complete.
-SplashScreen.preventAutoHideAsync();
+// Suppress known deprecation warnings for libraries we can't control
+LogBox.ignoreLogs([
+  'SafeAreaView has been deprecated',
+  'Non-serializable values were found in the navigation state'
+]);
+
+const queryClient = new QueryClient();
 
 export default function RootLayout() {
-  const colorScheme = useColorScheme();
-  // Only load system fonts to avoid Android blank screen
-  const [loaded, error] = useFonts({
-    // 'SpaceMono-Regular': require("../assets/fonts/SpaceMono-Regular.ttf"),
-    // 'Inter-Regular': require("../assets/fonts/Inter-Regular.otf"),
-    // 'Inter-SemiBold': require("../assets/fonts/Inter-SemiBold.otf"),
-    // 'Inter-Bold': require("../assets/fonts/Inter-Bold.otf"),
-    // 'Poppins-Regular': require("../assets/fonts/Poppins-Regular.ttf"),
-    // 'Poppins-Medium': require("../assets/fonts/Poppins-Medium.ttf"),
-    // 'Poppins-SemiBold': require("../assets/fonts/Poppins-SemiBold.ttf"),
-    // 'Poppins-Bold': require("../assets/fonts/Poppins-Bold.ttf"),
-    // 'Raleway-Regular': require("../assets/fonts/Raleway-Regular.ttf"),
-    // 'Raleway-Bold': require("../assets/fonts/Raleway-Bold.ttf"),
-  });
-
-  useEffect(() => {
-    if (error) throw error;
-  }, [error]);
-
-  useEffect(() => {
-    if (loaded) {
-      SplashScreen.hideAsync();
-    }
-  }, [loaded]);
-
-  if (!loaded) {
-    return null;
-  }
-
   return (
-    <ThemeProvider value={colorScheme === 'dark' ? DarkTheme : DefaultTheme}>
-      <GestureHandlerRootView>
-        <Providers>
-          <Stack
-            screenOptions={{
-              headerShown: false,
-            }}
-          />
-          <StatusBar style="auto" />
-        </Providers>
-      </GestureHandlerRootView>
-    </ThemeProvider>
+    <GestureHandlerRootView style={{ flex: 1 }}>
+      <QueryClientProvider client={queryClient}>
+        <SharedElementProvider>
+          <ThemeProvider>
+            <AuthProvider>
+              <CheckoutProvider>
+                <CartProvider>
+                  <Slot />
+                  <Toast />
+                </CartProvider>
+              </CheckoutProvider>
+            </AuthProvider>
+          </ThemeProvider>
+        </SharedElementProvider>
+      </QueryClientProvider>
+    </GestureHandlerRootView>
   );
 }

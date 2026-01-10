@@ -117,32 +117,28 @@ export default function ForgotPasswordScreen() {
             showsVerticalScrollIndicator={false}
           >
             {/* Header */}
-            <View className="flex-row items-center">
+            <View style={{ alignItems: 'center', marginTop: 32, marginBottom: 24 }}>
               <TouchableOpacity 
                 onPress={handleBackToLogin}
-                className="mr-4 p-2 -ml-2"
+                style={{ marginRight: 16, padding: 8, marginLeft: -8, alignSelf: 'flex-start' }}
               >
                 <Ionicons name="arrow-back" size={24} color="#374151" />
               </TouchableOpacity>
-              <Text className="text-xl font-poppins-semibold text-gray-900">
+              <Text style={{ fontSize: 28, fontWeight: 'bold', color: '#1a202c', marginBottom: 8, fontFamily: 'Poppins-Bold', textAlign: 'center' }}>
                 Forgot Password
               </Text>
-            </View>
-
-            {/* Main Content */}
-            <View className="mt-8">
-              <Text className="text-3xl font-poppins-bold text-gray-900 mb-4">
+              <Text style={{ fontSize: 22, fontWeight: 'bold', color: '#1a202c', marginBottom: 8, fontFamily: 'Poppins-Bold', textAlign: 'center' }}>
                 Reset Your Password
               </Text>
-              <Text className="text-gray-500 font-poppins text-base mb-8 leading-6">
-                Enter your email address and we&apos;ll send you a link to reset your password.
+              <Text style={{ color: '#6b7280', fontSize: 16, fontFamily: 'Poppins-Regular', marginBottom: 16, textAlign: 'center', lineHeight: 22 }}>
+                Enter your email address and we'll send you a link to reset your password.
               </Text>
             </View>
 
             <View>
               {/* Email Field */}
               <View style={{ marginTop: 24 }}>
-                <Text style={{ color: '#1f2937', fontSize: 16, fontFamily: 'sans-serif', marginBottom: 12 }}>Email Address</Text>
+                <Text style={{ color: '#1f2937', fontSize: 16, fontFamily: 'Poppins-Regular', marginBottom: 12, textAlign: 'left' }}>Email Address</Text>
                 <Controller
                   control={forgotPasswordForm.control}
                   name="email"
@@ -175,7 +171,7 @@ export default function ForgotPasswordScreen() {
                 />
                 {forgotPasswordForm.formState.errors?.email && (
                   <Text style={{ color: '#EF4444', fontSize: 14, marginTop: 4, fontFamily: 'sans-serif' }}>
-                    {forgotPasswordForm.formState.errors.email.message}
+                    {forgotPasswordForm.formState.errors.email?.message}
                   </Text>
                 )}
               </View>

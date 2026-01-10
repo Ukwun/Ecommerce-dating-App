@@ -112,7 +112,7 @@ export default function SignupOtp() {
         onSuccess: (data) => {
             Toast.show({ type: 'success', text1: "Welcome!", text2: `Account created successfully for ${name}!` });
             // Navigate to next screen on success
-            if (router && typeof router.replace === 'function') router.replace("/(routes)/login");
+            if (router && typeof router.replace === 'function') router.replace('/login');
         },
         onError: (error: Error) => {
             Toast.show({ type: 'error', text1: "Verification Failed", text2: error.message });
