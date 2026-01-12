@@ -240,8 +240,17 @@ export const useDiscovery = () => {
       }
 
       const filterParams = customFilters || filters;
+      const params: any = {
+        ...filterParams,
+        page: filterParams.page || 1,
+        limit: filterParams.limit || 10,
+        ageMin: filterParams.ageMin || 18,
+        ageMax: filterParams.ageMax || 80,
+        maxDistance: filterParams.maxDistance || 50
+      };
+
       const queryString = new URLSearchParams(
-        Object.entries(filterParams).map(([key, value]) => [key, String(value)])
+        Object.entries(params).map(([key, value]) => [key, String(value)])
       ).toString();
 
       const response = await axios.get(

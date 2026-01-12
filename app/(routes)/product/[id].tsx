@@ -41,9 +41,9 @@ export default function ProductDetail() {
     const fetchProduct = async () => {
       try {
         setLoading(true)
-        const res = await axiosInstance.get(`/product/api/get-product/${id}`)
+        const res = await axiosInstance.get(`/marketplace/api/products/${id}`)
         if (mounted) {
-          const fetchedProduct = res.data?.product ?? res.data;
+          const fetchedProduct = res.data?.data || res.data;
           // Add mock data to the product if it doesn't exist
           fetchedProduct.colors = fetchedProduct.colors || MOCK_COLORS;
           fetchedProduct.sizes = fetchedProduct.sizes || MOCK_SIZES;
@@ -68,14 +68,21 @@ export default function ProductDetail() {
     if (product) setTimeout(() => setSharedElement(null, null), 400);
   }, [product]);
 
-  // Fetch recommended products
-  const { data: recommendedProducts, isLoading: isLoadingRecommendations } = useQuery({
-    queryKey: ['recommendedProducts', id],
+  // Fetch similar products based on category
+  const { data: similarProducts, isLoading: isLoadingSimilar } = useQuery({
+    queryKey: ['similarProducts', id, product?.category],
     queryFn: async () => {
-      const response = await axiosInstance.get('/product/api/get-all-products', { params: { limit: 6 } });
+      if (!product) return [];
+      const response = await axiosInstance.get('/marketplace/api/products', { 
+        params: { 
+          limit: 6,
+          category: product.category 
+        } 
+      });
       // Filter out the current product from recommendations
-      return (response.data?.products ?? []).filter((p: any) => p._id !== id);
+      return (response.data?.data ?? []).filter((p: any) => p._id !== id);
     },
+    enabled: !!product,
   });
 
   const handleBuyNow = () => {
@@ -239,22 +246,22 @@ export default function ProductDetail() {
             ))}
           </View>
 
-          {/* Recommendations */}
+          {/* Similar Products */}
           <MotiView
             from={{ opacity: 0, translateY: 20 }}
             animate={{ opacity: 1, translateY: 0 }}
             transition={{ type: 'timing', duration: 500, delay: 900 }}
           >
-            <Text style={styles.sectionTitle}>You Might Also Like</Text>
+            <Text style={styles.sectionTitle}>Similar Products</Text>
           </MotiView>
-          {isLoadingRecommendations ? (
+          {isLoadingSimilar ? (
             <View style={{ flexDirection: 'row', gap: 16, paddingHorizontal: 16 }}>
               <ProductSkeleton /><ProductSkeleton />
             </View>
           ) : (
             <FlatList
               horizontal
-              data={recommendedProducts}
+              data={similarProducts}
               keyExtractor={(item) => item._id}
               showsHorizontalScrollIndicator={false}
               contentContainerStyle={{ paddingHorizontal: 16, paddingVertical: 10 }}

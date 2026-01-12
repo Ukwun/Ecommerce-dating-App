@@ -19,6 +19,7 @@ const paymentsRoutes = require('./routes/payments');
 const cartRoutes = require('./routes/cart');
 const messagesRoutes = require('./routes/messages');
 const wishlistRoutes = require('./routes/wishlist');
+const walletRoutes = require('./routes/wallet');
 
 const app = express();
 const server = http.createServer(app);
@@ -46,6 +47,7 @@ mongoose.connect(process.env.MONGO_URI)
 
 // Initialize Socket Handler
 require('./socket/socketHandler')(io);
+require('./socket/supportHandler')(io);
 
 // Register Routes
 app.use('/auth/api', authRoutes);
@@ -61,6 +63,7 @@ app.use('/marketplace/api', paymentsRoutes);
 app.use('/marketplace/api', cartRoutes);
 app.use('/marketplace/api', messagesRoutes);
 app.use('/marketplace/api', wishlistRoutes);
+app.use('/marketplace/api/wallet', walletRoutes);
 
 app.get('/', (req, res) => {
   res.send('Facebook Marketplace + Dating API is running');

@@ -1,205 +1,161 @@
 const express = require('express');
-const Product = require('../models/Product');
-const authMiddleware = require('../middleware/auth');
-
 const router = express.Router();
+const Product = require('../models/Product');
+const { protect } = require('../middleware/auth');
 
-// ✅ Create product (seller only)
-router.post('/products', authMiddleware, async (req, res) => {
+// Create new product
+router.post('/products', protect, async (req, res) => {
   try {
-    const { title, description, category, price, originalPrice, stock, images, thumbnail, specifications, tags } = req.body;
+    const { name, description, price, oldPrice, category, stock, sizes, colors, images } = req.body;
 
-    if (!title || !description || !category || !price || !images || !thumbnail) {
-      return res.status(400).json({ error: 'Missing required fields' });
-    }
-
-    const product = new Product({
-      title,
-      description,
-      category,
-      price,
-      originalPrice: originalPrice || price,
-      stock,
-      images,
-      thumbnail,
-      specifications,
-      tags,
+    const product = await Product.create({
       seller: req.user.id,
-      inStock: stock > 0
+      name,
+      description,
+      price,
+      oldPrice,
+      category,
+      stock,
+      sizes,
+      colors,
+      images
     });
-
-    await product.save();
 
     res.status(201).json({
       success: true,
-      message: 'Product created successfully',
-      data: product
+      product
     });
   } catch (error) {
-    res.status(500).json({ error: error.message });
+    console.error(error);
+    res.status(500).json({
+      success: false,
+      message: 'Server Error'
+    });
   }
 });
 
-// ✅ Get all products with filters
+// Get all products
 router.get('/products', async (req, res) => {
   try {
-    const { category, search, sortBy, page = 1, limit = 20, featured } = req.query;
+    const { seller, page = 1, limit = 20, sort, search, category, minPrice, maxPrice, color, size } = req.query;
+    const query = {};
+    if (seller) query.seller = seller;
 
-    let query = {};
-    if (category) query.category = category;
-    if (featured) query.featured = true;
+    // Search filter
     if (search) {
-      query.$text = { $search: search };
+      query.$or = [
+        { name: { $regex: search, $options: 'i' } },
+        { description: { $regex: search, $options: 'i' } }
+      ];
     }
 
-    const skip = (page - 1) * limit;
-
-    let sortOptions = {};
-    switch (sortBy) {
-      case 'price-asc':
-        sortOptions = { price: 1 };
-        break;
-      case 'price-desc':
-        sortOptions = { price: -1 };
-        break;
-      case 'newest':
-        sortOptions = { createdAt: -1 };
-        break;
-      case 'rating':
-        sortOptions = { rating: -1 };
-        break;
-      default:
-        sortOptions = { featured: -1, createdAt: -1 };
+    // Other filters
+    if (category) query.category = category;
+    if (color) query.colors = color;
+    if (size) query.sizes = size;
+    if (minPrice || maxPrice) {
+      query.price = {};
+      if (minPrice) query.price.$gte = Number(minPrice);
+      if (maxPrice) query.price.$lte = Number(maxPrice);
     }
+
+    // Sorting
+    let sortOption = { createdAt: -1 };
+    if (sort) {
+      if (sort === 'price-asc') sortOption = { price: 1 };
+      else if (sort === 'price-desc') sortOption = { price: -1 };
+      else if (sort === 'rating-desc') sortOption = { ratings: -1 };
+    }
+
+    const skip = (parseInt(page) - 1) * parseInt(limit);
 
     const products = await Product.find(query)
-      .populate('seller', 'name avatar')
-      .sort(sortOptions)
+      .sort(sortOption)
       .skip(skip)
       .limit(parseInt(limit));
 
-    const total = await Product.countDocuments(query);
-
-    res.json({
+    res.status(200).json({
       success: true,
-      data: products,
-      pagination: {
-        total,
-        page: parseInt(page),
-        limit: parseInt(limit),
-        pages: Math.ceil(total / limit)
-      }
+      count: products.length,
+      data: products
     });
   } catch (error) {
-    res.status(500).json({ error: error.message });
+    console.error(error);
+    res.status(500).json({
+      success: false,
+      message: 'Server Error'
+    });
   }
 });
 
-// ✅ Get single product
+// Get single product
 router.get('/products/:id', async (req, res) => {
   try {
-    const product = await Product.findByIdAndUpdate(
-      req.params.id,
-      { $inc: { views: 1 } },
-      { new: true }
-    ).populate('seller', 'name avatar email');
+    const product = await Product.findById(req.params.id).populate('seller', 'name avatar');
 
     if (!product) {
-      return res.status(404).json({ error: 'Product not found' });
+      return res.status(404).json({ success: false, message: 'Product not found' });
     }
 
-    res.json({
+    res.status(200).json({ success: true, data: product });
+  } catch (error) {
+    console.error(error);
+    res.status(500).json({ success: false, message: 'Server Error' });
+  }
+});
+
+// Update product
+router.put('/products/:id', protect, async (req, res) => {
+  try {
+    let product = await Product.findById(req.params.id);
+
+    if (!product) {
+      return res.status(404).json({ success: false, message: 'Product not found' });
+    }
+
+    // Make sure user is product owner
+    if (product.seller.toString() !== req.user.id) {
+      return res.status(401).json({ success: false, message: 'Not authorized to update this product' });
+    }
+
+    product = await Product.findByIdAndUpdate(req.params.id, req.body, {
+      new: true,
+      runValidators: true
+    });
+
+    res.status(200).json({
       success: true,
       data: product
     });
   } catch (error) {
-    res.status(500).json({ error: error.message });
+    console.error(error);
+    res.status(500).json({ success: false, message: 'Server Error' });
   }
 });
 
-// ✅ Update product
-router.put('/products/:id', authMiddleware, async (req, res) => {
+// Delete product
+router.delete('/products/:id', protect, async (req, res) => {
   try {
     const product = await Product.findById(req.params.id);
 
     if (!product) {
-      return res.status(404).json({ error: 'Product not found' });
+      return res.status(404).json({ success: false, message: 'Product not found' });
     }
 
-    if (product.seller.toString() !== req.user.id && req.user.role !== 'admin') {
-      return res.status(403).json({ error: 'Not authorized to update this product' });
+    // Make sure user is product owner
+    if (product.seller.toString() !== req.user.id) {
+      return res.status(401).json({ success: false, message: 'Not authorized to delete this product' });
     }
 
-    const updatedProduct = await Product.findByIdAndUpdate(
-      req.params.id,
-      { ...req.body, updatedAt: Date.now() },
-      { new: true, runValidators: true }
-    );
+    await product.deleteOne();
 
-    res.json({
+    res.status(200).json({
       success: true,
-      message: 'Product updated successfully',
-      data: updatedProduct
+      message: 'Product removed'
     });
   } catch (error) {
-    res.status(500).json({ error: error.message });
-  }
-});
-
-// ✅ Delete product
-router.delete('/products/:id', authMiddleware, async (req, res) => {
-  try {
-    const product = await Product.findById(req.params.id);
-
-    if (!product) {
-      return res.status(404).json({ error: 'Product not found' });
-    }
-
-    if (product.seller.toString() !== req.user.id && req.user.role !== 'admin') {
-      return res.status(403).json({ error: 'Not authorized to delete this product' });
-    }
-
-    await Product.findByIdAndDelete(req.params.id);
-
-    res.json({
-      success: true,
-      message: 'Product deleted successfully'
-    });
-  } catch (error) {
-    res.status(500).json({ error: error.message });
-  }
-});
-
-// ✅ Get products by category
-router.get('/category/:category', async (req, res) => {
-  try {
-    const products = await Product.find({ category: req.params.category })
-      .populate('seller', 'name avatar')
-      .sort({ createdAt: -1 });
-
-    res.json({
-      success: true,
-      data: products
-    });
-  } catch (error) {
-    res.status(500).json({ error: error.message });
-  }
-});
-
-// ✅ Get featured products
-router.get('/featured/all', async (req, res) => {
-  try {
-    const products = await Product.find({ featured: true })
-      .populate('seller', 'name avatar')
-      .sort({ createdAt: -1 })
-      .limit(20);
-
-    res.json({
-      success: true,
-      data: products
-    });
-  } catch (error) {
-    res.status(500).json({ error: error.message });
+    console.error(error);
+    res.status(500).json({ success: false, message: 'Server Error' });
   }
 });
 

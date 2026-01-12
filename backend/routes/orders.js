@@ -255,4 +255,75 @@ router.get('/admin/stats/orders', authMiddleware, async (req, res) => {
   }
 });
 
+// ✅ Rate Driver
+router.post('/orders/:id/rate-driver', authMiddleware, async (req, res) => {
+  try {
+    const { rating, feedback } = req.body;
+    const order = await Order.findById(req.params.id);
+
+    if (!order) {
+      return res.status(404).json({ error: 'Order not found' });
+    }
+
+    if (order.user.toString() !== req.user.id) {
+      return res.status(403).json({ error: 'Not authorized' });
+    }
+
+    order.driverRating = rating;
+    order.driverFeedback = feedback;
+    await order.save();
+
+    res.json({ success: true, message: 'Driver rated successfully', data: order });
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
+// ✅ Tip Driver
+router.post('/orders/:id/tip-driver', authMiddleware, async (req, res) => {
+  try {
+    const { amount } = req.body;
+    const order = await Order.findById(req.params.id);
+
+    if (!order) {
+      return res.status(404).json({ error: 'Order not found' });
+    }
+
+    if (order.user.toString() !== req.user.id) {
+      return res.status(403).json({ error: 'Not authorized' });
+    }
+
+    order.driverTip = (order.driverTip || 0) + Number(amount);
+    await order.save();
+
+    res.json({ success: true, message: 'Tip added successfully', data: order });
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
+// ✅ Report Issue
+router.post('/orders/:id/report-issue', authMiddleware, async (req, res) => {
+  try {
+    const { issue } = req.body;
+    const order = await Order.findById(req.params.id);
+
+    if (!order) {
+      return res.status(404).json({ error: 'Order not found' });
+    }
+
+    if (order.user.toString() !== req.user.id) {
+      return res.status(403).json({ error: 'Not authorized' });
+    }
+
+    order.issueReported = true;
+    order.issueDescription = issue;
+    await order.save();
+
+    res.json({ success: true, message: 'Issue reported successfully', data: order });
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
 module.exports = router;

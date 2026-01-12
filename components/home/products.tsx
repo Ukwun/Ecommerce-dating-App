@@ -1,4 +1,4 @@
-﻿import React, { useRef, useEffect } from "react";
+﻿﻿import React, { useRef, useEffect } from "react";
 import { View, Text, Image, FlatList, TouchableOpacity, StyleSheet, RefreshControl, findNodeHandle } from "react-native";
 import { AntDesign, Ionicons } from "@expo/vector-icons";
 import { router } from 'expo-router';
@@ -27,6 +27,8 @@ type Product = {
   price: number;
   oldPrice?: number;
   rating?: number;
+  category?: string;
+  stock?: number;
 };
 
 type Props = {
@@ -159,10 +161,20 @@ export const ProductCard = ({
               <AntDesign name={inWishlist ? "heart" : "heart"} size={18} color={inWishlist ? "#FF6B6B" : "#fff"} />
             </MotiView>
         </TouchableOpacity>
+
+        {/* Stock Badge */}
+        {item.stock !== undefined && item.stock < 10 && (
+          <View style={styles.stockBadge}>
+            <Text style={styles.stockText}>{item.stock === 0 ? 'Out of Stock' : `${item.stock} left`}</Text>
+          </View>
+        )}
       </View>
 
       {/* Product Info */}
       <View style={styles.details}>
+        {item.category && (
+          <Text style={styles.category} numberOfLines={1}>{item.category}</Text>
+        )}
         <Text numberOfLines={1} style={[styles.name, { color: isDark ? '#F3F4F6' : '#333' }]}>
           {item.name}
         </Text>
@@ -250,6 +262,27 @@ const styles = StyleSheet.create({
   },
   details: {
     padding: 10,
+  },
+  category: {
+    fontSize: 10,
+    color: '#888',
+    marginBottom: 2,
+    textTransform: 'uppercase',
+    fontWeight: '600',
+  },
+  stockBadge: {
+    position: 'absolute',
+    bottom: 0,
+    left: 0,
+    backgroundColor: 'rgba(220, 38, 38, 0.9)',
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    borderTopRightRadius: 8,
+  },
+  stockText: {
+    color: '#fff',
+    fontSize: 10,
+    fontWeight: 'bold',
   },
   name: {
     fontSize: 13,

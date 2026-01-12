@@ -1,5 +1,5 @@
 import React, { useEffect, useRef, useState } from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, ScrollView, ActivityIndicator } from 'react-native';
+import { View, Text, StyleSheet, TouchableOpacity, ScrollView, ActivityIndicator, Alert } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
@@ -12,6 +12,7 @@ import { getCachedRates, convert } from '@/utils/currency';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { useAuth } from '@/hooks/AuthContext';
 import axiosInstance from '@/utils/axiosinstance';
+import MapView, { Marker } from 'react-native-maps';
 
 const Section = ({ title, children, actionText, onActionPress }: { title: string, children: React.ReactNode, actionText?: string, onActionPress?: () => void }) => (
   <View style={styles.section}>
@@ -30,23 +31,24 @@ const Section = ({ title, children, actionText, onActionPress }: { title: string
 );
 
 const placeOrder = async (orderData: any) => {
-  // In a real app, you would make an API call here to process the order.
-  console.log("Placing order with data:", orderData);
-  // Simulate API delay
-  await new Promise(resolve => setTimeout(resolve, 2000));
-
-  // Simulate a successful response
-  const mockOrderId = `ORD-${Math.random().toString(36).substr(2, 9).toUpperCase()}`;
-  return {
-    success: true,
-    orderId: mockOrderId,
-  };
+  // Call the real backend endpoint
+  const response = await axiosInstance.post('/marketplace/api/orders', orderData);
+  // Return the data in the format expected by the mutation onSuccess
+  return response.data;
 };
 
 export default function CheckoutScreen() {
   const { items, clearCart } = useCart();
   const { user } = useAuth(); // Get user from AuthContext
-  const { selectedAddress, setSelectedAddress, selectedPaymentMethod, setSelectedPaymentMethod } = useCheckout();
+  const { 
+    selectedAddress, 
+    setSelectedAddress, 
+    selectedPaymentMethod, 
+    setSelectedPaymentMethod,
+    currency,
+    deliveryOption,
+    setDeliveryOption
+  } = useCheckout();
   const paystackWebViewRef = useRef<{ startTransaction: () => void; endTransaction: () => void; } | null>(null);
   const queryClient = useQueryClient();
   // Fetch addresses and set the default one if no address is selected yet
@@ -70,6 +72,7 @@ export default function CheckoutScreen() {
       const mockMethods: PaymentMethod[] = [
         { _id: '1', cardType: 'visa', last4: '1234', isDefault: true },
         { _id: '2', cardType: 'mastercard', last4: '5678', isDefault: false },
+        { _id: 'bank_transfer', cardType: 'bank' as any, last4: 'Transfer', isDefault: false },
       ];
       return mockMethods;
     },
@@ -91,7 +94,6 @@ export default function CheckoutScreen() {
   }, [addresses, paymentMethods, selectedAddress, selectedPaymentMethod, setSelectedAddress, setSelectedPaymentMethod]);
 
   const subtotal = items.reduce((sum: number, item: { price: number; quantity: number }) => sum + item.price * item.quantity, 0);
-  const { currency, deliveryOption } = useCheckout();
   const shipping = subtotal > 0 ? (deliveryOption === 'station' ? 0 : 500) : 0;
   const total = subtotal + shipping;
 
@@ -127,11 +129,12 @@ export default function CheckoutScreen() {
     mutationFn: placeOrder,
     onSuccess: (data) => {
       clearCart();
-      router.replace({ pathname: '/(routes)/order-confirmation', params: { orderId: data.orderId, total: total.toString() } } as any);
+      router.replace({ pathname: '/order-confirmation', params: { orderId: data.orderId, total: total.toString() } } as any);
     },
-    onError: (error: Error) => {
-      // In a real app, you'd show a toast or an alert
-      console.error("Failed to place order:", error.message);
+    onError: (error: any) => {
+      // Show visible error to user
+      const message = error.response?.data?.error || error.message || "Failed to place order. Please try again.";
+      Alert.alert("Order Failed", message);
     },
   });
 
@@ -154,12 +157,34 @@ export default function CheckoutScreen() {
   };
 
   const handlePaymentInitiation = () => {
-    if (!selectedAddress || !selectedPaymentMethod || items.length === 0) {
+    if ((deliveryOption === 'home' && !selectedAddress) || items.length === 0) {
       // Add user feedback here, e.g., a Toast message
-      alert('Please ensure your cart, shipping address, and payment method are set.');
+      alert('Please ensure your cart and delivery details are set.');
       return;
     }
-    paystackWebViewRef.current?.startTransaction();
+
+    if (!selectedPaymentMethod) {
+      Alert.alert('Payment Method', 'Please select a payment method.');
+      return;
+    }
+
+    if (selectedPaymentMethod._id === 'bank_transfer') {
+      // Handle manual bank transfer flow
+      Alert.alert('Bank Transfer', 'Please transfer the total amount to:\n\nBank: GTBank\nAccount: 0123456789\nName: Marketplace App\n\nClick OK once sent.', [{ text: 'I have sent it', onPress: handlePlaceOrder }, { text: 'Cancel', style: 'cancel' }]);
+    } else {
+      if (paystackWebViewRef.current) {
+        paystackWebViewRef.current.startTransaction();
+      } else {
+        Alert.alert(
+          'Development Mode',
+          'Native payment modules are not available in Expo Go/Simulator.\n\nClick "Simulate Success" to complete the order for testing.',
+          [
+            { text: 'Cancel', style: 'cancel' },
+            { text: 'Simulate Success', onPress: handlePlaceOrder }
+          ]
+        );
+      }
+    }
   };
 
   return (
@@ -254,11 +279,66 @@ export default function CheckoutScreen() {
             <View style={styles.paymentContainer}>
               <MaterialCommunityIcons name="credit-card" size={24} color="#FF8C00" />
               {selectedPaymentMethod ? (
-                <Text style={styles.paymentText}>**** **** **** {selectedPaymentMethod.last4}</Text>
+                <Text style={styles.paymentText}>{selectedPaymentMethod._id === 'bank_transfer' ? 'Direct Bank Transfer' : `**** **** **** ${selectedPaymentMethod.last4}`}</Text>
               ) : (
                 <Text style={styles.paymentText}>No payment method</Text>
               )}
             </View>
+          </Section>
+
+          {/* Delivery Method */}
+          <Section title="Delivery Method">
+            <View style={styles.deliveryContainer}>
+              <TouchableOpacity 
+                style={[styles.deliveryOption, deliveryOption === 'home' && styles.deliveryOptionSelected]}
+                onPress={() => setDeliveryOption('home')}
+              >
+                <Ionicons name="home" size={24} color={deliveryOption === 'home' ? '#FF8C00' : '#6B7280'} />
+                <View style={styles.deliveryTextContainer}>
+                  <Text style={[styles.deliveryTitle, deliveryOption === 'home' && styles.deliveryTitleSelected]}>Doorstep Delivery</Text>
+                  <Text style={styles.deliverySubtitle}>Delivered to your address</Text>
+                </View>
+                <Text style={styles.deliveryPrice}>₦500</Text>
+                {deliveryOption === 'home' && <Ionicons name="checkmark-circle" size={20} color="#FF8C00" />}
+              </TouchableOpacity>
+
+              <TouchableOpacity 
+                style={[styles.deliveryOption, deliveryOption === 'station' && styles.deliveryOptionSelected]}
+                onPress={() => setDeliveryOption('station')}
+              >
+                <Ionicons name="business" size={24} color={deliveryOption === 'station' ? '#FF8C00' : '#6B7280'} />
+                <View style={styles.deliveryTextContainer}>
+                  <Text style={[styles.deliveryTitle, deliveryOption === 'station' && styles.deliveryTitleSelected]}>Pickup Station</Text>
+                  <Text style={styles.deliverySubtitle}>Collect at our office</Text>
+                </View>
+                <Text style={styles.deliveryPrice}>Free</Text>
+                {deliveryOption === 'station' && <Ionicons name="checkmark-circle" size={20} color="#FF8C00" />}
+              </TouchableOpacity>
+            </View>
+
+            {deliveryOption === 'station' && (
+              <View style={styles.mapContainer}>
+                <MapView
+                  style={styles.map}
+                  initialRegion={{
+                    latitude: 6.5244,
+                    longitude: 3.3792,
+                    latitudeDelta: 0.01,
+                    longitudeDelta: 0.01,
+                  }}
+                >
+                  <Marker
+                    coordinate={{ latitude: 6.5244, longitude: 3.3792 }}
+                    title="Pickup Station"
+                    description="123 Warehouse Road, Lagos"
+                  />
+                </MapView>
+                <View style={styles.stationInfo}>
+                  <Text style={styles.stationName}>Lagos Central Station</Text>
+                  <Text style={styles.stationAddress}>123 Warehouse Road, Lagos</Text>
+                </View>
+              </View>
+            )}
           </Section>
 
           {/* Order Summary */}
@@ -322,4 +402,66 @@ const styles = StyleSheet.create({
     backgroundColor: '#FDBA74',
   },
   placeOrderButtonText: { fontSize: 18, fontWeight: 'bold', color: '#111827' },
+  deliveryContainer: {
+    gap: 12,
+  },
+  deliveryOption: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    padding: 12,
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: '#E5E7EB',
+    backgroundColor: '#fff',
+  },
+  deliveryOptionSelected: {
+    borderColor: '#FF8C00',
+    backgroundColor: '#FFF7ED',
+  },
+  deliveryTextContainer: {
+    flex: 1,
+    marginLeft: 12,
+  },
+  deliveryTitle: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: '#111827',
+  },
+  deliveryTitleSelected: {
+    color: '#FF8C00',
+  },
+  deliverySubtitle: {
+    fontSize: 12,
+    color: '#6B7280',
+  },
+  deliveryPrice: {
+    fontSize: 14,
+    fontWeight: 'bold',
+    color: '#111827',
+    marginRight: 8,
+  },
+  mapContainer: {
+    marginTop: 16,
+    borderRadius: 12,
+    overflow: 'hidden',
+    borderWidth: 1,
+    borderColor: '#E5E7EB',
+  },
+  map: {
+    width: '100%',
+    height: 150,
+  },
+  stationInfo: {
+    padding: 12,
+    backgroundColor: '#F9FAFB',
+  },
+  stationName: {
+    fontWeight: 'bold',
+    color: '#111827',
+  },
+  stationAddress: {
+    fontSize: 12,
+    color: '#6B7280',
+    marginTop: 2,
+  },
 });

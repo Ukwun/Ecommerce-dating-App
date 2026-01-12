@@ -85,6 +85,21 @@ const orderSchema = new mongoose.Schema({
   estimatedDelivery: Date,
   deliveredAt: Date,
   notes: String,
+  driverRating: {
+    type: Number,
+    min: 1,
+    max: 5
+  },
+  driverFeedback: String,
+  driverTip: {
+    type: Number,
+    default: 0
+  },
+  issueReported: {
+    type: Boolean,
+    default: false
+  },
+  issueDescription: String,
   createdAt: {
     type: Date,
     default: Date.now

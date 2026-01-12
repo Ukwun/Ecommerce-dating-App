@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import {
   View,
   Text,
@@ -14,7 +14,7 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useForm, Controller } from 'react-hook-form';
 import { Ionicons } from '@expo/vector-icons';
-import { router } from 'expo-router';
+import { router, useLocalSearchParams, useNavigation } from 'expo-router';
 import * as ImagePicker from 'expo-image-picker';
 import { useMutation } from '@tanstack/react-query';
 import axiosInstance from '@/utils/axiosinstance';
@@ -27,6 +27,8 @@ type FormData = {
   oldPrice?: string;
   category: string;
   stock: string;
+  sizes?: string;
+  colors?: string;
 };
 
 const uploadImageToImageKit = async (uri: string) => {
@@ -61,18 +63,36 @@ const uploadImageToImageKit = async (uri: string) => {
 };
 
 const createProduct = async (data: FormData & { images: { url: string; fileId: string }[] }) => {
-  const response = await axiosInstance.post('/product/api/create-product', {
+  const response = await axiosInstance.post('/marketplace/api/products', {
     ...data,
     price: parseFloat(data.price),
     oldPrice: data.oldPrice ? parseFloat(data.oldPrice) : undefined,
     stock: parseInt(data.stock, 10),
+    sizes: data.sizes ? data.sizes.split(',').map(s => s.trim()).filter(Boolean) : [],
+    colors: data.colors ? data.colors.split(',').map(s => s.trim()).filter(Boolean) : [],
+  });
+  return response.data;
+};
+
+const updateProduct = async (id: string, data: FormData & { images: { url: string; fileId: string }[] }) => {
+  const response = await axiosInstance.put(`/marketplace/api/products/${id}`, {
+    ...data,
+    price: parseFloat(data.price),
+    oldPrice: data.oldPrice ? parseFloat(data.oldPrice) : undefined,
+    stock: parseInt(data.stock, 10),
+    sizes: data.sizes ? data.sizes.split(',').map(s => s.trim()).filter(Boolean) : [],
+    colors: data.colors ? data.colors.split(',').map(s => s.trim()).filter(Boolean) : [],
   });
   return response.data;
 };
 
 export default function SellScreen() {
+  const { id } = useLocalSearchParams<{ id: string }>();
+  const isEditing = !!id;
+  const navigation = useNavigation();
   const [images, setImages] = useState<string[]>([]);
-  const { control, handleSubmit, formState: { errors, isValid } } = useForm<FormData>({ mode: 'onChange' });
+  const existingImagesRef = useRef<{ url: string; fileId: string }[]>([]);
+  const { control, handleSubmit, reset, setValue, formState: { errors, isValid } } = useForm<FormData>({ mode: 'onChange' });
 
   const mutation = useMutation({
     mutationFn: async (data: FormData) => {
@@ -80,18 +100,65 @@ export default function SellScreen() {
         throw new Error('Please upload at least one product image.');
       }
       // Upload all images to ImageKit
-      const uploadedImages = await Promise.all(images.map(uri => uploadImageToImageKit(uri)));
+      const uploadedImages = await Promise.all(images.map(async (uri) => {
+        const existing = existingImagesRef.current.find(img => img.url === uri);
+        if (existing) return existing;
+        return uploadImageToImageKit(uri);
+      }));
+
+      if (isEditing) {
+        return updateProduct(id, { ...data, images: uploadedImages });
+      }
       // Create product with uploaded image URLs
       return createProduct({ ...data, images: uploadedImages });
     },
     onSuccess: (data) => {
-      Toast.show({ type: 'success', text1: 'Product Listed!', text2: 'Your product is now live.' });
-      router.replace(`/product/${data.product._id}`);
+      Toast.show({ 
+        type: 'success', 
+        text1: isEditing ? 'Product Updated!' : 'Product Listed!', 
+        text2: isEditing ? 'Your changes have been saved.' : 'Your product is now live.' 
+      });
+      if (isEditing) {
+        router.back();
+      } else {
+        router.replace(`/(routes)/product/${data.product._id}` as any);
+      }
     },
     onError: (error: Error) => {
       Toast.show({ type: 'error', text1: 'Submission Failed', text2: error.message });
     },
   });
+
+  useEffect(() => {
+    if (isEditing) {
+      navigation.setOptions({ headerTitle: 'Edit Product' });
+      const fetchProduct = async () => {
+        try {
+          const response = await axiosInstance.get(`/marketplace/api/products/${id}`);
+          const product = response.data.data;
+          
+          reset({
+            name: product.name,
+            description: product.description,
+            price: product.price.toString(),
+            oldPrice: product.oldPrice?.toString(),
+            category: product.category,
+            stock: product.stock.toString(),
+            sizes: product.sizes?.join(', '),
+            colors: product.colors?.join(', '),
+          });
+
+          if (product.images && product.images.length > 0) {
+            existingImagesRef.current = product.images;
+            setImages(product.images.map((img: any) => img.url));
+          }
+        } catch (error) {
+          Toast.show({ type: 'error', text1: 'Error', text2: 'Failed to load product details' });
+        }
+      };
+      fetchProduct();
+    }
+  }, [id, isEditing, navigation, reset]);
 
   const pickImage = async () => {
     const result = await ImagePicker.launchImageLibraryAsync({
@@ -141,7 +208,7 @@ export default function SellScreen() {
         <TouchableOpacity onPress={() => router.back()} style={styles.backButton}>
           <Ionicons name="arrow-back" size={24} color="#333" />
         </TouchableOpacity>
-        <Text style={styles.headerTitle}>List a New Product</Text>
+        <Text style={styles.headerTitle}>{isEditing ? 'Edit Product' : 'List a New Product'}</Text>
       </View>
 
       <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : 'height'} style={{ flex: 1 }}>
@@ -193,6 +260,9 @@ export default function SellScreen() {
             <View style={{ flex: 1 }}>{renderInput('category', 'Category')}</View>
             <View style={{ flex: 1 }}>{renderInput('stock', 'Stock Quantity', 'numeric')}</View>
           </View>
+
+          {renderInput('sizes', 'Sizes (e.g. S, M, L)', 'default', true)}
+          {renderInput('colors', 'Colors (e.g. Red, Blue)', 'default', true)}
         </ScrollView>
       </KeyboardAvoidingView>
 
@@ -205,7 +275,7 @@ export default function SellScreen() {
           {mutation.isPending ? (
             <ActivityIndicator color="#fff" />
           ) : (
-            <Text style={styles.submitButtonText}>List Product</Text>
+            <Text style={styles.submitButtonText}>{isEditing ? 'Update Product' : 'List Product'}</Text>
           )}
         </TouchableOpacity>
       </View>

@@ -11,6 +11,7 @@ interface User {
         file_id: string;
         url: string;
     }
+    isPremium?: boolean;
 }
 
 interface AuthContextType {

@@ -29,7 +29,7 @@ export default function OrderConfirmationScreen() {
             </View>
           </View>
 
-          <TouchableOpacity style={styles.continueButton} onPress={() => router.replace('/')}>
+          <TouchableOpacity style={styles.continueButton} onPress={() => router.replace('/(tabs)')}>
             <Text style={styles.continueButtonText}>Continue Shopping</Text>
           </TouchableOpacity>
         </View>
@@ -49,19 +49,8 @@ const styles = StyleSheet.create({
     shadowRadius: 5,
     elevation: 8,
   },
-  title: {
-    fontSize: 32,
-    fontWeight: 'bold',
-    color: '#fff',
-    marginBottom: 8,
-    textAlign: 'center',
-  },
-  subtitle: {
-    fontSize: 16,
-    color: 'rgba(255,255,255,0.8)',
-    marginBottom: 32,
-    textAlign: 'center',
-  },
+  title: { fontSize: 32, fontWeight: 'bold', color: '#fff', marginBottom: 8, textAlign: 'center' },
+  subtitle: { fontSize: 16, color: 'rgba(255,255,255,0.8)', marginBottom: 32, textAlign: 'center' },
   detailsCard: {
     backgroundColor: 'rgba(255,255,255,0.1)',
     borderRadius: 12,
@@ -72,11 +61,6 @@ const styles = StyleSheet.create({
   detailRow: { flexDirection: 'row', justifyContent: 'space-between', paddingVertical: 8 },
   detailLabel: { color: 'rgba(255,255,255,0.8)', fontSize: 16 },
   detailValue: { color: '#fff', fontSize: 16, fontWeight: 'bold' },
-  continueButton: {
-    backgroundColor: '#fff',
-    paddingVertical: 16,
-    paddingHorizontal: 40,
-    borderRadius: 30,
-  },
+  continueButton: { backgroundColor: '#fff', paddingVertical: 16, paddingHorizontal: 40, borderRadius: 30 },
   continueButtonText: { color: '#065F46', fontSize: 18, fontWeight: 'bold' },
 });
