@@ -5,7 +5,4 @@ const projectRoot = __dirname;
 
 const config = getDefaultConfig(projectRoot);
 
-// Fix Windows ESM path resolution
-config.resolver.unstable_enablePackageExports = true;
-
 module.exports = config;
