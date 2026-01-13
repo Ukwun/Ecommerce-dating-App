@@ -2,6 +2,7 @@ import React from 'react';
 import { View, Text, FlatList, StyleSheet, TouchableOpacity, ActivityIndicator } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { LinearGradient } from 'expo-linear-gradient';
+import * as Notifications from 'expo-notifications';
 import { useQuery, useMutation } from '@tanstack/react-query';
 import { router } from 'expo-router';
 import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
@@ -96,7 +97,6 @@ const OrderItem = ({ item, onReorder, isReordering }: { item: Order; onReorder: 
 // Function to simulate sending a push notification
 async function sendTestNotification(orderId: string) {
   try {
-    const Notifications = await import('expo-notifications');
     await Notifications.scheduleNotificationAsync({
       content: {
         title: 'Order Status Update 🚚',

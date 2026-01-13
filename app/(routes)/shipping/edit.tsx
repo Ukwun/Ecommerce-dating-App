@@ -9,17 +9,15 @@ import Toast from 'react-native-toast-message';
 import * as Location from 'expo-location';
 import axios from 'axios';
 
-// Disable static rendering for this route to allow dynamic map loading
-export const experimental_disableStaticRendering = true;
-
-// Lazy-load MapView component only on native platforms
-const MapViewComponent = Platform.OS !== 'web' 
-  ? lazy(() => 
-      import('react-native-maps').then(module => ({
-        default: module.default
-      }))
-    )
-  : null;
+// Conditionally import MapView
+let MapView: any = null;
+if (Platform.OS !== 'web') {
+  try {
+    MapView = require('react-native-maps').default;
+  } catch (e) {
+    // Maps not available
+  }
+}
 
 type MapComponentProps = {
   style: any;
@@ -28,16 +26,11 @@ type MapComponentProps = {
 };
 
 const MapViewWrapper = (props: MapComponentProps) => {
-  if (Platform.OS === 'web' || !MapViewComponent) {
+  if (Platform.OS === 'web' || !MapView) {
     return null;
   }
   
-  return (
-    <Suspense fallback={<ActivityIndicator size="large" color="#FF8C00" />}>
-      <MapViewComponent {...props} />
-    </Suspense>
-  );
-};
+  return <MapView {...props} />;
 
 type AddressFormData = {
   _id: string;
