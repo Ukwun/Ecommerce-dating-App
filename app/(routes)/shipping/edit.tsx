@@ -31,6 +31,7 @@ const MapViewWrapper = (props: MapComponentProps) => {
   }
   
   return <MapView {...props} />;
+};
 
 type AddressFormData = {
   _id: string;
