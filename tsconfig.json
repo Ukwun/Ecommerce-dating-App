@@ -4,6 +4,7 @@
     "strict": true,
     "baseUrl": ".",
     "skipLibCheck": true,
+    "module": "esnext",
     "paths": {
       "@/*": [
         "./*"

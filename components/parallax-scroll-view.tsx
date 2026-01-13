@@ -4,7 +4,7 @@ import Animated, {
   interpolate,
   useAnimatedRef,
   useAnimatedStyle,
-  useScrollOffset,
+  useScrollViewOffset,
 } from 'react-native-reanimated';
 
 import { ThemedView } from '@/components/themed-view';

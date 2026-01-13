@@ -69,7 +69,7 @@ export default function BigSaleBanner() {
   const flatListRef = useRef<FlatList | null>(null);
   const scrollIndex = useRef(0);
   const [activeIndex, setActiveIndex] = useState(0);
-  const intervalRef = useRef<number | null>(null);
+  const intervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
   const startAutoScroll = useCallback(() => {
     if (intervalRef.current) clearInterval(intervalRef.current);
