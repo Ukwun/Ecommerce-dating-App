@@ -70,7 +70,6 @@
   },
   "devDependencies": {
     "@react-native-community/cli": "latest",
-    "@react-native/metro-config": "^0.81.1",
     "@types/geojson": "^7946.0.16",
     "@types/hammerjs": "^2.0.46",
     "@types/hoist-non-react-statics": "^3.3.7",
