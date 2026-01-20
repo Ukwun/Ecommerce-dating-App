@@ -2,14 +2,14 @@ const express = require('express');
 const router = express.Router();
 const Conversation = require('../models/Conversation');
 const DatingProfile = require('../models/DatingProfile');
-const auth = require('../middleware/auth');
+const { protect } = require('../middleware/auth');
 const { Expo } = require('expo-server-sdk');
 
 const expo = new Expo();
 
 // GET /dating/api/chat/:conversationId
 // Fetch message history
-router.get('/chat/:conversationId', auth, async (req, res) => {
+router.get('/chat/:conversationId', protect, async (req, res) => {
   try {
     const { conversationId } = req.params;
     
@@ -37,7 +37,7 @@ router.get('/chat/:conversationId', auth, async (req, res) => {
 
 // POST /dating/api/notifications/register
 // Register push token for the user
-router.post('/notifications/register', auth, async (req, res) => {
+router.post('/notifications/register', protect, async (req, res) => {
   try {
     const { token } = req.body;
     if (!token) return res.status(400).json({ message: 'Token required' });
@@ -56,7 +56,7 @@ router.post('/notifications/register', auth, async (req, res) => {
 
 // POST /dating/api/chat/send/:conversationId
 // Send a message and emit socket event
-router.post('/chat/send/:conversationId', auth, async (req, res) => {
+router.post('/chat/send/:conversationId', protect, async (req, res) => {
   try {
     const { conversationId } = req.params;
     const { content, imageUrl } = req.body;

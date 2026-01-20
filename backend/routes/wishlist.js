@@ -1,12 +1,12 @@
 const express = require('express');
 const Wishlist = require('../models/Wishlist');
 const Product = require('../models/Product');
-const authMiddleware = require('../middleware/auth');
+const { protect } = require('../middleware/auth');
 
 const router = express.Router();
 
 // ✅ Add to wishlist
-router.post('/wishlist', authMiddleware, async (req, res) => {
+router.post('/wishlist', protect, async (req, res) => {
   try {
     const { productId } = req.body;
 
@@ -51,7 +51,7 @@ router.post('/wishlist', authMiddleware, async (req, res) => {
 });
 
 // ✅ Get user wishlist
-router.get('/wishlist', authMiddleware, async (req, res) => {
+router.get('/wishlist', protect, async (req, res) => {
   try {
     const { page = 1, limit = 20 } = req.query;
 
@@ -81,7 +81,7 @@ router.get('/wishlist', authMiddleware, async (req, res) => {
 });
 
 // ✅ Check if product in wishlist
-router.get('/wishlist/:productId/check', authMiddleware, async (req, res) => {
+router.get('/wishlist/:productId/check', protect, async (req, res) => {
   try {
     const { productId } = req.params;
 
@@ -100,7 +100,7 @@ router.get('/wishlist/:productId/check', authMiddleware, async (req, res) => {
 });
 
 // ✅ Remove from wishlist
-router.delete('/wishlist/:productId', authMiddleware, async (req, res) => {
+router.delete('/wishlist/:productId', protect, async (req, res) => {
   try {
     const { productId } = req.params;
 
@@ -123,7 +123,7 @@ router.delete('/wishlist/:productId', authMiddleware, async (req, res) => {
 });
 
 // ✅ Get wishlist count
-router.get('/wishlist/count/all', authMiddleware, async (req, res) => {
+router.get('/wishlist/count/all', protect, async (req, res) => {
   try {
     const count = await Wishlist.countDocuments({ user: req.user.id });
 

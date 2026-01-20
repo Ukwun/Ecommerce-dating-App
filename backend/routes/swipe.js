@@ -3,7 +3,7 @@ const Swipe = require('../models/Swipe');
 const Match = require('../models/Match');
 const Conversation = require('../models/Conversation');
 const DatingProfile = require('../models/DatingProfile');
-const authMiddleware = require('../middleware/auth');
+const { protect } = require('../middleware/auth');
 
 const router = express.Router();
 
@@ -11,7 +11,7 @@ const router = express.Router();
  * POST /dating/api/swipe/:targetId
  * Send a swipe (like, dislike, or superlike)
  */
-router.post('/swipe/:targetId', authMiddleware, async (req, res) => {
+router.post('/swipe/:targetId', protect, async (req, res) => {
   try {
     const { targetId } = req.params;
     const { action } = req.body; // 'like', 'dislike', or 'superlike'
@@ -130,7 +130,7 @@ router.post('/swipe/:targetId', authMiddleware, async (req, res) => {
  * GET /dating/api/swipes/received
  * Get all likes/superlikes received (who liked you)
  */
-router.get('/swipes/received', authMiddleware, async (req, res) => {
+router.get('/swipes/received', protect, async (req, res) => {
   try {
     const { page = 1, limit = 20 } = req.query;
     const skip = (parseInt(page) - 1) * parseInt(limit);
@@ -179,7 +179,7 @@ router.get('/swipes/received', authMiddleware, async (req, res) => {
  * GET /dating/api/matches
  * Get all active matches
  */
-router.get('/matches', authMiddleware, async (req, res) => {
+router.get('/matches', protect, async (req, res) => {
   try {
     const { page = 1, limit = 20 } = req.query;
     const skip = (parseInt(page) - 1) * parseInt(limit);
@@ -238,7 +238,7 @@ router.get('/matches', authMiddleware, async (req, res) => {
  * GET /dating/api/matches/:matchId
  * Get specific match details
  */
-router.get('/matches/:matchId', authMiddleware, async (req, res) => {
+router.get('/matches/:matchId', protect, async (req, res) => {
   try {
     const { matchId } = req.params;
 
@@ -265,7 +265,7 @@ router.get('/matches/:matchId', authMiddleware, async (req, res) => {
  * POST /dating/api/matches/:matchId/unmatch
  * Unmatch with a user
  */
-router.post('/matches/:matchId/unmatch', authMiddleware, async (req, res) => {
+router.post('/matches/:matchId/unmatch', protect, async (req, res) => {
   try {
     const { matchId } = req.params;
 
@@ -295,7 +295,7 @@ router.post('/matches/:matchId/unmatch', authMiddleware, async (req, res) => {
  * POST /dating/api/matches/:matchId/block
  * Block a matched user
  */
-router.post('/matches/:matchId/block', authMiddleware, async (req, res) => {
+router.post('/matches/:matchId/block', protect, async (req, res) => {
   try {
     const { matchId } = req.params;
     const { reason } = req.body;
@@ -337,7 +337,7 @@ router.post('/matches/:matchId/block', authMiddleware, async (req, res) => {
  * POST /dating/api/swipe/undo
  * Undo last swipe
  */
-router.post('/swipe/undo', authMiddleware, async (req, res) => {
+router.post('/swipe/undo', protect, async (req, res) => {
   try {
     // Find the most recent swipe by this user
     const lastSwipe = await Swipe.findOne({ from: req.user._id })
@@ -360,7 +360,7 @@ router.post('/swipe/undo', authMiddleware, async (req, res) => {
  * GET /dating/api/matches/stats
  * Get match statistics
  */
-router.get('/stats', authMiddleware, async (req, res) => {
+router.get('/stats', protect, async (req, res) => {
   try {
     const totalMatches = await Match.countDocuments({
       users: req.user._id,

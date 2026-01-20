@@ -1,11 +1,11 @@
-import bcrypt from 'bcryptjs';
-import jwt from 'jsonwebtoken';
-import crypto from 'crypto';
-import User from '../models/User.js';
-import sendEmail from '../utils/sendEmail.js';
+const bcrypt = require('bcryptjs');
+const jwt = require('jsonwebtoken');
+const crypto = require('crypto');
+const User = require('../models/User');
+const sendEmail = require('../utils/sendEmail');
 
 // ✅ Register a new user
-export const registerUser = async (req, res) => {
+const registerUser = async (req, res) => {
   try {
     const { name, email, password } = req.body;
 
@@ -36,7 +36,7 @@ export const registerUser = async (req, res) => {
 };
 
 // ✅ Login user
-export const loginUser = async (req, res) => {
+const loginUser = async (req, res) => {
   try {
     const { email, password } = req.body;
     console.log('🧠 Incoming login data:', req.body);
@@ -81,7 +81,7 @@ export const loginUser = async (req, res) => {
 };
 
 // ✅ Forgot Password
-export const forgotPassword = async (req, res) => {
+const forgotPassword = async (req, res) => {
   const { email } = req.body;
 
   try {
@@ -133,7 +133,7 @@ export const forgotPassword = async (req, res) => {
 };
 
 // ✅ Reset Password
-export const resetPassword = async (req, res) => {
+const resetPassword = async (req, res) => {
   try {
     const resetPasswordToken = crypto
       .createHash('sha256')
@@ -170,4 +170,12 @@ export const resetPassword = async (req, res) => {
   } catch (error) {
     res.status(500).json({ error: error.message });
   }
+};
+
+// ✅ Export all functions
+module.exports = {
+  registerUser,
+  loginUser,
+  forgotPassword,
+  resetPassword,
 };

@@ -1,12 +1,12 @@
 const express = require('express');
 const Cart = require('../models/Cart');
 const Product = require('../models/Product');
-const authMiddleware = require('../middleware/auth');
+const { protect } = require('../middleware/auth');
 
 const router = express.Router();
 
 // ✅ Get user cart
-router.get('/cart', authMiddleware, async (req, res) => {
+router.get('/cart', protect, async (req, res) => {
   try {
     let cart = await Cart.findOne({ user: req.user.id }).populate('items.product');
 
@@ -28,7 +28,7 @@ router.get('/cart', authMiddleware, async (req, res) => {
 });
 
 // ✅ Add item to cart
-router.post('/cart/items', authMiddleware, async (req, res) => {
+router.post('/cart/items', protect, async (req, res) => {
   try {
     const { productId, quantity } = req.body;
 
@@ -81,7 +81,7 @@ router.post('/cart/items', authMiddleware, async (req, res) => {
 });
 
 // ✅ Update cart item quantity
-router.put('/cart/items/:productId', authMiddleware, async (req, res) => {
+router.put('/cart/items/:productId', protect, async (req, res) => {
   try {
     const { quantity } = req.body;
     const { productId } = req.params;
@@ -123,7 +123,7 @@ router.put('/cart/items/:productId', authMiddleware, async (req, res) => {
 });
 
 // ✅ Remove item from cart
-router.delete('/cart/items/:productId', authMiddleware, async (req, res) => {
+router.delete('/cart/items/:productId', protect, async (req, res) => {
   try {
     const { productId } = req.params;
 
@@ -150,7 +150,7 @@ router.delete('/cart/items/:productId', authMiddleware, async (req, res) => {
 });
 
 // ✅ Clear entire cart
-router.delete('/cart', authMiddleware, async (req, res) => {
+router.delete('/cart', protect, async (req, res) => {
   try {
     const cart = await Cart.findOne({ user: req.user.id });
 
@@ -173,7 +173,7 @@ router.delete('/cart', authMiddleware, async (req, res) => {
 });
 
 // ✅ Apply coupon code (placeholder)
-router.post('/cart/coupon', authMiddleware, async (req, res) => {
+router.post('/cart/coupon', protect, async (req, res) => {
   try {
     const { couponCode } = req.body;
 

@@ -1,7 +1,7 @@
 const express = require('express');
 const DatingProfile = require('../models/DatingProfile');
 const User = require('../models/User');
-const authMiddleware = require('../middleware/auth');
+const { protect } = require('../middleware/auth');
 
 const router = express.Router();
 
@@ -9,7 +9,7 @@ const router = express.Router();
  * POST /dating/api/profile
  * Create a new dating profile
  */
-router.post('/profile', authMiddleware, async (req, res) => {
+router.post('/profile', protect, async (req, res) => {
   try {
     const { bio, gender, interests, interestedIn, lookingFor, ageRange } = req.body;
 
@@ -54,7 +54,7 @@ router.post('/profile', authMiddleware, async (req, res) => {
  * GET /dating/api/profile
  * Get own dating profile
  */
-router.get('/profile', authMiddleware, async (req, res) => {
+router.get('/profile', protect, async (req, res) => {
   try {
     const profile = await DatingProfile.findOne({ userId: req.user._id }).populate(
       'userId',
@@ -75,7 +75,7 @@ router.get('/profile', authMiddleware, async (req, res) => {
  * PUT /dating/api/profile
  * Update own dating profile
  */
-router.put('/profile', authMiddleware, async (req, res) => {
+router.put('/profile', protect, async (req, res) => {
   try {
     const { bio, interests, interestedIn, lookingFor, ageRange, location } = req.body;
 
@@ -118,7 +118,7 @@ router.put('/profile', authMiddleware, async (req, res) => {
  * GET /dating/api/profile/:userId
  * Get another user's dating profile (public view)
  */
-router.get('/profile/:userId', authMiddleware, async (req, res) => {
+router.get('/profile/:userId', protect, async (req, res) => {
   try {
     const { userId } = req.params;
 
@@ -161,7 +161,7 @@ router.get('/profile/:userId', authMiddleware, async (req, res) => {
  * POST /dating/api/profile/photo/upload
  * Upload a dating profile photo
  */
-router.post('/profile/photo/upload', authMiddleware, async (req, res) => {
+router.post('/profile/photo/upload', protect, async (req, res) => {
   try {
     const { photoUrl, cloudinaryId, isProfilePhoto } = req.body;
 
@@ -216,7 +216,7 @@ router.post('/profile/photo/upload', authMiddleware, async (req, res) => {
  * DELETE /dating/api/profile/photo/:photoId
  * Delete a photo from dating profile
  */
-router.delete('/profile/photo/:photoIndex', authMiddleware, async (req, res) => {
+router.delete('/profile/photo/:photoIndex', protect, async (req, res) => {
   try {
     const { photoIndex } = req.params;
 
@@ -265,7 +265,7 @@ router.delete('/profile/photo/:photoIndex', authMiddleware, async (req, res) => 
  * PUT /dating/api/profile/photo/reorder
  * Reorder photos in dating profile
  */
-router.put('/profile/photo/reorder', authMiddleware, async (req, res) => {
+router.put('/profile/photo/reorder', protect, async (req, res) => {
   try {
     const { photoOrder } = req.body; // Array of photo IDs in new order
 
@@ -305,7 +305,7 @@ router.put('/profile/photo/reorder', authMiddleware, async (req, res) => {
  * POST /dating/api/profile/location
  * Update user location
  */
-router.post('/profile/location', authMiddleware, async (req, res) => {
+router.post('/profile/location', protect, async (req, res) => {
   try {
     const { latitude, longitude, address, city, state, country, zipCode } = req.body;
 
@@ -345,7 +345,7 @@ router.post('/profile/location', authMiddleware, async (req, res) => {
  * POST /dating/api/profile/block/:userId
  * Block a user
  */
-router.post('/profile/block/:userId', authMiddleware, async (req, res) => {
+router.post('/profile/block/:userId', protect, async (req, res) => {
   try {
     const { userId } = req.params;
 
@@ -372,7 +372,7 @@ router.post('/profile/block/:userId', authMiddleware, async (req, res) => {
  * POST /dating/api/profile/unblock/:userId
  * Unblock a user
  */
-router.post('/profile/unblock/:userId', authMiddleware, async (req, res) => {
+router.post('/profile/unblock/:userId', protect, async (req, res) => {
   try {
     const { userId } = req.params;
 

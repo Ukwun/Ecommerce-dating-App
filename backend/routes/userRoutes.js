@@ -1,7 +1,11 @@
 const express = require('express');
-const { registerUser, loginUser, forgotPassword, resetPassword } = require('../controllers/userController.js');
+const controllers = require('../controllers/userController.js');
+const { registerUser, loginUser, forgotPassword, resetPassword } = controllers;
 const User = require('../models/User');
 const { protect } = require('../middleware/auth');
+
+console.log('✅ Loaded controllers:', Object.keys(controllers));
+console.log('✅ resetPassword type:', typeof resetPassword);
 
 const router = express.Router();
 

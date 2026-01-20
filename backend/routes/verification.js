@@ -1,14 +1,14 @@
 const express = require('express');
 const router = express.Router();
 const DatingProfile = require('../models/DatingProfile');
-const auth = require('../middleware/auth');
+const { protect } = require('../middleware/auth');
 const { compareFaces } = require('../utils/faceRecognition');
 const { sendEmail } = require('../utils/emailService');
 const User = require('../models/User'); // Ensure you have this model
 
 // POST /dating/api/verification/enable
 // Enable 2FA and save the reference selfie
-router.post('/verification/enable', auth, async (req, res) => {
+router.post('/verification/enable', protect, async (req, res) => {
   try {
     const { photoUrl } = req.body;
     
@@ -28,7 +28,7 @@ router.post('/verification/enable', auth, async (req, res) => {
 
 // POST /dating/api/verification/disable
 // Disable 2FA
-router.post('/verification/disable', auth, async (req, res) => {
+router.post('/verification/disable', protect, async (req, res) => {
   try {
     const profile = await DatingProfile.findOneAndUpdate(
       { userId: req.user.id },
@@ -43,7 +43,7 @@ router.post('/verification/disable', auth, async (req, res) => {
 
 // POST /dating/api/verification/verify-login
 // Compare live selfie with stored verification photo
-router.post('/verification/verify-login', auth, async (req, res) => {
+router.post('/verification/verify-login', protect, async (req, res) => {
   try {
     const { livePhotoUrl } = req.body;
     
@@ -67,7 +67,7 @@ router.post('/verification/verify-login', auth, async (req, res) => {
 
 // POST /dating/api/verification/forgot
 // Initiate 2FA reset flow (e.g. send email)
-router.post('/verification/forgot', auth, async (req, res) => {
+router.post('/verification/forgot', protect, async (req, res) => {
   try {
     const user = await User.findById(req.user.id);
     if (!user || !user.email) {

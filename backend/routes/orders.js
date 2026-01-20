@@ -2,12 +2,12 @@ const express = require('express');
 const Order = require('../models/Order');
 const Product = require('../models/Product');
 const Cart = require('../models/Cart');
-const authMiddleware = require('../middleware/auth');
+const { protect } = require('../middleware/auth');
 
 const router = express.Router();
 
 // ✅ Create order from cart
-router.post('/orders', authMiddleware, async (req, res) => {
+router.post('/orders', protect, async (req, res) => {
   try {
     const { products, shippingAddress, shippingCost } = req.body;
 
@@ -89,7 +89,7 @@ router.post('/orders', authMiddleware, async (req, res) => {
 });
 
 // ✅ Get user orders
-router.get('/orders', authMiddleware, async (req, res) => {
+router.get('/orders', protect, async (req, res) => {
   try {
     const { status, page = 1, limit = 10 } = req.query;
 
@@ -122,7 +122,7 @@ router.get('/orders', authMiddleware, async (req, res) => {
 });
 
 // ✅ Get single order
-router.get('/orders/:id', authMiddleware, async (req, res) => {
+router.get('/orders/:id', protect, async (req, res) => {
   try {
     const order = await Order.findById(req.params.id)
       .populate('products.product')
@@ -146,7 +146,7 @@ router.get('/orders/:id', authMiddleware, async (req, res) => {
 });
 
 // ✅ Update order status (seller/admin)
-router.put('/orders/:id/status', authMiddleware, async (req, res) => {
+router.put('/orders/:id/status', protect, async (req, res) => {
   try {
     const { status } = req.body;
 
@@ -179,7 +179,7 @@ router.put('/orders/:id/status', authMiddleware, async (req, res) => {
 });
 
 // ✅ Cancel order
-router.put('/orders/:id/cancel', authMiddleware, async (req, res) => {
+router.put('/orders/:id/cancel', protect, async (req, res) => {
   try {
     const order = await Order.findById(req.params.id);
 
@@ -220,7 +220,7 @@ router.put('/orders/:id/cancel', authMiddleware, async (req, res) => {
 });
 
 // ✅ Get order statistics (admin)
-router.get('/admin/stats/orders', authMiddleware, async (req, res) => {
+router.get('/admin/stats/orders', protect, async (req, res) => {
   try {
     if (req.user.role !== 'admin') {
       return res.status(403).json({ error: 'Admin only' });
@@ -256,7 +256,7 @@ router.get('/admin/stats/orders', authMiddleware, async (req, res) => {
 });
 
 // ✅ Rate Driver
-router.post('/orders/:id/rate-driver', authMiddleware, async (req, res) => {
+router.post('/orders/:id/rate-driver', protect, async (req, res) => {
   try {
     const { rating, feedback } = req.body;
     const order = await Order.findById(req.params.id);
@@ -280,7 +280,7 @@ router.post('/orders/:id/rate-driver', authMiddleware, async (req, res) => {
 });
 
 // ✅ Tip Driver
-router.post('/orders/:id/tip-driver', authMiddleware, async (req, res) => {
+router.post('/orders/:id/tip-driver', protect, async (req, res) => {
   try {
     const { amount } = req.body;
     const order = await Order.findById(req.params.id);
@@ -303,7 +303,7 @@ router.post('/orders/:id/tip-driver', authMiddleware, async (req, res) => {
 });
 
 // ✅ Report Issue
-router.post('/orders/:id/report-issue', authMiddleware, async (req, res) => {
+router.post('/orders/:id/report-issue', protect, async (req, res) => {
   try {
     const { issue } = req.body;
     const order = await Order.findById(req.params.id);

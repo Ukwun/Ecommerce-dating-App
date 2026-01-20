@@ -1,12 +1,12 @@
 const express = require('express');
 const Message = require('../models/Message');
 const User = require('../models/User');
-const authMiddleware = require('../middleware/auth');
+const { protect } = require('../middleware/auth');
 
 const router = express.Router();
 
 // ✅ Send message
-router.post('/messages', authMiddleware, async (req, res) => {
+router.post('/messages', protect, async (req, res) => {
   try {
     const { recipientId, content, productId, orderId } = req.body;
 
@@ -56,7 +56,7 @@ router.post('/messages', authMiddleware, async (req, res) => {
 });
 
 // ✅ Get conversation with user
-router.get('/messages/:userId', authMiddleware, async (req, res) => {
+router.get('/messages/:userId', protect, async (req, res) => {
   try {
     const { page = 1, limit = 50 } = req.query;
     const { userId } = req.params;
@@ -99,7 +99,7 @@ router.get('/messages/:userId', authMiddleware, async (req, res) => {
 });
 
 // ✅ Get all conversations (chat list)
-router.get('/conversations', authMiddleware, async (req, res) => {
+router.get('/conversations', protect, async (req, res) => {
   try {
     // Get all unique users who have chatted with this user
     const conversations = await Message.aggregate([
@@ -157,7 +157,7 @@ router.get('/conversations', authMiddleware, async (req, res) => {
 });
 
 // ✅ Mark message as read
-router.put('/messages/:messageId/read', authMiddleware, async (req, res) => {
+router.put('/messages/:messageId/read', protect, async (req, res) => {
   try {
     const message = await Message.findByIdAndUpdate(
       req.params.messageId,
@@ -178,7 +178,7 @@ router.put('/messages/:messageId/read', authMiddleware, async (req, res) => {
 });
 
 // ✅ Delete message
-router.delete('/messages/:messageId', authMiddleware, async (req, res) => {
+router.delete('/messages/:messageId', protect, async (req, res) => {
   try {
     const message = await Message.findById(req.params.messageId);
 

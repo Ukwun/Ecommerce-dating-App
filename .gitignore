@@ -31,7 +31,15 @@ yarn-error.*
 *.pem
 
 # local env files
-.env*.local
+.env
+.env.local
+.env.production
+.env.*.local
+
+# Sensitive files
+google-play-key.json
+marketplace-release.keystore
+*.keystore
 
 # typescript
 *.tsbuildinfo

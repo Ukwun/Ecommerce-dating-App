@@ -1,6 +1,6 @@
 const express = require('express');
 const ShippingAddress = require('../models/ShippingAddress');
-const authMiddleware = require('../middleware/auth');
+const { protect } = require('../middleware/auth');
 
 const router = express.Router();
 
@@ -30,7 +30,7 @@ const calculateDeliveryPrice = (distance) => {
 };
 
 // ✅ Create/Update shipping address with location pin
-router.post('/shipping-address', authMiddleware, async (req, res) => {
+router.post('/shipping-address', protect, async (req, res) => {
   try {
     const { name, addressLine1, city, state, postalCode, country, latitude, longitude, isDefault, _id } = req.body;
     const userId = req.user.id;
@@ -110,7 +110,7 @@ router.post('/shipping-address', authMiddleware, async (req, res) => {
 });
 
 // ✅ Get all shipping addresses for user
-router.get('/shipping-addresses', authMiddleware, async (req, res) => {
+router.get('/shipping-addresses', protect, async (req, res) => {
   try {
     const userId = req.user.id;
     const addresses = await ShippingAddress.find({ userId }).sort({ isDefault: -1, createdAt: -1 });
@@ -125,7 +125,7 @@ router.get('/shipping-addresses', authMiddleware, async (req, res) => {
 });
 
 // ✅ Get default shipping address
-router.get('/shipping-addresses/default', authMiddleware, async (req, res) => {
+router.get('/shipping-addresses/default', protect, async (req, res) => {
   try {
     const userId = req.user.id;
     const defaultAddress = await ShippingAddress.findOne({ userId, isDefault: true });
@@ -140,7 +140,7 @@ router.get('/shipping-addresses/default', authMiddleware, async (req, res) => {
 });
 
 // ✅ Get single shipping address
-router.get('/shipping-addresses/:id', authMiddleware, async (req, res) => {
+router.get('/shipping-addresses/:id', protect, async (req, res) => {
   try {
     const address = await ShippingAddress.findById(req.params.id);
     
@@ -158,7 +158,7 @@ router.get('/shipping-addresses/:id', authMiddleware, async (req, res) => {
 });
 
 // ✅ Delete shipping address
-router.delete('/shipping-addresses/:id', authMiddleware, async (req, res) => {
+router.delete('/shipping-addresses/:id', protect, async (req, res) => {
   try {
     const address = await ShippingAddress.findById(req.params.id);
     
@@ -188,7 +188,7 @@ router.delete('/shipping-addresses/:id', authMiddleware, async (req, res) => {
 });
 
 // ✅ Calculate delivery price for coordinates
-router.post('/calculate-delivery-price', authMiddleware, async (req, res) => {
+router.post('/calculate-delivery-price', protect, async (req, res) => {
   try {
     const { latitude, longitude } = req.body;
 

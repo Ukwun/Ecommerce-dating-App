@@ -2,7 +2,7 @@ const express = require('express');
 const router = express.Router();
 const DatingProfile = require('../models/DatingProfile');
 const { calculateScore } = require('../utils/matchingAlgorithm');
-const auth = require('../middleware/auth');
+const { protect } = require('../middleware/auth');
 
 /**
  * Calculate distance between two coordinates in kilometers
@@ -22,7 +22,7 @@ function calculateDistance(coord1, coord2) {
 }
 
 // GET /dating/api/discover - Real-time location-based discovery
-router.get('/discover', auth, async (req, res) => {
+router.get('/discover', protect, async (req, res) => {
   try {
     const { 
       page = 1, 
@@ -138,7 +138,7 @@ router.get('/discover', auth, async (req, res) => {
 });
 
 // POST /dating/api/discover/refresh - Refresh discovery list with current location
-router.post('/discover/refresh', auth, async (req, res) => {
+router.post('/discover/refresh', protect, async (req, res) => {
   try {
     const { latitude, longitude } = req.body;
     const userId = req.user.id;

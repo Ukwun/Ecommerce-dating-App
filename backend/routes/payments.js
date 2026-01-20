@@ -2,7 +2,7 @@ const express = require('express');
 const axios = require('axios');
 const Payment = require('../models/Payment');
 const Order = require('../models/Order');
-const authMiddleware = require('../middleware/auth');
+const { protect } = require('../middleware/auth');
 
 const router = express.Router();
 
@@ -10,7 +10,7 @@ const PAYSTACK_SECRET = process.env.PAYSTACK_SECRET_KEY || 'sk_test_your_key_her
 const PAYSTACK_BASE_URL = 'https://api.paystack.co';
 
 // ✅ Initialize payment with Paystack
-router.post('/payments/initialize', authMiddleware, async (req, res) => {
+router.post('/payments/initialize', protect, async (req, res) => {
   try {
     const { orderId, email, amount } = req.body;
 
@@ -77,7 +77,7 @@ router.post('/payments/initialize', authMiddleware, async (req, res) => {
 });
 
 // ✅ Verify payment
-router.post('/payments/verify', authMiddleware, async (req, res) => {
+router.post('/payments/verify', protect, async (req, res) => {
   try {
     const { reference } = req.body;
 
@@ -149,7 +149,7 @@ router.post('/payments/verify', authMiddleware, async (req, res) => {
 });
 
 // ✅ Get payment details
-router.get('/payments/:id', authMiddleware, async (req, res) => {
+router.get('/payments/:id', protect, async (req, res) => {
   try {
     const payment = await Payment.findById(req.params.id);
 
@@ -171,7 +171,7 @@ router.get('/payments/:id', authMiddleware, async (req, res) => {
 });
 
 // ✅ Get user payments
-router.get('/payments', authMiddleware, async (req, res) => {
+router.get('/payments', protect, async (req, res) => {
   try {
     const { status, page = 1, limit = 10 } = req.query;
 
