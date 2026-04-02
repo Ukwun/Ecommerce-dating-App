@@ -1,0 +1,11 @@
+services:
+  - type: web
+    name: marketplace-backend
+    env: node
+    plan: free
+    buildCommand: cd backend && npm install
+    startCommand: cd backend && npm start
+    # Environment variables must be set in Render dashboard:
+    # MONGO_URI, JWT_SECRET, NODE_ENV=production, PORT=8082
+    # EMAIL_SERVICE, EMAIL_USERNAME, EMAIL_PASSWORD, EMAIL_FROM
+
