@@ -51,14 +51,21 @@ export default function LoginScreen() {
 
     for (const base of candidates) {
       const endpoint = `${base.replace(/\/$/, "")}/auth/api/login`;
-      console.log("➡️ Trying login endpoint:", endpoint);
+      console.log("🔌 [LOGIN] Attempting endpoint:", endpoint);
 
       try {
+        console.log("📤 [LOGIN] Sending request...");
+        const controller = new AbortController();
+        const timeout = setTimeout(() => controller.abort(), 30000); // 30 second timeout
+
         const resp = await fetch(endpoint, {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify(data),
+          signal: controller.signal,
         });
+
+        clearTimeout(timeout);
 
         const text = await resp.text();
         let body: any = null;
@@ -68,9 +75,12 @@ export default function LoginScreen() {
           body = { message: text };
         }
 
-        console.log("✅ Server responded:", { status: resp.status, body });
+        console.log("✅ [LOGIN] Server responded:", { status: resp.status, endpoint, body });
 
-        if (resp.status === 404) continue; // try next candidate
+        if (resp.status === 404) {
+          console.warn("⚠️ [LOGIN] Got 404, trying next candidate...");
+          continue;
+        }
 
         if (!resp.ok) {
           throw new Error(body?.error || body?.message || "Login failed");
@@ -82,12 +92,14 @@ export default function LoginScreen() {
             body.accessToken || body.token || body?.access_token || body?.data?.token,
         };
       } catch (err: any) {
-        console.warn("Login failed on:", base, err?.message);
+        console.error("❌ [LOGIN] Endpoint failed:", { endpoint: base, error: err?.message });
         continue;
       }
     }
 
-    throw new Error("Could not connect to backend on any available host");
+    const finalError = "Could not connect to backend on any available host. Please check your internet connection and try again.";
+    console.error("❌ [LOGIN] FINAL ERROR:", finalError);
+    throw new Error(finalError);
   };
 
   const loginMutation = useMutation({
