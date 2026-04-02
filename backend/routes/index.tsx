@@ -5,7 +5,7 @@ import { useRouter } from 'expo-router';
 import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
 import axiosInstance from '@/utils/axiosinstance';
-import { MotiView } from 'moti';
+
 
 const { width } = Dimensions.get('window');
 const COLUMN_COUNT = 2;
@@ -56,12 +56,7 @@ export default function WhoLikedMeScreen() {
     const photoUrl = profile?.profilePhotoUrl || 'https://via.placeholder.com/150';
 
     return (
-      <MotiView
-        from={{ opacity: 0, scale: 0.9 }}
-        animate={{ opacity: 1, scale: 1 }}
-        transition={{ type: 'timing', duration: 500, delay: index * 100 }}
-        style={styles.cardContainer}
-      >
+      <View style={styles.cardContainer}>
         <View style={styles.card}>
           <Image source={{ uri: photoUrl }} style={styles.image} resizeMode="cover" />
           {item.action === 'superlike' && (
@@ -85,7 +80,7 @@ export default function WhoLikedMeScreen() {
             </TouchableOpacity>
           </View>
         </View>
-      </MotiView>
+      </View>
     );
   };
 

@@ -18,7 +18,7 @@ import { LinearGradient } from 'expo-linear-gradient';
 import { useFocusEffect } from '@react-navigation/native';
 import { useMatches } from '../../hooks/useDating';
 import { useRouter } from 'expo-router';
-import { MotiView } from 'moti';
+
 
 const { width } = Dimensions.get('window');
 
@@ -123,10 +123,10 @@ export default function ModernMatchesScreen() {
     const hasUnread = item.unreadCount > 0;
 
     return (
-      <MotiView
-        from={{ opacity: 0, translateY: 20 }}
-        animate={{ opacity: 1, translateY: 0 }}
-        transition={{ type: 'timing', duration: 500, delay: index * 100 }}
+      <View
+        
+        
+        
       >
       <TouchableOpacity
         activeOpacity={0.7}
@@ -260,7 +260,7 @@ export default function ModernMatchesScreen() {
           </View>
         </LinearGradient>
       </TouchableOpacity>
-      </MotiView>
+      </View>
     );
   };
 
@@ -287,10 +287,10 @@ export default function ModernMatchesScreen() {
         </View>
 
         {/* Empty State */}
-        <MotiView 
-          from={{ opacity: 0, scale: 0.9 }}
-          animate={{ opacity: 1, scale: 1 }}
-          transition={{ type: 'timing', duration: 500 }}
+        <View 
+          
+          
+          
           className="flex-1 justify-center items-center px-8"
         >
           <View className="w-32 h-32 rounded-full bg-pink-50 justify-center items-center mb-8 shadow-sm">
@@ -306,12 +306,12 @@ export default function ModernMatchesScreen() {
           </Text>
           
           <TouchableOpacity
-            onPress={() => router.push('/discover' as any)}
+            onPress={() => router.push('/(tabs)/discover')}
             className="bg-gradient-to-r from-pink-500 to-red-500 px-8 py-5 rounded-2xl w-full shadow-lg shadow-pink-200"
           >
             <Text className="text-white font-bold text-lg text-center">Discover People</Text>
           </TouchableOpacity>
-        </MotiView>
+        </View>
       </SafeAreaView>
     );
   }
@@ -339,7 +339,7 @@ export default function ModernMatchesScreen() {
 
         {/* See Who Likes You Button */}
         <TouchableOpacity
-          onPress={() => router.push('/who-liked-me' as any)}
+          onPress={() => Alert.alert('Coming Soon', 'Feature coming soon!')}
           className="flex-row items-center bg-pink-50 p-4 rounded-2xl border border-pink-100 mt-6"
         >
           <View className="w-10 h-10 rounded-full bg-pink-100 justify-center items-center mr-3">

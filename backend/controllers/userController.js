@@ -61,7 +61,7 @@ const loginUser = async (req, res) => {
     // Generate token
     const accessToken = jwt.sign(
       { id: user._id, email: user.email },
-      process.env.JWT_SECRET || 'supersecretkey',
+      process.env.a1a40f01b6f7a6e97164f8b9eb909faffc9eb485f754cf9465332bc6b0b70bb6117adaeae2b4e786d43fc805484059ac8fcc27f88782498c67bcaa44bf69628d || 'supersecretkey',
       { expiresIn: '7d' }
     );
 

@@ -40,42 +40,55 @@ export const usePushNotifications = () => {
   };
 
   useEffect(() => {
-    // On mount, try to register without prompting the user
-    registerSilently();
+    try {
+      // On mount, try to register without prompting the user
+      registerSilently();
 
-    // Handle notification tap when app is opened from a closed state (cold start)
-    Notifications.getLastNotificationResponseAsync().then(response => {
-      const data = response?.notification.request.content.data;
-      if (data?.conversationId) {
-        router.push({
-          pathname: '/(routes)/dating-chat/[matchId]' as any,
-          params: { matchId: data.conversationId as string }
-        });
-      }
-    });
+      // Handle notification tap when app is opened from a closed state (cold start)
+      Notifications.getLastNotificationResponseAsync().then(response => {
+        try {
+          const data = response?.notification.request.content.data;
+          if (data?.conversationId) {
+            router.push({
+              pathname: '/(routes)/dating-chat/[matchId]' as any,
+              params: { matchId: data.conversationId as string }
+            });
+          }
+        } catch (error) {
+          console.warn('Error handling last notification:', error);
+        }
+      }).catch(err => console.warn('Failed to get last notification:', err));
 
-    notificationListener.current = Notifications.addNotificationReceivedListener(notification => {
-      setNotification(notification);
-    });
+      notificationListener.current = Notifications.addNotificationReceivedListener(notification => {
+        setNotification(notification);
+      });
 
-    responseListener.current = Notifications.addNotificationResponseReceivedListener(response => {
-      const data = response.notification.request.content.data;
-      if (data?.conversationId) {
-        router.push({
-          pathname: '/(routes)/dating-chat/[matchId]' as any,
-          params: { matchId: data.conversationId as string }
-        });
-      }
-    });
+      responseListener.current = Notifications.addNotificationResponseReceivedListener(response => {
+        try {
+          const data = response.notification.request.content.data;
+          if (data?.conversationId) {
+            router.push({
+              pathname: '/(routes)/dating-chat/[matchId]' as any,
+              params: { matchId: data.conversationId as string }
+            });
+          }
+        } catch (error) {
+          console.warn('Error handling notification response:', error);
+        }
+      });
 
-    return () => {
-      if (notificationListener.current) {
-        notificationListener.current.remove();
-      }
-      if (responseListener.current) {
-        responseListener.current.remove();
-      }
-    };
+      return () => {
+        if (notificationListener.current) {
+          notificationListener.current.remove();
+        }
+        if (responseListener.current) {
+          responseListener.current.remove();
+        }
+      };
+    } catch (error) {
+      console.warn('Error in usePushNotifications:', error);
+      return () => {};
+    }
   }, []);
 
   const sendTokenToBackend = async (token: string) => {

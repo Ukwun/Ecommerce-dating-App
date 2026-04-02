@@ -1,7 +1,6 @@
 import React, { useEffect } from 'react';
 import { View, Text, StyleSheet, Dimensions } from 'react-native';
 import { useRouter } from 'expo-router';
-import { MotiView } from 'moti';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
 
@@ -26,17 +25,8 @@ export default function MatchSearchScreen() {
       <View style={styles.content}>
         <View style={styles.radarContainer}>
           {[...Array(3)].map((_, index) => (
-            <MotiView
+            <View
               key={index}
-              from={{ opacity: 0.6, scale: 1 }}
-              animate={{ opacity: 0, scale: 4 }}
-              transition={{
-                type: 'timing',
-                duration: 2000,
-                loop: true,
-                delay: index * 400,
-                repeatReverse: false,
-              }}
               style={[styles.ripple, { borderColor: 'rgba(255,255,255,0.5)' }]}
             />
           ))}

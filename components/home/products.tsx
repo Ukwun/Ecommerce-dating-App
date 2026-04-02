@@ -2,7 +2,7 @@
 import { View, Text, Image, FlatList, TouchableOpacity, StyleSheet, RefreshControl, findNodeHandle } from "react-native";
 import { AntDesign, Ionicons } from "@expo/vector-icons";
 import { router } from 'expo-router';
-import { MotiView } from 'moti';
+
 import * as Haptics from 'expo-haptics';
 import { useCart } from "@/hooks/CartContext";
 import { useTheme } from "@/hooks/useTheme";
@@ -129,11 +129,7 @@ export const ProductCard = ({
   const placeholderImage = 'https://via.placeholder.com/150';
 
   return (
-    <MotiView
-      from={{ opacity: 0, translateY: 50 }}
-      animate={{ opacity: 1, translateY: 0 }}
-      transition={{ type: 'timing', duration: 500, delay: (index ?? 0) * 100 }}
-    >
+    <View>
       <TouchableOpacity
         activeOpacity={0.9}
         style={[
@@ -153,13 +149,7 @@ export const ProductCard = ({
 
         {/* Wishlist Heart */}
         <TouchableOpacity style={styles.heartIcon} onPress={handleToggleWishlist}>
-            <MotiView
-              from={{ scale: 1 }}
-              animate={{ scale: inWishlist ? 1.3 : 1 }}
-              transition={{ type: 'spring', duration: 300, overshootClamping: true }}
-            >
               <AntDesign name={inWishlist ? "heart" : "heart"} size={18} color={inWishlist ? "#FF6B6B" : "#fff"} />
-            </MotiView>
         </TouchableOpacity>
 
         {/* Stock Badge */}
@@ -213,7 +203,7 @@ export const ProductCard = ({
         </View>
       </View>
       </TouchableOpacity>
-    </MotiView>
+    </View>
   );
 };
 

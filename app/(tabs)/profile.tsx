@@ -16,6 +16,7 @@ import { LinearGradient } from 'expo-linear-gradient';
 import { useRouter } from 'expo-router';
 import * as ImagePicker from 'expo-image-picker';
 import { useAuth } from '../../hooks/AuthContext';
+import { useUserMarketplaceStats } from '../../hooks/useUserMarketplaceStats';
 import axiosInstance from '@/utils/axiosinstance';
 
 const uploadImageToImageKit = async (uri: string) => {
@@ -52,6 +53,7 @@ const uploadImageToImageKit = async (uri: string) => {
 export default function ProfileScreen() {
   const router = useRouter();
   const { user, logout, setUser } = useAuth() as any;
+  const { stats } = useUserMarketplaceStats();
   const [uploading, setUploading] = useState(false);
 
   const handleLogout = () => {
@@ -118,7 +120,7 @@ export default function ProfileScreen() {
       icon: 'plus-square',
       label: 'Sell on Marketplace',
       description: 'List your products for sale',
-      route: '/sell',
+      route: '/(routes)/sell',
       color: '#10B981',
       iconLib: Feather
     },
@@ -138,14 +140,7 @@ export default function ProfileScreen() {
       color: '#8B5CF6',
       iconLib: Feather
     },
-    {
-      icon: 'dollar-sign',
-      label: 'My Wallet',
-      description: 'Earnings & Withdrawals',
-      route: '/(routes)/wallet',
-      color: '#10B981',
-      iconLib: Feather
-    },
+
     {
       icon: 'shopping-bag',
       label: 'My Orders',
@@ -166,7 +161,7 @@ export default function ProfileScreen() {
       icon: 'heart',
       label: 'Wishlist',
       description: 'Your favorite items',
-      route: '/(routes)/wishlist',
+      action: () => router.push('/(tabs)/discover'),
       color: '#EF4444',
       iconLib: Feather
     },
@@ -194,6 +189,14 @@ export default function ProfileScreen() {
       color: '#6B7280',
       iconLib: Feather
     },
+    {
+      icon: 'log-out',
+      label: 'Log Out',
+      description: 'Sign out of your account',
+      action: handleLogout,
+      color: '#EF4444',
+      iconLib: Feather
+    },
   ];
 
   return (
@@ -213,7 +216,7 @@ export default function ProfileScreen() {
               <Text style={styles.headerTitle}>Profile</Text>
               <TouchableOpacity 
                 style={styles.headerButton}
-                onPress={() => router.push('/(routes)/edit-profile' as any)}
+                onPress={() => Alert.alert('Edit Profile', 'Edit profile feature coming soon!')}
               >
                 <Feather name="edit-2" size={24} color="white" />
               </TouchableOpacity>
@@ -250,18 +253,18 @@ export default function ProfileScreen() {
 
             <View style={styles.statsContainer}>
               <View style={styles.statItem}>
-                <Text style={styles.statNumber}>12</Text>
+                <Text style={styles.statNumber}>{stats?.totalPurchases || 0}</Text>
                 <Text style={styles.statLabel}>Orders</Text>
               </View>
               <View style={styles.statDivider} />
               <View style={styles.statItem}>
-                <Text style={styles.statNumber}>5</Text>
-                <Text style={styles.statLabel}>Reviews</Text>
+                <Text style={styles.statNumber}>{stats?.totalFavorites || 0}</Text>
+                <Text style={styles.statLabel}>Saved</Text>
               </View>
               <View style={styles.statDivider} />
               <View style={styles.statItem}>
-                <Text style={styles.statNumber}>2</Text>
-                <Text style={styles.statLabel}>Coupons</Text>
+                <Text style={styles.statNumber}>{stats?.totalViews || 0}</Text>
+                <Text style={styles.statLabel}>Viewed</Text>
               </View>
             </View>
 

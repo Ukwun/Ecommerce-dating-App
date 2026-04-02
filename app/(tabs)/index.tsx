@@ -1,5 +1,5 @@
-﻿import React, { useState, useEffect } from 'react';
-import { View, Text, ScrollView, TouchableOpacity, TextInput, StyleSheet, Image, ActivityIndicator, RefreshControl } from 'react-native';
+import React, { useState, useEffect } from 'react';
+import { View, Text, ScrollView, TouchableOpacity, TextInput, StyleSheet, Image, ActivityIndicator, RefreshControl, Alert } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons, Feather } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
@@ -9,7 +9,7 @@ import { useWishlist } from '@/hooks/useWishlist';
 import { ProductCard } from '@/components/home/products';
 import axiosInstance from '@/utils/axiosinstance';
 import FilterModal, { Filters } from '../(routes)/products/filter-modal';
-import { MotiView } from 'moti';
+
 import { LinearGradient } from 'expo-linear-gradient';
 
 // Mock data for Verified Sellers
@@ -125,10 +125,10 @@ export default function HomeScreen() {
     <LinearGradient colors={['#FF8C00', '#4B2E05']} style={{ flex: 1 }}>
       <SafeAreaView style={styles.container}>
         {/* Header */}
-        <MotiView 
-          from={{ opacity: 0, translateY: -20 }} 
-          animate={{ opacity: 1, translateY: 0 }} 
-          transition={{ type: 'timing', duration: 500 }}
+        <View 
+           
+           
+          
           style={styles.header}>
           <View>
             <Text style={styles.greeting}>Hi, {user?.name?.split(' ')[0] || 'User'}!</Text>
@@ -136,10 +136,10 @@ export default function HomeScreen() {
           </View>
 
           <View style={styles.headerActions}>
-            <TouchableOpacity style={styles.iconButton} onPress={() => router.push('/wishlist' as any)}>
+            <TouchableOpacity style={styles.iconButton} onPress={() => router.push('/(tabs)/discover')}>
               <Ionicons name="heart-outline" size={24} color="#fff" />
             </TouchableOpacity>
-            <TouchableOpacity style={styles.iconButton} onPress={() => router.push('/notifications' as any)}>
+            <TouchableOpacity style={styles.iconButton} onPress={() => Alert.alert('Notifications', 'Check back soon for notifications!')}>
               <Ionicons name="notifications-outline" size={24} color="#fff" />
             </TouchableOpacity>
             <TouchableOpacity style={styles.cartButton} onPress={() => router.push('/_hidden/cart')}>
@@ -151,26 +151,27 @@ export default function HomeScreen() {
               )}
             </TouchableOpacity>
           </View>
-        </MotiView>
+        </View>
 
-        {/* Search */}
-        <MotiView 
-          from={{ opacity: 0, scale: 0.95 }} 
-          animate={{ opacity: 1, scale: 1 }} 
-          transition={{ type: 'timing', duration: 500, delay: 100 }}
-          style={styles.searchContainer}>
+    <View style={styles.searchContainer}>
           <Ionicons name="search" size={20} color="#9CA3AF" style={{ marginRight: 8, marginLeft: 8 }} />
           <TextInput
             style={styles.searchInput}
-            placeholder="Search..."
+            placeholder="Search products..."
             placeholderTextColor="#9CA3AF"
             value={searchQuery}
             onChangeText={setSearchQuery}
+            selectionColor="#FF8C00"
           />
+          {searchQuery.length > 0 && (
+            <TouchableOpacity onPress={() => setSearchQuery('')} hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}>
+              <Ionicons name="close-circle" size={18} color="#999" />
+            </TouchableOpacity>
+          )}
           <TouchableOpacity onPress={() => setFilterVisible(true)} style={{ padding: 8 }} hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}>
             <Ionicons name="options-outline" size={24} color="#111827" />
           </TouchableOpacity>
-        </MotiView>
+        </View>
 
         <ScrollView 
           showsVerticalScrollIndicator={false} 
@@ -178,11 +179,7 @@ export default function HomeScreen() {
           refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor="#fff" />}
         >
           {/* Categories */}
-          <MotiView 
-            from={{ opacity: 0, translateX: -20 }} 
-            animate={{ opacity: 1, translateX: 0 }} 
-            transition={{ type: 'timing', duration: 500, delay: 200 }}
-          >
+          <View>
           <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.categoriesList}>
             {categories.map((cat) => (
               <TouchableOpacity
@@ -195,13 +192,13 @@ export default function HomeScreen() {
               </TouchableOpacity>
             ))}
           </ScrollView>
-          </MotiView>
+          </View>
 
           {/* Verified Sellers Section */}
-          <MotiView 
-            from={{ opacity: 0, translateY: 20 }} 
-            animate={{ opacity: 1, translateY: 0 }} 
-            transition={{ type: 'timing', duration: 500, delay: 300 }}
+          <View 
+             
+             
+            
             style={styles.promotedSection}>
             <View style={styles.sectionHeader}>
               <Text style={styles.sectionTitle}>Verified Sellers</Text>
@@ -225,22 +222,34 @@ export default function HomeScreen() {
                   <View style={styles.promotedDetails}>
                     <Text style={styles.promotedName} numberOfLines={1}>{item.name}</Text>
                     <Text style={styles.promotedSeller} numberOfLines={1}>{item.seller}</Text>
-                    <Text style={styles.promotedPrice}>₦{item.price.toLocaleString()}</Text>
+                    <Text style={styles.promotedPrice}>?{item.price.toLocaleString()}</Text>
                   </View>
                 </TouchableOpacity>
               ))}
             </ScrollView>
-          </MotiView>
+          </View>
 
           {/* Products */}
-          <MotiView 
-            from={{ opacity: 0, translateY: 20 }} 
-            animate={{ opacity: 1, translateY: 0 }} 
-            transition={{ type: 'timing', duration: 500, delay: 400 }}
-            style={styles.productsSection}>
-            <Text style={styles.sectionTitle}>Featured Products</Text>
+          <View style={styles.productsSection}>
+            <View style={styles.sectionHeader}>
+              <Text style={styles.sectionTitle}>Featured Products</Text>
+              {hasMore && !loading && (
+                <TouchableOpacity onPress={() => setActiveCategory('All')}>
+                  <Text style={styles.seeAllText}>View All</Text>
+                </TouchableOpacity>
+              )}
+            </View>
             {loading && page === 1 ? (
-              <ActivityIndicator size="large" color="#fff" />
+              <View style={styles.loadingContainer}>
+                <ActivityIndicator size="large" color="#FF8C00" />
+                <Text style={styles.loadingText}>Finding amazing deals...</Text>
+              </View>
+            ) : products.length === 0 ? (
+              <View style={styles.emptyContainer}>
+                <Ionicons name="search-outline" size={48} color="#ccc" />
+                <Text style={styles.emptyText}>No products found</Text>
+                <Text style={styles.emptySubtext}>Try adjusting your search</Text>
+              </View>
             ) : (
               <View style={styles.grid}>
                 {products.map((item, index) => (
@@ -272,7 +281,7 @@ export default function HomeScreen() {
                 )}
               </TouchableOpacity>
             )}
-          </MotiView>
+          </View>
         </ScrollView>
       </SafeAreaView>
     </LinearGradient>
@@ -299,7 +308,12 @@ const styles = StyleSheet.create({
   productsSection: { paddingHorizontal: 20 },
   sectionTitle: { fontSize: 20, fontWeight: 'bold', color: '#fff', marginBottom: 16 },
   grid: { flexDirection: 'row', flexWrap: 'wrap', justifyContent: 'space-between' },
-  productWrapper: { width: '48%', marginBottom: 16, height: 260 },
+  productWrapper: { width: '48%', marginBottom: 16 },
+  loadingContainer: { alignItems: 'center', paddingVertical: 40, gap: 12 },
+  loadingText: { color: '#fff', fontSize: 14, fontWeight: '500' },
+  emptyContainer: { alignItems: 'center', paddingVertical: 40, gap: 12 },
+  emptyText: { color: '#fff', fontSize: 16, fontWeight: 'bold' },
+  emptySubtext: { color: 'rgba(255,255,255,0.7)', fontSize: 14 },
   promotedSection: { marginBottom: 24 },
   sectionHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingHorizontal: 20, marginBottom: 12 },
   seeAllText: { color: '#FFD700', fontWeight: '600' },

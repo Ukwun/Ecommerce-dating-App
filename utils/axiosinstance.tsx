@@ -1,16 +1,18 @@
 import axios from "axios";
 import * as SecureStore from "expo-secure-store";
-import { Platform } from 'react-native';
+import { Platform, Alert } from 'react-native';
 import { CustomAxiosRequestConfig } from "./axiosinstance.types";
 
-// Prefer the env var, otherwise fall back to common emulator addresses
+// Determine backend URL based on environment
 const envBase = process.env.EXPO_PUBLIC_SERVER_URI;
 let resolvedBase = envBase;
+
 if (!resolvedBase) {
-    // Runtime fallback; metro/dev environment will typically set process.env in dev
-    // Use Android emulator host then localhost as fallback
-    resolvedBase = Platform.OS === 'android' ? 'http://10.0.2.2:8082' : 'http://localhost:8082';
+    // Use the live Render backend for all platforms
+    resolvedBase = 'https://ecommerce-dating-app.onrender.com';
 }
+
+console.log('🔌 Backend URL configured:', resolvedBase);
 
 const axiosInstance = axios.create({
     baseURL: resolvedBase,
@@ -140,5 +142,26 @@ axiosInstance.interceptors.response.use(
         });
     }
 );
+
+// Health check function to verify backend connectivity
+export const checkBackendHealth = async (): Promise<{ status: 'ok' | 'error'; message: string; url?: string }> => {
+    try {
+        console.log('🔍 Checking backend health at:', resolvedBase);
+        const response = await axios.get(`${resolvedBase}/health`, {
+            timeout: 5000,
+        });
+        console.log('✅ Backend health check passed:', response.data);
+        return { status: 'ok', message: 'Backend is reachable', url: resolvedBase };
+    } catch (error: any) {
+        console.error('❌ Backend health check failed:', error.message);
+        const errorMsg = error.message || 'Unknown error';
+        const details = error.code || error.errno || 'No code';
+        return {
+            status: 'error',
+            message: `Cannot reach backend at ${resolvedBase}. Error: ${errorMsg} (${details}). Make sure: 1) Both phone and computer are on same WiFi, 2) Windows Firewall allows port 8082, 3) Backend is running.`,
+            url: resolvedBase
+        };
+    }
+};
 
 export default axiosInstance;

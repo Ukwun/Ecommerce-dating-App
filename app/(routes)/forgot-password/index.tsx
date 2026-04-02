@@ -4,7 +4,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { Stack, useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import axiosInstance from '@/utils/axiosinstance';
-import { MotiView } from 'moti';
+
 
 export default function ForgotPasswordScreen() {
   const router = useRouter();
@@ -66,12 +66,7 @@ export default function ForgotPasswordScreen() {
         behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
         style={styles.content}
       >
-        <MotiView
-          from={{ opacity: 0, translateY: 20 }}
-          animate={{ opacity: 1, translateY: 0 }}
-          transition={{ type: 'timing', duration: 500 }}
-          style={{ width: '100%' }}
-        >
+        <View style={{ width: '100%' }}>
           <Text style={styles.title}>Forgot Password?</Text>
           <Text style={styles.subtitle}>
             Don't worry! It happens. Please enter the email address associated with your account.
@@ -109,7 +104,7 @@ export default function ForgotPasswordScreen() {
           <TouchableOpacity style={styles.backLink} onPress={() => router.back()}>
             <Text style={styles.backLinkText}>Back to Login</Text>
           </TouchableOpacity>
-        </MotiView>
+        </View>
       </KeyboardAvoidingView>
     </SafeAreaView>
   );

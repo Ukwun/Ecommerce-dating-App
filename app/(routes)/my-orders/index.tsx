@@ -1,5 +1,5 @@
 import React from 'react';
-import { View, Text, FlatList, StyleSheet, TouchableOpacity, ActivityIndicator } from 'react-native';
+import { View, Text, FlatList, StyleSheet, TouchableOpacity, ActivityIndicator, Alert } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { LinearGradient } from 'expo-linear-gradient';
 import * as Notifications from 'expo-notifications';
@@ -83,7 +83,7 @@ const OrderItem = ({ item, onReorder, isReordering }: { item: Order; onReorder: 
         </TouchableOpacity>
         <TouchableOpacity
           style={styles.trackButton}
-          onPress={() => router.push({ pathname: '/(routes)/track-order/[orderId]' as any, params: { orderId: item._id } })}
+          onPress={() => Alert.alert('Track Order', `Tracking order ${item._id}...`)}
           // Long press to send a test notification for this order
           onLongPress={() => sendTestNotification(item._id)}
         >

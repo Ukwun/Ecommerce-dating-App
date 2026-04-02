@@ -47,11 +47,7 @@ export default function LoginScreen() {
   // 🔥 FIXED LOGIN FUNCTION
   const loginUser = async (data: LoginFormData) => {
     const envBase = process.env.EXPO_PUBLIC_SERVER_URI;
-    const emulatorFallbacks =
-      Platform.OS === "android"
-        ? ["http://10.0.2.2:8082", "http://192.168.43.160:8082"]
-        : ["http://localhost:8082"];
-    const candidates = envBase ? [envBase, ...emulatorFallbacks] : emulatorFallbacks;
+    const candidates = envBase ? [envBase] : ["https://ecommerce-dating-app.onrender.com"];
 
     for (const base of candidates) {
       const endpoint = `${base.replace(/\/$/, "")}/auth/api/login`;
@@ -101,7 +97,7 @@ export default function LoginScreen() {
         try {
           await login(data.user, data.accessToken);
           Toast.show({ type: "success", text1: "Welcome back!" });
-          router.replace("/");
+          router.push("/(tabs)");
         } catch (storageError) {
           console.error('Storage error during login:', storageError);
           Toast.show({ type: "error", text1: "Failed to save login session" });

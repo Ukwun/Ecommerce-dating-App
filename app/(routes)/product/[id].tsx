@@ -6,7 +6,6 @@ import { useCart } from '@/hooks/CartContext'
 import { SafeAreaView } from 'react-native-safe-area-context'
 import { Ionicons, AntDesign } from '@expo/vector-icons'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
-import { MotiView, AnimatePresence } from 'moti'
 import ProductSkeleton from '../../../components/skeleton/product.skeleton'
 import ReviewModal from '../../../components/product/ReviewModal'
 import { useRecentlyViewed } from '@/hooks/useRecentlyViewed';
@@ -115,35 +114,11 @@ export default function ProductDetail() {
 
   return (
     <SafeAreaView style={styles.safeArea}>      
-      <AnimatePresence>
-        {sharedElement.item && sharedElement.sourceLayout && (
-          <MotiView
-            from={{
-              left: sharedElement.sourceLayout.x,
-              top: sharedElement.sourceLayout.y,
-              width: sharedElement.sourceLayout.width,
-              height: sharedElement.sourceLayout.height,
-              position: 'absolute',
-              zIndex: 10,
-              borderRadius: 14,
-            }}
-            animate={{
-              left: 0,
-              top: 0,
-              width: width,
-              height: IMAGE_HEIGHT,
-              borderRadius: 0,
-            }}
-            transition={{
-              type: 'timing',
-              duration: 500,
-            }}
-            style={styles.sharedImage}
-          >
-            <Image source={{ uri: sharedElement.item.image }} style={styles.image} />
-          </MotiView>
-        )}
-      </AnimatePresence>
+      {sharedElement.item && sharedElement.sourceLayout && (
+        <View style={styles.sharedImage}>
+          <Image source={{ uri: sharedElement.item.image }} style={styles.image} />
+        </View>
+      )}
 
       <ScrollView contentContainerStyle={styles.container} style={{ opacity: sharedElement.item ? 0 : 1 }}>
         <Image source={{ uri: product.image || product.images?.[0]?.url }} style={styles.image} />
@@ -152,29 +127,17 @@ export default function ProductDetail() {
         </TouchableOpacity>
 
         <View style={styles.detailsContainer}>
-          <MotiView
-            from={{ opacity: 0, translateY: 20 }}
-            animate={{ opacity: 1, translateY: 0 }}
-            transition={{ type: 'timing', duration: 500, delay: 300 }}
-          >
+          <View>
             <Text style={styles.title}>{product.name ?? product.title}</Text>
-          </MotiView>
-          <MotiView
-            from={{ opacity: 0, translateY: 20 }}
-            animate={{ opacity: 1, translateY: 0 }}
-            transition={{ type: 'timing', duration: 500, delay: 400 }}
-          >
+          </View>
+          <View>
             <Text style={styles.price}>₦{Number(product.price ?? product.regular_price ?? 0).toLocaleString()}</Text>
-          </MotiView>
+          </View>
 
           {/* Color Selector */}
-          <MotiView
-            from={{ opacity: 0, translateY: 20 }}
-            animate={{ opacity: 1, translateY: 0 }}
-            transition={{ type: 'timing', duration: 500, delay: 500 }}
-          >
+          <View>
             <Text style={styles.sectionTitle}>Color</Text>
-          </MotiView>
+          </View>
           <View style={styles.selectorContainer}>
             {product.colors.map((color: string) => (
               <TouchableOpacity
@@ -188,13 +151,9 @@ export default function ProductDetail() {
           </View>
 
           {/* Size Selector */}
-          <MotiView
-            from={{ opacity: 0, translateY: 20 }}
-            animate={{ opacity: 1, translateY: 0 }}
-            transition={{ type: 'timing', duration: 500, delay: 600 }}
-          >
+          <View>
             <Text style={styles.sectionTitle}>Size</Text>
-          </MotiView>
+          </View>
           <View style={styles.selectorContainer}>
             {product.sizes.map((size: string) => (
               <TouchableOpacity
@@ -208,29 +167,21 @@ export default function ProductDetail() {
           </View>
 
           {/* Description */}
-          <MotiView
-            from={{ opacity: 0, translateY: 20 }}
-            animate={{ opacity: 1, translateY: 0 }}
-            transition={{ type: 'timing', duration: 500, delay: 700 }}
-          >
+          <View>
             <Text style={styles.sectionTitle}>Description</Text>
             <Text style={styles.desc}>{product.description ?? product.long_description ?? ''}</Text>
-          </MotiView>
+          </View>
 
           {/* Reviews */}
           <View style={styles.sectionHeader}>
-            <MotiView
-              from={{ opacity: 0, translateY: 20 }}
-              animate={{ opacity: 1, translateY: 0 }}
-              transition={{ type: 'timing', duration: 500, delay: 800 }}
-            >
+            <View>
               <Text style={styles.sectionTitle}>Reviews ({product.reviews.length})</Text>
-            </MotiView>
-            <MotiView from={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: 900 }}>
+            </View>
+            <View>
               <TouchableOpacity onPress={() => setReviewModalVisible(true)}>
                 <Text style={styles.writeReviewButton}>Write a Review</Text>
               </TouchableOpacity>
-            </MotiView>
+            </View>
           </View>
           <View style={styles.reviewsContainer}>
             {product.reviews.map((review: any) => (
@@ -247,13 +198,9 @@ export default function ProductDetail() {
           </View>
 
           {/* Similar Products */}
-          <MotiView
-            from={{ opacity: 0, translateY: 20 }}
-            animate={{ opacity: 1, translateY: 0 }}
-            transition={{ type: 'timing', duration: 500, delay: 900 }}
-          >
+          <View>
             <Text style={styles.sectionTitle}>Similar Products</Text>
-          </MotiView>
+          </View>
           {isLoadingSimilar ? (
             <View style={{ flexDirection: 'row', gap: 16, paddingHorizontal: 16 }}>
               <ProductSkeleton /><ProductSkeleton />
@@ -279,24 +226,16 @@ export default function ProductDetail() {
 
       {product && (
         <View style={styles.footer}>
-          <MotiView
-            from={{ opacity: 0, translateY: 50 }}
-            animate={{ opacity: 1, translateY: 0 }}
-            transition={{ type: 'timing', duration: 500, delay: 100 }}
-          >
+          <View>
             <TouchableOpacity style={styles.cartButton} onPress={() => addToCart(product)}>
               <Ionicons name="cart-outline" size={24} color="#FF8C00" />
             </TouchableOpacity>
-          </MotiView>
-          <MotiView
-            from={{ opacity: 0, translateY: 50 }}
-            animate={{ opacity: 1, translateY: 0 }}
-            transition={{ type: 'timing', duration: 500, delay: 200 }}
-          >
+          </View>
+          <View>
             <TouchableOpacity style={styles.buyNowButton} onPress={handleBuyNow}>
               <Text style={styles.buyNowButtonText}>Buy Now</Text>
             </TouchableOpacity>
-          </MotiView>
+          </View>
         </View>
       )}
       <View>

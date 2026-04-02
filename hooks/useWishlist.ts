@@ -11,11 +11,17 @@ export const useWishlist = () => {
   const { data: wishlistProducts, isLoading: isLoadingWishlist } = useQuery({
     queryKey: ['wishlist'],
     queryFn: async () => {
-      const response = await axiosInstance.get('/user/api/wishlist');
-      const products = response.data?.wishlist ?? [];
-      // Update the local state with just the IDs
-      setWishlistIds(products.map((p: any) => p._id));
-      return products;
+      try {
+        const response = await axiosInstance.get('/user/api/wishlist');
+        const products = response.data?.wishlist ?? [];
+        // Update the local state with just the IDs
+        setWishlistIds(products.map((p: any) => p._id));
+        return products;
+      } catch (error: any) {
+        console.warn('Failed to fetch wishlist:', error?.message);
+        // Return empty array if API fails, don't crash the app
+        return [];
+      }
     },
   });
 

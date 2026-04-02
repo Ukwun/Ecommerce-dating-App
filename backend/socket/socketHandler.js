@@ -1,60 +1,44 @@
-const Message = require('../models/Message');
+module.exports = (io) => {
+  const onlineUsers = new Map(); // userId -> socketId
 
-const socketHandler = (io) => {
   io.on('connection', (socket) => {
-    console.log(`User connected: ${socket.id}`);
+    console.log('🔌 New client connected:', socket.id);
 
-    // Join user room
-    socket.on('join_user', ({ userId }) => {
-      socket.join(`user_${userId}`);
-      console.log(`User ${userId} joined their room`);
+    // User comes online
+    socket.on('user:online', (userId) => {
+      onlineUsers.set(userId, socket.id);
+      socket.userId = userId;
+      io.emit('user:status', { userId, status: 'online' });
+      console.log(`User ${userId} is online`);
     });
 
-    // Send message
-    socket.on('send_message', async (data) => {
-      try {
-        const { senderId, recipientId, content, productId, orderId } = data;
-
-        // Save to database
-        const message = new Message({
-          sender: senderId,
-          recipient: recipientId,
-          content,
-          productId: productId || null,
-          orderId: orderId || null,
-          read: false,
-        });
-
-        await message.save();
-
-        // Emit to recipient
-        io.to(`user_${recipientId}`).emit('new_message', {
-          _id: message._id,
-          sender: senderId,
-          recipient: recipientId,
-          content,
-          read: false,
-          createdAt: message.createdAt,
-        });
-
-        // Confirm to sender
-        socket.emit('message_sent', { _id: message._id, success: true });
-      } catch (error) {
-        console.error('Error sending message:', error);
-        socket.emit('message_error', { error: error.message });
-      }
+    // Join conversation room (for real-time chat)
+    socket.on('conversation:join', (conversationId) => {
+      socket.join(conversationId);
+      console.log(`Socket ${socket.id} joined room ${conversationId}`);
     });
 
-    // User typing
-    socket.on('user_typing', ({ senderId, recipientId }) => {
-      io.to(`user_${recipientId}`).emit('user_typing', { userId: senderId });
+    // Typing indicators
+    socket.on('user:typing', ({ conversationId, userId }) => {
+      socket.to(conversationId).emit('user:typing', { conversationId, userId });
     });
 
-    // Disconnect
+    socket.on('user:stop-typing', ({ conversationId, userId }) => {
+      socket.to(conversationId).emit('user:stop-typing', { conversationId, userId });
+    });
+
+    // Handle disconnection
     socket.on('disconnect', () => {
-      console.log(`User disconnected: ${socket.id}`);
+      if (socket.userId) {
+        onlineUsers.delete(socket.userId);
+        io.emit('user:status', { userId: socket.userId, status: 'offline' });
+      }
+      console.log('Client disconnected:', socket.id);
     });
   });
-};
 
-module.exports = socketHandler;
+  // Helper to get socketId by userId (useful for notifications)
+  io.getSocketId = (userId) => {
+    return onlineUsers.get(userId);
+  };
+};

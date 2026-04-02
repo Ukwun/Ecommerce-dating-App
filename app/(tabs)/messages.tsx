@@ -6,7 +6,7 @@ import { router } from 'expo-router';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useTheme } from '@/hooks/useTheme';
 import { Swipeable } from 'react-native-gesture-handler';
-import { MotiView } from 'moti';
+
 import * as Haptics from 'expo-haptics';
 import * as SecureStore from 'expo-secure-store';
 import { io, Socket } from 'socket.io-client';
@@ -89,17 +89,9 @@ const ConversationItem = ({ item, onDelete, onAnimationComplete }: { item: Conve
   };
 
   return (
-    <MotiView
-      from={{ scale: 1, backgroundColor: '#F3F4F6' }}
-      animate={{
-        scale: item.justUpdated ? 1.02 : 1,
+    <View
+      style={{
         backgroundColor: item.justUpdated ? '#FEF3C7' : '#F3F4F6',
-      }}
-      transition={{ type: 'timing', duration: 300 }}
-      onDidAnimate={() => {
-        if (item.justUpdated) {
-          onAnimationComplete(item.id);
-        }
       }}
     >
       <Swipeable renderRightActions={renderRightActions} overshootRight={false}>
@@ -123,7 +115,7 @@ const ConversationItem = ({ item, onDelete, onAnimationComplete }: { item: Conve
           </View>
         </TouchableOpacity>
       </Swipeable>
-    </MotiView>
+    </View>
   );
 };
 
@@ -357,11 +349,11 @@ export default function MessagesScreen() {
           data={filteredConversations}
           keyExtractor={(item) => item.id}
           renderItem={({ item, index }) => (
-            <MotiView
-              from={{ opacity: 0, translateY: 20 }}
-              animate={{ opacity: 1, translateY: 0 }}
-              transition={{ type: 'timing', duration: 300, delay: index * 50 }}
-            ><ConversationItem item={item} onDelete={handleDelete} onAnimationComplete={handleAnimationComplete} /></MotiView>
+            <View
+              
+              
+              
+            ><ConversationItem item={item} onDelete={handleDelete} onAnimationComplete={handleAnimationComplete} /></View>
           )}
           ItemSeparatorComponent={() => <View style={styles.separator} />}
           contentContainerStyle={{ backgroundColor: isDark ? '#111827' : '#F3F4F6' }}

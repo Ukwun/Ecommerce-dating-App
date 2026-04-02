@@ -1,5 +1,6 @@
 {
   "expo": {
+    "projectId": "543f74ae-39ce-4609-a1a1-8ef032c3c7a7",
     "name": "marketplace",
     "slug": "marketplace",
     "version": "1.0.0",
@@ -9,10 +10,15 @@
     "userInterfaceStyle": "automatic",
     "newArchEnabled": true,
     "jsEngine": "hermes",
-    "platforms": ["ios", "android"],
+    "platforms": [
+      "ios",
+      "android"
+    ],
     "ios": {
       "supportsTablet": true,
-      "associatedDomains": ["applinks:www.your-website.com"],
+      "associatedDomains": [
+        "applinks:www.your-website.com"
+      ],
       "bundleIdentifier": "com.ukwun.marketplace",
       "buildNumber": "1"
     },
@@ -33,7 +39,10 @@
               "pathPrefix": "/dating-profile"
             }
           ],
-          "category": ["BROWSABLE", "DEFAULT"]
+          "category": [
+            "BROWSABLE",
+            "DEFAULT"
+          ]
         }
       ],
       "adaptiveIcon": {
@@ -70,7 +79,9 @@
       [
         "expo-notifications",
         {
-          "sounds": ["./assets/chat_sound.wav"],
+          "sounds": [
+            "./assets/chat_sound.wav"
+          ],
           "icon": "./assets/images/notification-icon.png",
           "color": "#FF6B6B"
         }
@@ -85,6 +96,13 @@
     "experiments": {
       "typedRoutes": true,
       "reactCompiler": true
-    }
+    },
+    "extra": {
+      "router": {},
+      "eas": {
+        "projectId": "543f74ae-39ce-4609-a1a1-8ef032c3c7a7"
+      }
+    },
+    "owner": "ukwun1"
   }
 }

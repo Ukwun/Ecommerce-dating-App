@@ -17,10 +17,9 @@ interface SignupFormData {
 }
 
 const signupUser = async (userdata: SignupFormData) => {
-    // Try a list of candidates so the app works with whichever dev server is actually running.
+    // Use live Render backend
     const envBase = process.env.EXPO_PUBLIC_SERVER_URI;
-    const emulatorFallbacks = Platform.OS === 'android' ? ['http://10.0.2.2:8082', 'http://192.168.43.160:8082'] : ['http://localhost:8082'];
-    const candidates = envBase ? [envBase, ...emulatorFallbacks] : [...emulatorFallbacks];
+    const candidates = envBase ? [envBase] : ['https://ecommerce-dating-app.onrender.com'];
 
     const tryCandidates = async () => {
         for (const base of candidates) {

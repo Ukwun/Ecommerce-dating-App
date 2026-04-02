@@ -352,7 +352,7 @@ export default function TrackOrderScreen() {
             
             <TouchableOpacity 
               style={styles.contactSupportButton} 
-              onPress={() => router.push({ pathname: '/(routes)/support-chat', params: { orderId } } as any)}
+              onPress={() => Alert.alert('Support', 'Please contact us at support@marketplace.com')}
             >
               <Ionicons name="chatbubbles-outline" size={20} color="#111827" />
               <Text style={styles.contactSupportText}>Chat with Support</Text>
