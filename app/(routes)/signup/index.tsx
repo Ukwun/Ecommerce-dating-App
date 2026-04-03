@@ -17,27 +17,25 @@ interface SignupFormData {
 }
 
 const signupUser = async (userdata: SignupFormData) => {
-    // Use live Render backend
+    // Use live Render backend with HTTP fallback for Android
     const envBase = process.env.EXPO_PUBLIC_SERVER_URI;
-    const candidates = envBase ? [envBase] : ['https://ecommerce-dating-app.onrender.com'];
+    const candidates = envBase 
+        ? [envBase] 
+        : [
+            'https://ecommerce-dating-app.onrender.com',
+            'http://ecommerce-dating-app.onrender.com'  // Fallback for HTTPS issues
+          ];
 
     const tryCandidates = async () => {
         for (const base of candidates) {
             const endpoint = `${base.replace(/\/$/, '')}/auth/api/user-registration`;
             console.log('🔌 [SIGNUP] Attempting endpoint:', endpoint);
             try {
-                console.log('📤 [SIGNUP] Sending request...');
-                const controller = new AbortController();
-                const timeout = setTimeout(() => controller.abort(), 30000); // 30 second timeout
-
                 const response = await fetch(endpoint, {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify(userdata),
-                    signal: controller.signal,
                 });
-
-                clearTimeout(timeout);
 
                 const text = await response.text().catch(() => '');
                 let data: any = null;
@@ -47,7 +45,7 @@ const signupUser = async (userdata: SignupFormData) => {
                     data = { message: text };
                 }
 
-                console.log('✅ [SIGNUP] Server responded:', { status: response.status, endpoint, data });
+                console.log('✅ [SIGNUP] Server responded from', base, { status: response.status, body: data });
 
                 // If we get a 404 from this server, try the next candidate.
                 if (response.status === 404) {
@@ -65,14 +63,11 @@ const signupUser = async (userdata: SignupFormData) => {
                 return data;
             } catch (err) {
                 // If this candidate failed (network error), continue to the next candidate.
-                const errorMsg = err instanceof Error ? err.message : String(err);
-                console.error('❌ [SIGNUP] Endpoint failed:', { endpoint: base, error: errorMsg });
+                console.warn('Signup candidate failed:', base, err instanceof Error ? err.message : err);
                 continue;
             }
         }
-        const finalError = 'Could not reach backend on any candidate hosts. Please check your internet connection and try again.';
-        console.error('❌ [SIGNUP] FINAL ERROR:', finalError);
-        throw new Error(finalError);
+        throw new Error('Could not reach backend on any candidate hosts');
     };
 
     return tryCandidates();
