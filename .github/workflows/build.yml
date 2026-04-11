@@ -3,8 +3,6 @@ name: Build APK
 on:
   push:
     branches: [ master ]
-  pull_request:
-    branches: [ master ]
 
 jobs:
   build:
@@ -17,6 +15,16 @@ jobs:
         uses: actions/setup-node@v3
         with:
           node-version: '20'
+      
+      - name: Validate Expo Token
+        run: |
+          if [ -z "${{ secrets.EXPO_TOKEN }}" ]; then
+            echo "❌ EXPO_TOKEN secret is missing!"
+            echo "Add it in: Settings → Secrets and variables → Actions → New repository secret"
+            echo "Name: EXPO_TOKEN"
+            exit 1
+          fi
+          echo "✅ EXPO_TOKEN is configured"
       
       - name: Install dependencies
         run: npm install --legacy-peer-deps
