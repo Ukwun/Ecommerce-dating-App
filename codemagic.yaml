@@ -8,15 +8,11 @@ workflows:
       events:
         - push
     scripts:
-      - name: Install dependencies
+      - name: Install deps and build
         script: |
           npm install
           npm install -g eas-cli
-      - name: Build Android APK with EAS
-        script: |
-          eas build --platform android --profile preview --wait --non-interactive
-    artifacts:
-      - "**/*.apk"
+          eas build --platform android --profile preview --non-interactive
     publishing:
       email:
         recipients:
