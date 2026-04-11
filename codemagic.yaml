@@ -6,20 +6,17 @@ workflows:
     environment:
       node: 18
       java: 11
-      android_sdk: 33
       vars:
         EXPO_PUBLIC_SERVER_URI: "https://ecommerce-dating-app.onrender.com"
     triggering:
       events:
         - push
       branch:
-        patterns:
-          - pattern: master
-            include: true
+        - master
     scripts:
       - name: Install dependencies
         script: npm install
-      - name: Test build
+      - name: Setup Android build
         script: |
           cd android
           ./gradlew assembleRelease
@@ -27,4 +24,5 @@ workflows:
       - android/app/build/outputs/**/*.apk
     publishing:
       email:
-        enabled: false
+        recipients:
+          - user@example.com
