@@ -4,19 +4,19 @@ workflows:
     instance_type: mac_mini_m2
     environment:
       node: 18
-      java: 11
     triggering:
       events:
         - push
     scripts:
       - name: Install dependencies
-        script: npm install
-      - name: Build Android
         script: |
-          cd android
-          ./gradlew assembleRelease
+          npm install
+          npm install -g eas-cli
+      - name: Build Android APK with EAS
+        script: |
+          eas build --platform android --profile preview --wait --non-interactive
     artifacts:
-      - android/app/build/outputs/apk/**/*.apk
+      - "**/*.apk"
     publishing:
       email:
         recipients:
