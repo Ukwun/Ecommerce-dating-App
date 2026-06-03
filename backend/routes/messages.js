@@ -2,6 +2,8 @@ const express = require('express');
 const Message = require('../models/Message');
 const User = require('../models/User');
 const { protect } = require('../middleware/auth');
+const { EVENT_TYPES } = require('../constants/eventTaxonomy');
+const { trackUserEvent } = require('../utils/eventLogger');
 
 const router = express.Router();
 
@@ -27,8 +29,8 @@ router.post('/messages', protect, async (req, res) => {
       sender: req.user.id,
       recipient: recipientId,
       content,
-      productId,
-      orderId,
+      product: productId,
+      order: orderId,
       type: 'text'
     });
 
@@ -49,6 +51,24 @@ router.post('/messages', protect, async (req, res) => {
       success: true,
       message: 'Message sent',
       data: message
+    });
+
+    await trackUserEvent({
+      userId: req.user.id,
+      eventType: EVENT_TYPES.MESSAGE_SENT,
+      metadata: {
+        recipientId,
+        messageLength: content.length,
+      },
+    });
+
+    await trackUserEvent({
+      userId: recipientId,
+      eventType: EVENT_TYPES.MESSAGE_RECEIVED,
+      metadata: {
+        senderId: req.user.id,
+        messageLength: content.length,
+      },
     });
   } catch (error) {
     res.status(500).json({ error: error.message });

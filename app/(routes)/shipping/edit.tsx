@@ -8,6 +8,7 @@ import { useMutation, useQueryClient } from '@tanstack/react-query';
 import Toast from 'react-native-toast-message';
 import * as Location from 'expo-location';
 import axios from 'axios';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 
 // Conditionally import MapView
 let MapView: any = null;
@@ -59,7 +60,7 @@ type DeliveryPriceData = {
 };
 
 // Backend API configuration
-const API_BASE_URL = process.env.EXPO_PUBLIC_API_URL || 'http://192.168.1.100:8082';
+const API_BASE_URL = process.env.EXPO_PUBLIC_SERVER_URI || process.env.EXPO_PUBLIC_BACKEND_URL || 'https://marketplace-backend.railway.app';
 const api = axios.create({
   baseURL: API_BASE_URL,
   timeout: 10000
@@ -109,10 +110,14 @@ const calculateDeliveryPrice = async (latitude: number, longitude: number): Prom
   }
 };
 
-// Placeholder - implement with your auth system
+// Retrieve auth token from AsyncStorage
 const getAuthToken = async () => {
-  // TODO: Retrieve from AsyncStorage or your auth context
-  return 'your-auth-token';
+  try {
+    const token = await AsyncStorage.getItem('access_token');
+    return token || '';
+  } catch (e) {
+    return '';
+  }
 };
 
 export default function EditAddressScreen() {

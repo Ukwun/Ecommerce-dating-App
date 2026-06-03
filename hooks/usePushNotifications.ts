@@ -2,6 +2,9 @@ import { useState, useEffect, useRef } from 'react';
 import * as Device from 'expo-device';
 import * as Notifications from 'expo-notifications';
 import Constants from 'expo-constants';
+
+// expo-notifications push tokens are not supported in Expo Go (SDK 53+)
+const isExpoGo = Constants.appOwnership === 'expo';
 import { Platform, Linking, Alert } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import axios from 'axios';
@@ -25,9 +28,8 @@ export const usePushNotifications = () => {
   const notificationListener = useRef<Notifications.Subscription | null>(null);
   const responseListener = useRef<Notifications.Subscription | null>(null);
 
-  // Silently check for an existing token if permissions are already granted
   const registerSilently = async () => {
-    if (!Device.isDevice) return;
+    if (isExpoGo || !Device.isDevice) return;
     const { status } = await Notifications.getPermissionsAsync();
     if (status === 'granted') {
       const projectId = Constants?.expoConfig?.extra?.eas?.projectId ?? Constants?.easConfig?.projectId;
@@ -93,22 +95,34 @@ export const usePushNotifications = () => {
 
   const sendTokenToBackend = async (token: string) => {
     try {
-      const userToken = await AsyncStorage.getItem('userToken');
-      if (userToken) {
+      const userToken = await AsyncStorage.getItem('access_token') ||
+        await AsyncStorage.getItem('userToken');
+      // Also try SecureStore
+      let secureToken: string | null = null;
+      try {
+        const SecureStore = require('expo-secure-store');
+        secureToken = await SecureStore.getItemAsync('access_token');
+      } catch (_) {}
+      const authToken = secureToken || userToken;
+      if (authToken) {
         await axios.post(
-          `${API_BASE}/dating/api/notifications/register`,
+          `${API_BASE}/auth/api/push-token`,
           { token },
-          { headers: { Authorization: `Bearer ${userToken}` } }
+          { headers: { Authorization: `Bearer ${authToken}` } }
         );
-        console.log('Push token registered with backend');
+        console.log('✅ Push token saved to backend');
       }
     } catch (error) {
-      console.log('Failed to register push token with backend');
+      console.log('Failed to save push token:', error);
     }
   };
 
   // Actively requests permission and registers the token. To be called from a UI element.
   const requestAndRegister = async () => {
+    if (isExpoGo) {
+      Alert.alert('Not Supported', 'Push notifications require a development build, not Expo Go.');
+      return false;
+    }
     if (!Device.isDevice) {
       Alert.alert('Emulator Notice', 'Push notifications only work on physical devices.');
       return false;

@@ -1,6 +1,16 @@
 import { useQuery, useMutation } from '@tanstack/react-query';
 import axiosInstance from '../utils/axiosinstance';
 
+type EventPayload = {
+  activityType: string;
+  productId?: string | null;
+  sellerId?: string | null;
+  searchQuery?: string | null;
+  category?: string | null;
+  price?: number | null;
+  metadata?: Record<string, any>;
+};
+
 /**
  * Hook for marketplace discovery with personalized recommendations
  */
@@ -28,7 +38,7 @@ export const useMarketplaceDiscovery = () => {
 
   // Log activity mutation
   const logActivityMutation = useMutation({
-    mutationFn: async (activityData: any) => {
+    mutationFn: async (activityData: EventPayload) => {
       return axiosInstance.post('/marketplace/api/activity/log', activityData);
     },
     onError: (error) => {
@@ -95,32 +105,71 @@ export const useMarketplaceDiscovery = () => {
     });
   };
 
+  const logSessionStart = (surface: string = 'discover_tab') => {
+    logActivityMutation.mutate({
+      activityType: 'session_start',
+      metadata: { surface }
+    });
+  };
+
+  const logAppOpen = () => {
+    logActivityMutation.mutate({
+      activityType: 'app_open',
+      metadata: { source: 'mobile_client' }
+    });
+  };
+
+  const logRetentionHeartbeat = (surface: string = 'discover_tab') => {
+    logActivityMutation.mutate({
+      activityType: 'retention_heartbeat',
+      metadata: { surface }
+    });
+  };
+
   // Search products
-  const { 
-    data: searchResults, 
-    refetch: searchProducts 
-  } = useQuery({
-    queryKey: ['marketplaceSearch'],
-    queryFn: async () => {
-      // This will be called with empty params when enabled is false
-      return [];
-    },
-    enabled: false, // Only run when manually called
-    staleTime: 3 * 60 * 1000, // 3 minutes
-    retry: 1
+  const searchProductsMutation = useMutation({
+    mutationFn: async (params: {
+      query: string;
+      category?: string;
+      sortBy?: string;
+      page?: number;
+      limit?: number;
+    }) => {
+      const response = await axiosInstance.get('/marketplace/api/products/search', {
+        params: {
+          q: params.query,
+          category: params.category,
+          sortBy: params.sortBy || 'relevance',
+          page: params.page || 1,
+          limit: params.limit || 20,
+        },
+        timeout: 15000,
+      });
+      return response.data.data || [];
+    }
   });
 
   // Get similar products
-  const { 
-    data: similarProducts 
-  } = useQuery({
-    queryKey: ['marketplaceSimilar'],
-    queryFn: async () => {
-      // This will be called with empty params when enabled is false
-      return [];
-    },
-    enabled: false, // Only run when manually called
-    retry: 1
+  const similarProductsMutation = useMutation({
+    mutationFn: async ({ productId, limit = 10 }: { productId: string; limit?: number }) => {
+      const response = await axiosInstance.get(`/marketplace/api/products/${productId}/similar`, {
+        params: { limit },
+        timeout: 10000,
+      });
+      return response.data.data || [];
+    }
+  });
+
+  const addToWishlistMutation = useMutation({
+    mutationFn: async (productId: string) => {
+      return axiosInstance.post('/marketplace/api/wishlist', { productId });
+    }
+  });
+
+  const removeFromWishlistMutation = useMutation({
+    mutationFn: async (productId: string) => {
+      return axiosInstance.delete(`/marketplace/api/wishlist/${productId}`);
+    }
   });
 
   return {
@@ -134,16 +183,25 @@ export const useMarketplaceDiscovery = () => {
     trendingProducts: trending || [],
     
     // Search
-    searchResults,
-    searchProducts,
+    searchResults: searchProductsMutation.data || [],
+    searchProducts: searchProductsMutation.mutateAsync,
+    isSearching: searchProductsMutation.isPending,
     
     // Similar products
-    similarProducts,
+    similarProducts: similarProductsMutation.data || [],
+    getSimilarProducts: similarProductsMutation.mutateAsync,
+
+    // Wishlist
+    addToWishlist: addToWishlistMutation.mutateAsync,
+    removeFromWishlist: removeFromWishlistMutation.mutateAsync,
     
     // Activity logging
     logProductView,
     logProductSearch,
     logAddToFavorite,
-    logPurchase
+    logPurchase,
+    logSessionStart,
+    logAppOpen,
+    logRetentionHeartbeat,
   };
 };

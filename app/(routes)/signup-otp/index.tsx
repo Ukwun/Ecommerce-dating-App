@@ -69,8 +69,9 @@ export default function SignupOtp() {
 
     const verifyOtp = async (data: VerifyOTPData) => {
         try {
+            const BACKEND_URL = process.env.EXPO_PUBLIC_BACKEND_URL || "https://marketplace-backend.railway.app";
             const response = await axios.post(
-                `${process.env.EXPO_PUBLIC_SERVER_URI}/auth/api/verify-user`,
+                `${BACKEND_URL}/auth/api/verify-user`,
                 {
                     otp: data.otp,
                     email: data.email,

@@ -4,6 +4,7 @@ import { Colors } from '../../constants/theme';
 import { useColorScheme } from '../../hooks/use-color-scheme';
 import { Tabs } from 'expo-router';
 import { Platform } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { AntDesign, Feather } from '@expo/vector-icons';
 import { HapticTab } from '@/components/haptic-tab';
 import { BlurTabBarBackground } from '@/components/ui/blur-tab-bar-background';
@@ -11,6 +12,7 @@ import { usePushNotifications } from '../../hooks/usePushNotifications';
 
 export default function TabLayout() {
   const colorScheme = useColorScheme();
+  const insets = useSafeAreaInsets();
   usePushNotifications(); // Initialize push notifications
 
   return (
@@ -31,8 +33,14 @@ export default function TabLayout() {
             borderTopWidth: 0,
           },
           default: {
-            height: 64,
-            paddingBottom: 8,
+            position: 'absolute',
+            left: 12,
+            right: 12,
+            bottom: Math.max(insets.bottom, 10),
+            height: 72,
+            paddingBottom: 10,
+            paddingTop: 6,
+            borderRadius: 16,
             borderTopWidth: 0,
           },
         }),

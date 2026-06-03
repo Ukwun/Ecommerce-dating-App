@@ -1,22 +1,43 @@
 import axios from "axios";
 import * as SecureStore from "expo-secure-store";
 import { Platform, Alert } from 'react-native';
+import Constants from 'expo-constants';
 import { CustomAxiosRequestConfig } from "./axiosinstance.types";
 
-// Determine backend URL based on environment
-const envBase = process.env.EXPO_PUBLIC_SERVER_URI;
-let resolvedBase = envBase;
+const getExpoLanBackendBase = (): string | null => {
+    try {
+        const hostUri = (Constants.expoConfig as any)?.hostUri;
+        if (!hostUri) return null;
 
-if (!resolvedBase) {
-    // Use the live Render backend for all platforms
-    resolvedBase = 'https://ecommerce-dating-app.onrender.com';
+        const host = String(hostUri).split(':')[0];
+        const isIp = /^\d{1,3}(\.\d{1,3}){3}$/.test(host);
+        if (!isIp) return null;
+
+        return `http://${host}:8082`;
+    } catch {
+        return null;
+    }
+};
+
+// Determine backend URL based on environment and current Expo LAN host.
+// In dev, prefer the active Expo LAN host so phone testing keeps working if local IP changes.
+// PRODUCTION READY: For 6 clients across cities, we MUST use the public Render URL.
+// Use environment variable or default to production backend
+const DEFAULT_BACKEND_URL = 'https://marketplace-backend.railway.app';
+let resolvedBase = process.env.EXPO_PUBLIC_BACKEND_URL || DEFAULT_BACKEND_URL;
+
+// During local development only, we attempt to find the local machine IP
+if (__DEV__ && !process.env.EXPO_PUBLIC_BACKEND_URL) {
+    const lanBase = getExpoLanBackendBase();
+    if (lanBase) resolvedBase = lanBase;
 }
 
-console.log('🔌 Backend URL configured:', resolvedBase);
+console.log('🔌 [NETWORK] Current Base URL:', resolvedBase);
 
 const axiosInstance = axios.create({
     baseURL: resolvedBase,
-    withCredentials: false, // Disable cookies for React Native
+    withCredentials: false,
+    timeout: 60000, // Increased to 60s for Render free tier cold starts
 });
 
 let isRefreshing = false;
@@ -24,6 +45,9 @@ let refreshSubscribers: (() => void)[] = [];
 
 const getRefreshToken = async (): Promise<string | null> => {
     try {
+        if (Platform.OS === 'web') {
+            return localStorage.getItem("refresh_token");
+        }
         return await SecureStore.getItemAsync("refresh_token");
     } catch (error) {
         console.error("Error getting refresh token:", error);
@@ -34,6 +58,9 @@ const getRefreshToken = async (): Promise<string | null> => {
 // Get stored access token
 const getAccessToken = async (): Promise<string | null> => {
     try {
+        if (Platform.OS === 'web') {
+            return localStorage.getItem("access_token");
+        }
         return await SecureStore.getItemAsync("access_token");
     }   catch (error) {
         console.error("Error getting access token:", error);
@@ -45,8 +72,19 @@ const getAccessToken = async (): Promise<string | null> => {
 // Store access token
 export const storeTokens = async (accessToken: string, refreshToken?: string): Promise<void> => {
     try {
-        await SecureStore.setItemAsync("access_token", accessToken);
-        if (refreshToken) await SecureStore.setItemAsync("refresh_token", refreshToken);
+        // REALISM: Guard against undefined values which crash Expo Go native modules
+        if (!accessToken) {
+            console.warn("Attempted to store an empty access token. Aborting to prevent crash.");
+            return;
+        }
+
+        if (Platform.OS === 'web') {
+            localStorage.setItem("access_token", accessToken);
+            if (refreshToken) localStorage.setItem("refresh_token", refreshToken);
+        } else {
+            await SecureStore.setItemAsync("access_token", accessToken);
+            if (refreshToken) await SecureStore.setItemAsync("refresh_token", refreshToken);
+        }
     }   catch (error) {
         console.error("Error storing tokens:", error);
     }
@@ -55,8 +93,13 @@ export const storeTokens = async (accessToken: string, refreshToken?: string): P
 // Remove access token
 export const removeAccessToken = async (): Promise<void> => {
     try {
-        await SecureStore.deleteItemAsync("access_token");
-        await SecureStore.deleteItemAsync("refresh_token");
+        if (Platform.OS === 'web') {
+            localStorage.removeItem("access_token");
+            localStorage.removeItem("refresh_token");
+        } else {
+            await SecureStore.deleteItemAsync("access_token");
+            await SecureStore.deleteItemAsync("refresh_token");
+        }
     }   catch (error) {
         console.error("Error removing access token:", error);
     }
@@ -94,10 +137,28 @@ axiosInstance.interceptors.request.use(
 axiosInstance.interceptors.response.use(
     (response) => response,
     async (error) => {
+        // REAL-WORLD FEEDBACK: Distinguish between timeouts, cold starts, and absolute network failure
+        const url = error.config?.url || 'unknown';
+        console.error(`🌐 [NETWORK ERROR] ${error.message} on path: ${url}`);
+
+        if (error.code === 'ECONNABORTED' || !error.response) {
+            const isRender = resolvedBase.includes('onrender.com');
+            const msg = isRender 
+                ? "The server is waking up (Render cold start) or your connection is unstable. Please wait 30 seconds and try again."
+                : "The server is unreachable. Please check your internet connection.";
+            
+            Alert.alert("Connection Issue", msg);
+            return Promise.reject(error);
+        }
+
         const originalRequest = error.config as CustomAxiosRequestConfig;
 
-        // If error is not 401, or it's a token refresh request itself, reject
-        if (error.response?.status !== 401 || originalRequest._retry) {
+        // REALISM: Do NOT attempt refresh if the failed request was a login/signup attempt
+        const isAuthRequest = originalRequest.url?.includes('/login') || 
+                             originalRequest.url?.includes('/user-registration') ||
+                             originalRequest.url?.includes('/google-login');
+
+        if (error.response?.status !== 401 || originalRequest._retry || isAuthRequest) {
             return Promise.reject(error);
         }
 
@@ -113,19 +174,22 @@ axiosInstance.interceptors.response.use(
                 }
 
                 // Make the call to your refresh token endpoint
-                const { data } = await axios.post(`${resolvedBase}/auth/api/refresh-token`, { refreshToken });
-                const { accessToken: newAccessToken } = data;
+                // Corrected path to match your mounting logic
+                const response = await axios.post(`${resolvedBase}/auth/api/refresh-token`, { refreshToken });
+                
+                if (response.data && response.data.accessToken) {
+                    const newAccessToken = response.data.accessToken;
+                    await storeTokens(newAccessToken);
+                    axiosInstance.defaults.headers.common['Authorization'] = `Bearer ${newAccessToken}`;
+                    onRefreshSuccess();
+                    
+                    const headers = originalRequest.headers ?? {};
+                    (headers as any).Authorization = `Bearer ${newAccessToken}`;
+                    originalRequest.headers = headers;
+                    return axiosInstance(originalRequest);
+                }
 
-                await storeTokens(newAccessToken);
-                axiosInstance.defaults.headers.common['Authorization'] = `Bearer ${newAccessToken}`;
-                
-                onRefreshSuccess(); // Retry all queued requests
-                
-                // Retry the original request with the new token
-                const headers = originalRequest.headers ?? {};
-                (headers as any).Authorization = `Bearer ${newAccessToken}`;
-                originalRequest.headers = headers;
-                return axiosInstance(originalRequest);
+                throw new Error("Invalid token refresh response");
             } catch (refreshError) {
                 handleLogout();
                 return Promise.reject(refreshError);
@@ -146,9 +210,9 @@ axiosInstance.interceptors.response.use(
 // Health check function to verify backend connectivity
 export const checkBackendHealth = async (): Promise<{ status: 'ok' | 'error'; message: string; url?: string }> => {
     try {
-        console.log('🔍 Checking backend health at:', resolvedBase);
-        const response = await axios.get(`${resolvedBase}/health`, {
-            timeout: 5000,
+        // Using the new health endpoint for a realistic "pre-flight" check
+        const response = await axios.get(`${resolvedBase}/auth/api/health`, {
+            timeout: 4000,
         });
         console.log('✅ Backend health check passed:', response.data);
         return { status: 'ok', message: 'Backend is reachable', url: resolvedBase };

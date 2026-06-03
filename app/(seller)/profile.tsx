@@ -7,7 +7,10 @@ import { useQuery, useMutation } from '@tanstack/react-query';
 import axios from 'axios';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 
-const API_BASE_URL = process.env.EXPO_PUBLIC_BACKEND_URL || 'http://192.168.1.100:5000';
+const API_BASE_URL =
+  process.env.EXPO_PUBLIC_SERVER_URI ||
+  process.env.EXPO_PUBLIC_BACKEND_URL ||
+  'https://marketplace-backend.railway.app';
 
 export default function SellerProfileScreen() {
   const theme = useTheme();

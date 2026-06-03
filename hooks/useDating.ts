@@ -1,410 +1,181 @@
 import { useEffect, useState } from 'react';
-import axios from 'axios';
-import AsyncStorage from '@react-native-async-storage/async-storage';
+import * as SecureStore from 'expo-secure-store';
+import axiosInstance from '../utils/axiosinstance';
 
-const API_BASE = 'http://10.0.2.2:8082'; // Android emulator localhost
-
-/**
- * Hook for managing dating profile state
- */
+// ─── Dating Profile ───────────────────────────────────────────────────────────
 export const useDatingProfile = () => {
   const [profile, setProfile] = useState<any>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
   const fetchProfile = async () => {
+    // Safety timeout — never stay loading more than 6 seconds
+    const timer = setTimeout(() => setLoading(false), 6000);
     try {
       setLoading(true);
-      const token = await AsyncStorage.getItem('userToken');
-      
-      if (!token) {
-        setError('Not authenticated');
-        return;
-      }
-
-      const response = await axios.get(
-        `${API_BASE}/dating/api/profile`,
-        {
-          headers: { Authorization: `Bearer ${token}` }
-        }
-      );
-
-      setProfile(response.data);
+      const token = await SecureStore.getItemAsync('access_token');
+      if (!token) { clearTimeout(timer); setLoading(false); return; }
+      const res = await axiosInstance.get('/dating/api/profile');
+      setProfile(res.data?.profile || res.data || null);
       setError(null);
     } catch (err: any) {
-      setError(err.response?.data?.message || 'Failed to fetch profile');
+      if (err?.response?.status === 404) {
+        setProfile(null);
+      } else {
+        setError(err?.response?.data?.message || 'Failed to fetch profile');
+        setProfile(null);
+      }
     } finally {
+      clearTimeout(timer);
       setLoading(false);
     }
   };
 
-  const updateProfile = async (updates: any) => {
-    try {
-      const token = await AsyncStorage.getItem('userToken');
-      
-      const response = await axios.put(
-        `${API_BASE}/dating/api/profile`,
-        updates,
-        {
-          headers: { Authorization: `Bearer ${token}` }
-        }
-      );
+  const createProfile = async (data: any) => {
+    const res = await axiosInstance.post('/dating/api/profile', data);
+    setProfile(res.data?.profile || res.data);
+    return res.data;
+  };
 
-      setProfile(response.data.profile);
-      return response.data;
-    } catch (err: any) {
-      setError(err.response?.data?.message || 'Failed to update profile');
-      throw err;
-    }
+  const updateProfile = async (updates: any) => {
+    const res = await axiosInstance.put('/dating/api/profile', updates);
+    setProfile(res.data?.profile || res.data);
+    return res.data;
   };
 
   const uploadPhoto = async (photoUrl: string, cloudinaryId: string, isProfilePhoto = false) => {
-    try {
-      const token = await AsyncStorage.getItem('userToken');
-      
-      const response = await axios.post(
-        `${API_BASE}/dating/api/profile/photo/upload`,
-        { photoUrl, cloudinaryId, isProfilePhoto },
-        {
-          headers: { Authorization: `Bearer ${token}` }
-        }
-      );
-
-      setProfile(response.data.profile);
-      return response.data.photo;
-    } catch (err: any) {
-      setError(err.response?.data?.message || 'Failed to upload photo');
-      throw err;
-    }
+    const res = await axiosInstance.post('/dating/api/profile/photo/upload', { photoUrl, cloudinaryId, isProfilePhoto });
+    setProfile(res.data?.profile || res.data);
+    return res.data?.photo;
   };
 
   const deletePhoto = async (photoIndex: number) => {
-    try {
-      const token = await AsyncStorage.getItem('userToken');
-      
-      const response = await axios.delete(
-        `${API_BASE}/dating/api/profile/photo/${photoIndex}`,
-        {
-          headers: { Authorization: `Bearer ${token}` }
-        }
-      );
-
-      setProfile(response.data.profile);
-      return response.data;
-    } catch (err: any) {
-      setError(err.response?.data?.message || 'Failed to delete photo');
-      throw err;
-    }
+    const res = await axiosInstance.delete(`/dating/api/profile/photo/${photoIndex}`);
+    setProfile(res.data?.profile || res.data);
+    return res.data;
   };
 
   const updateLocation = async (latitude: number, longitude: number, address: string | null = null) => {
-    try {
-      const token = await AsyncStorage.getItem('userToken');
-      
-      const response = await axios.post(
-        `${API_BASE}/dating/api/profile/location`,
-        { latitude, longitude, address },
-        {
-          headers: { Authorization: `Bearer ${token}` }
-        }
-      );
-
-      setProfile(response.data.profile);
-      return response.data;
-    } catch (err: any) {
-      setError(err.response?.data?.message || 'Failed to update location');
-      throw err;
-    }
+    const res = await axiosInstance.post('/dating/api/profile/location', { latitude, longitude, address });
+    setProfile(res.data?.profile || res.data);
+    return res.data;
   };
 
   const fetchUserProfile = async (userId: string) => {
     try {
-      const token = await AsyncStorage.getItem('userToken');
-      const response = await axios.get(
-        `${API_BASE}/dating/api/profile/${userId}`,
-        { headers: { Authorization: `Bearer ${token}` } }
-      );
-      return response.data;
-    } catch (err: any) {
-      return null;
-    }
+      const res = await axiosInstance.get(`/dating/api/profile/${userId}`);
+      return res.data;
+    } catch { return null; }
   };
 
   const enableTwoFactor = async (photoUrl: string) => {
-    try {
-      const token = await AsyncStorage.getItem('userToken');
-      const response = await axios.post(
-        `${API_BASE}/dating/api/verification/enable`,
-        { photoUrl },
-        { headers: { Authorization: `Bearer ${token}` } }
-      );
-      setProfile(response.data.profile);
-      return response.data;
-    } catch (err: any) {
-      setError(err.response?.data?.message || 'Failed to enable 2FA');
-      throw err;
-    }
+    const res = await axiosInstance.post('/dating/api/verification/enable', { photoUrl });
+    setProfile(res.data?.profile || res.data);
+    return res.data;
   };
 
   const disableTwoFactor = async () => {
-    try {
-      const token = await AsyncStorage.getItem('userToken');
-      const response = await axios.post(
-        `${API_BASE}/dating/api/verification/disable`,
-        {},
-        { headers: { Authorization: `Bearer ${token}` } }
-      );
-      setProfile(response.data.profile);
-      return response.data;
-    } catch (err: any) {
-      setError(err.response?.data?.message || 'Failed to disable 2FA');
-      throw err;
-    }
+    const res = await axiosInstance.post('/dating/api/verification/disable', {});
+    setProfile(res.data?.profile || res.data);
+    return res.data;
   };
 
   const verifyIdentity = async (livePhotoUrl: string) => {
-    try {
-      const token = await AsyncStorage.getItem('userToken');
-      const response = await axios.post(
-        `${API_BASE}/dating/api/verification/verify-login`,
-        { livePhotoUrl },
-        { headers: { Authorization: `Bearer ${token}` } }
-      );
-      return response.data;
-    } catch (err: any) {
-      setError(err.response?.data?.message || 'Verification failed');
-      throw err;
-    }
+    const res = await axiosInstance.post('/dating/api/verification/verify-login', { livePhotoUrl });
+    return res.data;
   };
 
   const forgotTwoFactor = async () => {
-    try {
-      const token = await AsyncStorage.getItem('userToken');
-      const response = await axios.post(
-        `${API_BASE}/dating/api/verification/forgot`,
-        {},
-        { headers: { Authorization: `Bearer ${token}` } }
-      );
-      return response.data;
-    } catch (err: any) {
-      setError(err.response?.data?.message || 'Failed to request reset');
-      throw err;
-    }
+    const res = await axiosInstance.post('/dating/api/verification/forgot', {});
+    return res.data;
   };
 
-  useEffect(() => {
-    fetchProfile();
-  }, []);
+  useEffect(() => { fetchProfile(); }, []);
 
   return {
-    profile,
-    loading,
-    error,
-    fetchProfile,
-    updateProfile,
-    uploadPhoto,
-    deletePhoto,
-    updateLocation,
-    fetchUserProfile,
-    enableTwoFactor,
-    disableTwoFactor,
-    verifyIdentity,
-    forgotTwoFactor
+    profile, loading, error, fetchProfile, createProfile, updateProfile,
+    uploadPhoto, deletePhoto, updateLocation, fetchUserProfile,
+    enableTwoFactor, disableTwoFactor, verifyIdentity, forgotTwoFactor,
   };
 };
 
-/**
- * Hook for managing discovery and swiping
- */
+// ─── Discovery ────────────────────────────────────────────────────────────────
 export const useDiscovery = () => {
   const [profiles, setProfiles] = useState<any[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [currentIndex, setCurrentIndex] = useState(0);
-  const [filters, setFilters] = useState({
-    page: 1,
-    limit: 10,
-    ageMin: 18,
-    ageMax: 80,
-    maxDistance: 50
-  });
+  const [filters, setFilters] = useState({ page: 1, limit: 10, ageMin: 18, ageMax: 80, maxDistance: 50 });
 
-  const fetchProfiles = async (customFilters = null) => {
+  const fetchProfiles = async (customFilters: any = null) => {
     try {
       setLoading(true);
-      const token = await AsyncStorage.getItem('userToken');
-      
-      if (!token) {
-        setError('Not authenticated');
-        return;
-      }
-
-      const filterParams = customFilters || filters;
-      const params: any = {
-        ...filterParams,
-        page: filterParams.page || 1,
-        limit: filterParams.limit || 10,
-        ageMin: filterParams.ageMin || 18,
-        ageMax: filterParams.ageMax || 80,
-        maxDistance: filterParams.maxDistance || 50
-      };
-
-      const queryString = new URLSearchParams(
-        Object.entries(params).map(([key, value]) => [key, String(value)])
-      ).toString();
-
-      const response = await axios.get(
-        `${API_BASE}/dating/api/discover?${queryString}`,
-        {
-          headers: { Authorization: `Bearer ${token}` }
-        }
-      );
-
-      setProfiles(response.data.profiles || []);
+      const f = customFilters || filters;
+      const params = new URLSearchParams(Object.entries(f).map(([k, v]) => [k, String(v)])).toString();
+      const res = await axiosInstance.get(`/dating/api/discover?${params}`);
+      setProfiles(res.data?.profiles || []);
       setCurrentIndex(0);
       setError(null);
     } catch (err: any) {
-      setError(err.response?.data?.message || 'Failed to fetch profiles');
-      console.error('Discovery error:', err);
+      setError(err?.response?.data?.message || 'Failed to fetch profiles');
     } finally {
       setLoading(false);
     }
   };
 
   const swipe = async (targetId: string, action: string) => {
-    try {
-      const token = await AsyncStorage.getItem('userToken');
-      
-      const response = await axios.post(
-        `${API_BASE}/dating/api/swipe/${targetId}`,
-        { action },
-        {
-          headers: { Authorization: `Bearer ${token}` }
-        }
-      );
-
-      // Move to next profile
-      setCurrentIndex(prev => prev + 1);
-      
-      return response.data;
-    } catch (err: any) {
-      setError(err.response?.data?.message || 'Failed to swipe');
-      throw err;
-    }
+    const res = await axiosInstance.post(`/dating/api/swipe/${targetId}`, { action });
+    setCurrentIndex(prev => prev + 1);
+    return res.data;
   };
 
-  const getCurrentProfile = () => {
-    return profiles[currentIndex] || null;
-  };
+  const getCurrentProfile = () => profiles[currentIndex] || null;
 
-  useEffect(() => {
-    fetchProfiles();
-  }, []);
+  useEffect(() => { fetchProfiles(); }, []);
 
-  return {
-    profiles,
-    loading,
-    error,
-    currentIndex,
-    filters,
-    setFilters,
-    fetchProfiles,
-    swipe,
-    getCurrentProfile
-  };
+  return { profiles, loading, error, currentIndex, filters, setFilters, fetchProfiles, swipe, getCurrentProfile };
 };
 
-/**
- * Hook for managing matches
- */
+// ─── Matches ──────────────────────────────────────────────────────────────────
 export const useMatches = () => {
   const [matches, setMatches] = useState<any[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   const fetchMatches = async () => {
+    const timer = setTimeout(() => setLoading(false), 8000);
     try {
       setLoading(true);
-      const token = await AsyncStorage.getItem('userToken');
-      
-      if (!token) {
-        setError('Not authenticated');
-        return;
-      }
-
-      const response = await axios.get(
-        `${API_BASE}/dating/api/matches`,
-        {
-          headers: { Authorization: `Bearer ${token}` }
-        }
-      );
-
-      setMatches(response.data.matches || []);
+      const res = await axiosInstance.get('/dating/api/matches');
+      setMatches(res.data?.matches || []);
       setError(null);
     } catch (err: any) {
-      setError(err.response?.data?.message || 'Failed to fetch matches');
+      setError(err?.response?.data?.message || 'Failed to fetch matches');
+      setMatches([]);
     } finally {
+      clearTimeout(timer);
       setLoading(false);
     }
   };
 
   const unmatch = async (matchId: string) => {
-    try {
-      const token = await AsyncStorage.getItem('userToken');
-      
-      await axios.post(
-        `${API_BASE}/dating/api/matches/${matchId}/unmatch`,
-        {},
-        {
-          headers: { Authorization: `Bearer ${token}` }
-        }
-      );
-
-      setMatches(prev => prev.filter(m => m._id !== matchId));
-      return true;
-    } catch (err: any) {
-      setError(err.response?.data?.message || 'Failed to unmatch');
-      throw err;
-    }
+    await axiosInstance.post(`/dating/api/matches/${matchId}/unmatch`, {});
+    setMatches(prev => prev.filter(m => m._id !== matchId));
+    return true;
   };
 
   const blockUser = async (matchId: string, reason = '') => {
-    try {
-      const token = await AsyncStorage.getItem('userToken');
-      
-      await axios.post(
-        `${API_BASE}/dating/api/matches/${matchId}/block`,
-        { reason },
-        {
-          headers: { Authorization: `Bearer ${token}` }
-        }
-      );
-
-      setMatches(prev => prev.filter(m => m._id !== matchId));
-      return true;
-    } catch (err: any) {
-      setError(err.response?.data?.message || 'Failed to block user');
-      throw err;
-    }
+    await axiosInstance.post(`/dating/api/matches/${matchId}/block`, { reason });
+    setMatches(prev => prev.filter(m => m._id !== matchId));
+    return true;
   };
 
-  useEffect(() => {
-    fetchMatches();
-  }, []);
+  useEffect(() => { fetchMatches(); }, []);
 
-  return {
-    matches,
-    loading,
-    error,
-    fetchMatches,
-    unmatch,
-    blockUser
-  };
+  return { matches, loading, error, fetchMatches, unmatch, blockUser };
 };
 
-/**
- * Hook for managing conversations/chat
- */
+// ─── Conversations ────────────────────────────────────────────────────────────
 export const useConversations = () => {
   const [conversations, setConversations] = useState<any[]>([]);
   const [loading, setLoading] = useState(false);
@@ -413,78 +184,28 @@ export const useConversations = () => {
   const fetchConversations = async () => {
     try {
       setLoading(true);
-      const token = await AsyncStorage.getItem('userToken');
-      
-      if (!token) {
-        setError('Not authenticated');
-        return;
-      }
-
-      const response = await axios.get(
-        `${API_BASE}/dating/api/conversations`,
-        {
-          headers: { Authorization: `Bearer ${token}` }
-        }
-      );
-
-      setConversations(response.data.conversations || []);
+      const res = await axiosInstance.get('/dating/api/conversations');
+      setConversations(res.data?.conversations || []);
       setError(null);
     } catch (err: any) {
-      setError(err.response?.data?.message || 'Failed to fetch conversations');
+      setError(err?.response?.data?.message || 'Failed to fetch conversations');
     } finally {
       setLoading(false);
     }
   };
 
   const sendMessage = async (conversationId: string, content: string, imageUrl: string | null = null) => {
-    try {
-      const token = await AsyncStorage.getItem('userToken');
-      
-      const response = await axios.post(
-        `${API_BASE}/dating/api/chat/send/${conversationId}`,
-        { content, imageUrl },
-        {
-          headers: { Authorization: `Bearer ${token}` }
-        }
-      );
-
-      return response.data.messageData;
-    } catch (err: any) {
-      setError(err.response?.data?.message || 'Failed to send message');
-      throw err;
-    }
+    const res = await axiosInstance.post(`/dating/api/chat/send/${conversationId}`, { content, imageUrl });
+    return res.data?.messageData;
   };
 
   const archiveConversation = async (conversationId: string) => {
-    try {
-      const token = await AsyncStorage.getItem('userToken');
-      
-      await axios.post(
-        `${API_BASE}/dating/api/conversations/${conversationId}/archive`,
-        {},
-        {
-          headers: { Authorization: `Bearer ${token}` }
-        }
-      );
-
-      setConversations(prev => prev.filter(c => c._id !== conversationId));
-      return true;
-    } catch (err: any) {
-      setError(err.response?.data?.message || 'Failed to archive');
-      throw err;
-    }
+    await axiosInstance.post(`/dating/api/conversations/${conversationId}/archive`, {});
+    setConversations(prev => prev.filter(c => c._id !== conversationId));
+    return true;
   };
 
-  useEffect(() => {
-    fetchConversations();
-  }, []);
+  useEffect(() => { fetchConversations(); }, []);
 
-  return {
-    conversations,
-    loading,
-    error,
-    fetchConversations,
-    sendMessage,
-    archiveConversation
-  };
+  return { conversations, loading, error, fetchConversations, sendMessage, archiveConversation };
 };

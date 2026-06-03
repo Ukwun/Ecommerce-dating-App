@@ -1,7 +1,10 @@
 const express = require('express');
 const Cart = require('../models/Cart');
 const Product = require('../models/Product');
+const Coupon = require('../models/Coupon');
 const { protect } = require('../middleware/auth');
+const { EVENT_TYPES } = require('../constants/eventTaxonomy');
+const { trackUserEvent } = require('../utils/eventLogger');
 
 const router = express.Router();
 
@@ -75,6 +78,15 @@ router.post('/cart/items', protect, async (req, res) => {
       message: 'Item added to cart',
       data: cart
     });
+
+    await trackUserEvent({
+      userId: req.user.id,
+      eventType: EVENT_TYPES.ADD_TO_CART,
+      productId,
+      category: product.category,
+      price: product.price,
+      metadata: { quantity },
+    });
   } catch (error) {
     res.status(500).json({ error: error.message });
   }
@@ -104,8 +116,21 @@ router.put('/cart/items/:productId', protect, async (req, res) => {
 
     if (quantity === 0) {
       cart.items = cart.items.filter(item => item.product.toString() !== productId);
+      await trackUserEvent({
+        userId: req.user.id,
+        eventType: EVENT_TYPES.REMOVE_FROM_CART,
+        productId,
+        metadata: { reason: 'quantity_set_to_zero' },
+      });
     } else {
       item.quantity = quantity;
+      await trackUserEvent({
+        userId: req.user.id,
+        eventType: EVENT_TYPES.ADD_TO_CART,
+        productId,
+        price: item.price,
+        metadata: { quantity, source: 'cart_update' },
+      });
     }
 
     cart.calculateTotals();
@@ -134,6 +159,13 @@ router.delete('/cart/items/:productId', protect, async (req, res) => {
     }
 
     cart.items = cart.items.filter(item => item.product.toString() !== productId);
+
+    await trackUserEvent({
+      userId: req.user.id,
+      eventType: EVENT_TYPES.REMOVE_FROM_CART,
+      productId,
+      metadata: { reason: 'manual_remove' },
+    });
 
     cart.calculateTotals();
     await cart.save();
@@ -172,20 +204,70 @@ router.delete('/cart', protect, async (req, res) => {
   }
 });
 
-// ✅ Apply coupon code (placeholder)
+// ✅ Apply coupon code
 router.post('/cart/coupon', protect, async (req, res) => {
   try {
     const { couponCode } = req.body;
-
     if (!couponCode) {
       return res.status(400).json({ error: 'Coupon code required' });
     }
-
-    // TODO: Implement coupon validation
-    // For now, return placeholder
+    const coupon = await Coupon.findOne({ code: couponCode.toUpperCase(), isActive: true });
+    if (!coupon) {
+      return res.status(404).json({ error: 'Invalid or expired coupon' });
+    }
+    if (coupon.expiresAt && coupon.expiresAt < new Date()) {
+      return res.status(400).json({ error: 'Coupon has expired' });
+    }
+    if (coupon.usageLimit && coupon.usedCount >= coupon.usageLimit) {
+      return res.status(400).json({ error: 'Coupon usage limit reached' });
+    }
+    let cart = await Cart.findOne({ user: req.user.id }).populate('items.product');
+    if (!cart || cart.items.length === 0) {
+      return res.status(400).json({ error: 'Cart is empty' });
+    }
+    const cartTotal = cart.items.reduce((sum, item) => sum + item.price * item.quantity, 0);
+    if (coupon.minOrderValue && cartTotal < coupon.minOrderValue) {
+      return res.status(400).json({ error: `Minimum order value for this coupon is ₦${coupon.minOrderValue}` });
+    }
+    let discount = 0;
+    if (coupon.discountType === 'percent') {
+      discount = (cartTotal * coupon.discountValue) / 100;
+      if (coupon.maxDiscount && discount > coupon.maxDiscount) {
+        discount = coupon.maxDiscount;
+      }
+    } else if (coupon.discountType === 'fixed') {
+      discount = coupon.discountValue;
+    }
+    // Prevent over-discount
+    if (discount > cartTotal) discount = cartTotal;
+    // Mark coupon as used (increment usedCount)
+    coupon.usedCount += 1;
+    await coupon.save();
+    // Attach coupon info to cart (optional: save to cart)
+    cart.coupon = {
+      code: coupon.code,
+      discount,
+      discountType: coupon.discountType,
+      discountValue: coupon.discountValue
+    };
+    cart.totalAfterDiscount = cartTotal - discount;
+    await cart.save();
     res.json({
-      success: false,
-      error: 'Coupon validation not yet implemented'
+      success: true,
+      message: 'Coupon applied',
+      discount,
+      totalAfterDiscount: cart.totalAfterDiscount,
+      coupon: cart.coupon
+    });
+
+    await trackUserEvent({
+      userId: req.user.id,
+      eventType: EVENT_TYPES.CHECKOUT_START,
+      metadata: {
+        couponCode: coupon.code,
+        discount,
+        totalAfterDiscount: cart.totalAfterDiscount,
+      },
     });
   } catch (error) {
     res.status(500).json({ error: error.message });

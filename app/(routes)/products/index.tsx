@@ -21,10 +21,11 @@ export default function AllProductsScreen() {
   const [isFilterModalVisible, setFilterModalVisible] = useState(false);
 
   const fetchProducts = async ({ pageParam = 1 }) => {
-    const response = await axiosInstance.get('/product/api/get-all-products', {
+    const response = await axiosInstance.get('/marketplace/api/products', {
       params: { page: pageParam, limit: 12, ...filters },
     });
-    return response.data;
+    const products = response.data?.data ?? response.data?.products ?? [];
+    return { products };
   };
 
   const {

@@ -1,4 +1,4 @@
-import React, { useState, useCallback } from 'react';
+import React, { useState, useCallback, useMemo, useEffect } from 'react';
 import {
   View,
   Text,
@@ -15,6 +15,9 @@ import {
 import { Ionicons, MaterialCommunityIcons, Feather } from '@expo/vector-icons';
 import { useFocusEffect, useRouter } from 'expo-router';
 import { useMarketplaceDiscovery } from '../../hooks/useMarketplaceDiscovery';
+import { useDatingProfile } from '../../hooks/useDating';
+import { LinearGradient } from 'expo-linear-gradient';
+import Animated, { FadeInDown, ZoomIn } from 'react-native-reanimated';
 import Toast from 'react-native-toast-message';
 
 
@@ -27,20 +30,38 @@ export default function DiscoverScreen() {
     loading,
     refetch,
     trendingProducts,
+    searchResults,
+    searchProducts,
+    isSearching,
+    addToWishlist,
+    removeFromWishlist,
     logProductView,
     logProductSearch,
     logAddToFavorite,
+    logAppOpen,
+    logSessionStart,
+    logRetentionHeartbeat,
   } = useMarketplaceDiscovery();
 
   const [refreshing, setRefreshing] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
   const [activeTab, setActiveTab] = useState<'personalized' | 'trending'>('personalized');
+  const [favoriteIds, setFavoriteIds] = useState<Set<string>>(new Set());
 
   useFocusEffect(
     useCallback(() => {
+      logSessionStart('discover_tab');
       refetch();
     }, [])
   );
+
+  useEffect(() => {
+    logAppOpen();
+  }, []);
+
+  useEffect(() => {
+    logRetentionHeartbeat('discover_tab');
+  }, [activeTab]);
 
   const handleRefresh = async () => {
     setRefreshing(true);
@@ -59,20 +80,52 @@ export default function DiscoverScreen() {
     });
   };
 
-  const handleAddToFavorite = (product: any) => {
-    logAddToFavorite(product._id, product.category);
-    Toast.show({
-      type: 'success',
-      text1: 'Added to Favorites',
-      text2: `${product.name} saved to your wishlist`
-    });
+  const handleAddToFavorite = async (product: any) => {
+    try {
+      const isFavorite = favoriteIds.has(product._id);
+
+      if (isFavorite) {
+        await removeFromWishlist(product._id);
+        const next = new Set(favoriteIds);
+        next.delete(product._id);
+        setFavoriteIds(next);
+        Toast.show({
+          type: 'success',
+          text1: 'Removed from Favorites',
+          text2: `${product.name} removed from your wishlist`
+        });
+      } else {
+        await addToWishlist(product._id);
+        const next = new Set(favoriteIds);
+        next.add(product._id);
+        setFavoriteIds(next);
+        logAddToFavorite(product._id, product.category);
+        Toast.show({
+          type: 'success',
+          text1: 'Added to Favorites',
+          text2: `${product.name} saved to your wishlist`
+        });
+      }
+    } catch (error: any) {
+      const message = error?.response?.data?.error || 'Failed to update wishlist';
+      Toast.show({
+        type: 'error',
+        text1: 'Wishlist Error',
+        text2: message,
+      });
+    }
   };
 
   const handleSearch = (query: string) => {
     setSearchQuery(query);
     if (query.length > 2) {
       logProductSearch(query, 0);
+      searchProducts({ query }).catch(() => {});
     }
+  };
+
+  const clearSearch = () => {
+    setSearchQuery('');
   };
 
   const renderProductCard = ({ item }: { item: any }) => (
@@ -115,7 +168,11 @@ export default function DiscoverScreen() {
             onPress={() => handleAddToFavorite(item)}
             className="absolute bottom-3 right-3 bg-white rounded-full p-2 shadow-lg"
           >
-            <Feather name="heart" size={16} color="#FF006E" fill="#FF006E" />
+            <Feather
+              name="heart"
+              size={16}
+              color={favoriteIds.has(item._id) ? '#FF006E' : '#6B7280'}
+            />
           </TouchableOpacity>
         </View>
 
@@ -180,8 +237,17 @@ export default function DiscoverScreen() {
     </View>
   );
 
-  const displayedProducts = activeTab === 'personalized' ? products : trendingProducts;
-  const displayLoading = activeTab === 'personalized' ? loading : false;
+  const displayedProducts = useMemo(() => {
+    if (searchQuery.trim().length > 2) return searchResults || [];
+    return activeTab === 'personalized' ? products : trendingProducts;
+  }, [searchQuery, searchResults, activeTab, products, trendingProducts]);
+
+  const displayLoading = (searchQuery.trim().length > 2 && isSearching) || (activeTab === 'personalized' ? loading : false);
+
+  const { profile: datingProfile, loading: datingLoading } = useDatingProfile();
+
+  // Non-blocking: show a banner to set up dating profile, don't block the whole screen
+  const showDatingBanner = !datingLoading && !datingProfile;
 
   return (
     <SafeAreaView className="flex-1 bg-white">
@@ -202,7 +268,7 @@ export default function DiscoverScreen() {
             placeholderTextColor="#9CA3AF"
           />
           {searchQuery.length > 0 && (
-            <TouchableOpacity onPress={() => setSearchQuery('')}>
+            <TouchableOpacity onPress={clearSearch}>
               <Ionicons name="close-circle" size={18} color="#D1D5DB" />
             </TouchableOpacity>
           )}
@@ -245,6 +311,29 @@ export default function DiscoverScreen() {
           </Text>
         </TouchableOpacity>
       </View>
+
+      {/* Dating Profile Banner */}
+      {showDatingBanner && (
+        <TouchableOpacity
+          onPress={() => router.push('/(routes)/dating-profile-setup' as any)}
+          activeOpacity={0.85}
+          style={{ margin: 12, borderRadius: 14, overflow: 'hidden' }}
+        >
+          <LinearGradient
+            colors={['#FF006E', '#9B27AF']}
+            start={{ x: 0, y: 0 }}
+            end={{ x: 1, y: 0 }}
+            style={{ flexDirection: 'row', alignItems: 'center', padding: 14, gap: 10 }}
+          >
+            <Text style={{ fontSize: 28 }}>💘</Text>
+            <View style={{ flex: 1 }}>
+              <Text style={{ color: '#fff', fontWeight: '800', fontSize: 14 }}>Set up your dating profile</Text>
+              <Text style={{ color: 'rgba(255,255,255,0.8)', fontSize: 12 }}>Find matches near you</Text>
+            </View>
+            <Ionicons name="chevron-forward" size={20} color="#fff" />
+          </LinearGradient>
+        </TouchableOpacity>
+      )}
 
       {/* Products List */}
       <FlatList

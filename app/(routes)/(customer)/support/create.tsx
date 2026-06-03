@@ -16,7 +16,7 @@ import { useMutation, useQuery } from '@tanstack/react-query';
 import axios from 'axios';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 
-const API_BASE_URL = process.env.EXPO_PUBLIC_BACKEND_URL || 'http://192.168.1.100:5000';
+const API_BASE_URL = process.env.EXPO_PUBLIC_SERVER_URI || 'https://marketplace-backend.railway.app';
 
 const CATEGORIES = [
   { id: 'order_issue', label: 'Order Issue', icon: '📦' },

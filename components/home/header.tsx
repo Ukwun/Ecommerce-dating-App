@@ -48,7 +48,7 @@ export default function Header({ cartCount = 0 }: HeaderProps) {
             </Animated.View>
           )}
         </TouchableOpacity>
-        <TouchableOpacity>
+        <TouchableOpacity onPress={() => router.push('/(routes)/notifications')} style={styles.iconButton}>
           <Ionicons name="notifications-outline" size={24} color="#9CA3AF" />
         </TouchableOpacity>
       </View>

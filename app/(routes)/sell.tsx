@@ -40,26 +40,13 @@ const uploadImageToImageKit = async (uri: string) => {
     reader.onerror = (error) => reject(error);
     reader.readAsDataURL(blob);
   });
-
-  const base64Data = base64.split(',')[1];
-  const formData = new FormData();
-  formData.append('file', base64Data);
-  formData.append('fileName', `product_${Date.now()}.jpg`);
-  formData.append('folder', '/products');
-
-  const imageKitResponse = await fetch('https://upload.imagekit.io/api/v1/files/upload', {
-    method: 'POST',
-    headers: {
-      Authorization: `Basic ${btoa(process.env.EXPO_PUBLIC_IMAGEKIT_PRIVATE_KEY! + ':')}`,
-    },
-    body: formData,
+  const res = await axiosInstance.post('/upload/api/imagekit', {
+    base64: base64.split(',')[1],
+    fileName: `product_${Date.now()}.jpg`,
+    folder: '/products',
   });
-
-  const imageKitData = await imageKitResponse.json();
-  if (!imageKitResponse.ok) {
-    throw new Error(imageKitData.message || 'ImageKit upload failed');
-  }
-  return { url: imageKitData.url, fileId: imageKitData.fileId };
+  if (!res.data?.url) throw new Error('Upload failed');
+  return { url: res.data.url, fileId: res.data.fileId };
 };
 
 const createProduct = async (data: FormData & { images: { url: string; fileId: string }[] }) => {

@@ -8,7 +8,7 @@ export function BlurTabBarBackground() {
   return <View pointerEvents="none" style={styles.blurBackground} />;
 }
 
-const TAB_HEIGHT = Platform.select({ ios: 78, default: 64 });
+const TAB_HEIGHT = Platform.select({ ios: 78, default: 72 });
 
 const styles = StyleSheet.create({
   blurBackground: {

@@ -3,6 +3,8 @@ const Order = require('../models/Order');
 const Product = require('../models/Product');
 const Cart = require('../models/Cart');
 const { protect } = require('../middleware/auth');
+const { EVENT_TYPES } = require('../constants/eventTaxonomy');
+const { trackUserEvent } = require('../utils/eventLogger');
 
 const router = express.Router();
 
@@ -10,6 +12,15 @@ const router = express.Router();
 router.post('/orders', protect, async (req, res) => {
   try {
     const { products, shippingAddress, shippingCost } = req.body;
+
+    await trackUserEvent({
+      userId: req.user.id,
+      eventType: EVENT_TYPES.CHECKOUT_START,
+      metadata: {
+        itemCount: products?.length || 0,
+        hasShippingAddress: Boolean(shippingAddress),
+      },
+    });
 
     if (!products || products.length === 0) {
       return res.status(400).json({ error: 'No products in order' });
@@ -31,7 +42,7 @@ router.post('/orders', protect, async (req, res) => {
       }
 
       if (product.stock < item.quantity) {
-        return res.status(400).json({ error: `Insufficient stock for ${product.title}` });
+        return res.status(400).json({ error: `Insufficient stock for ${product.name}` });
       }
 
       const totalPrice = product.price * item.quantity;
@@ -49,6 +60,15 @@ router.post('/orders', protect, async (req, res) => {
       product.purchases += item.quantity;
       product.inStock = product.stock > 0;
       await product.save();
+
+      await trackUserEvent({
+        userId: req.user.id,
+        eventType: EVENT_TYPES.PURCHASE,
+        productId: item.product,
+        category: product.category,
+        price: totalPrice,
+        metadata: { quantity: item.quantity, unitPrice: product.price },
+      });
     }
 
     const tax = Math.round(subtotal * 0.1); // 10% tax
@@ -82,6 +102,17 @@ router.post('/orders', protect, async (req, res) => {
       success: true,
       message: 'Order created successfully',
       data: order
+    });
+
+    await trackUserEvent({
+      userId: req.user.id,
+      eventType: EVENT_TYPES.CHECKOUT_COMPLETED,
+      price: total,
+      metadata: {
+        orderId: String(order._id),
+        orderNumber: order.orderNumber,
+        products: orderProducts.length,
+      },
     });
   } catch (error) {
     res.status(500).json({ error: error.message });

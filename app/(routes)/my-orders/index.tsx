@@ -1,164 +1,171 @@
-import React from 'react';
-import { View, Text, FlatList, StyleSheet, TouchableOpacity, ActivityIndicator, Alert } from 'react-native';
+import React, { useCallback } from 'react';
+import {
+  View, Text, FlatList, StyleSheet, TouchableOpacity,
+  ActivityIndicator,
+} from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { LinearGradient } from 'expo-linear-gradient';
-import * as Notifications from 'expo-notifications';
-import { useQuery, useMutation } from '@tanstack/react-query';
-import { router } from 'expo-router';
 import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
-import { useCart } from '@/hooks/CartContext';
+import { router, useFocusEffect } from 'expo-router';
+import { useQuery, useMutation } from '@tanstack/react-query';
+import Animated, { FadeInDown, SlideInRight } from 'react-native-reanimated';
+import * as Haptics from 'expo-haptics';
 import Toast from 'react-native-toast-message';
+import axiosInstance from '@/utils/axiosinstance';
+import { useCart } from '@/hooks/CartContext';
+
+type OrderStatus = 'pending' | 'confirmed' | 'processing' | 'shipped' | 'delivered' | 'cancelled' | 'refunded';
 
 type Order = {
   _id: string;
-  date: string;
+  orderNumber?: string;
+  createdAt: string;
   total: number;
-  status: 'Processing' | 'Shipped' | 'Delivered' | 'Cancelled';
-  itemCount: number;
+  status: OrderStatus;
+  products: { product: any; quantity: number; price: number }[];
 };
 
-// This would be a real product type in your app
-type Product = {
-  _id: string;
-  name: string;
-  price: number;
-  image: string;
+const STATUS_CONFIG: Record<OrderStatus, { color: string; bg: string; icon: any; label: string }> = {
+  pending:    { color: '#92400E', bg: '#FEF3C7', icon: 'time-outline',         label: 'Pending' },
+  confirmed:  { color: '#1E40AF', bg: '#DBEAFE', icon: 'checkmark-circle',     label: 'Confirmed' },
+  processing: { color: '#5B21B6', bg: '#EDE9FE', icon: 'construct-outline',    label: 'Processing' },
+  shipped:    { color: '#065F46', bg: '#D1FAE5', icon: 'airplane-outline',     label: 'Shipped' },
+  delivered:  { color: '#065F46', bg: '#D1FAE5', icon: 'checkmark-done',       label: 'Delivered' },
+  cancelled:  { color: '#991B1B', bg: '#FEE2E2', icon: 'close-circle-outline', label: 'Cancelled' },
+  refunded:   { color: '#1E40AF', bg: '#DBEAFE', icon: 'refresh-circle',       label: 'Refunded' },
 };
 
-const fetchOrders = async (): Promise<Order[]> => {
-  // Mock data. Replace with your actual API call.
-  return [
-    { _id: 'ORD-123XYZ', date: '2023-10-26', total: 15500, status: 'Delivered', itemCount: 2 },
-    { _id: 'ORD-456ABC', date: '2023-10-24', total: 8200, status: 'Shipped', itemCount: 1 },
-    { _id: 'ORD-789DEF', date: '2023-10-22', total: 25000, status: 'Processing', itemCount: 3 },
-    { _id: 'ORD-101GHI', date: '2023-10-20', total: 5400, status: 'Cancelled', itemCount: 1 },
-  ];
-};
+function OrderCard({ item, index, onReorder }: { item: Order; index: number; onReorder: (order: Order) => void }) {
+  const cfg = STATUS_CONFIG[item.status] || STATUS_CONFIG.pending;
+  const date = new Date(item.createdAt).toLocaleDateString('en-NG', { day: 'numeric', month: 'short', year: 'numeric' });
+  const itemCount = item.products?.reduce((s: number, p: any) => s + (p.quantity || 1), 0) || 0;
 
-const fetchOrderDetails = async (orderId: string): Promise<Product[]> => {
-  // In a real app, this would fetch the products associated with the orderId.
-  console.log(`Fetching details for order ${orderId}`);
-  // We'll return mock product data for now.
-  await new Promise(resolve => setTimeout(resolve, 1000)); // Simulate network delay
-  return [
-    { _id: 'prod1', name: 'Classic T-Shirt', price: 8000, image: 'https://via.placeholder.com/150' },
-    { _id: 'prod2', name: 'Denim Jeans', price: 7500, image: 'https://via.placeholder.com/150' },
-  ];
-};
-
-const getStatusStyle = (status: Order['status']) => {
-  switch (status) {
-    case 'Delivered': return { badge: styles.badgeDelivered, text: styles.badgeTextDelivered, icon: 'check-circle' as const };
-    case 'Shipped': return { badge: styles.badgeShipped, text: styles.badgeTextShipped, icon: 'truck-fast' as const };
-    case 'Processing': return { badge: styles.badgeProcessing, text: styles.badgeTextProcessing, icon: 'clock-time-three' as const };
-    case 'Cancelled': return { badge: styles.badgeCancelled, text: styles.badgeTextCancelled, icon: 'cancel' as const };
-    default: return { badge: styles.badgeCancelled, text: styles.badgeTextCancelled, icon: 'help-circle' as const };
-  }
-};
-
-const OrderItem = ({ item, onReorder, isReordering }: { item: Order; onReorder: (orderId: string) => void; isReordering: boolean; }) => {
-  const statusStyle = getStatusStyle(item.status);
-  const canReorder = item.status === 'Delivered';
   return (
-    <View style={styles.orderCard}>
-      <View style={styles.cardHeader}>
-        <Text style={styles.orderId}>{item._id}</Text>
-        <View style={[styles.statusBadge, statusStyle.badge]}>
-          <MaterialCommunityIcons name={statusStyle.icon} color={statusStyle.text.color} size={12} />
-          <Text style={[styles.statusText, statusStyle.text]}>{item.status}</Text>
+    <Animated.View entering={SlideInRight.delay(index * 70).springify()}>
+      <TouchableOpacity
+        style={styles.card}
+        activeOpacity={0.92}
+        onPress={() => router.push({ pathname: '/(routes)/my-orders/[orderId]', params: { orderId: item._id } } as any)}
+      >
+        <View style={styles.cardHeader}>
+          <View>
+            <Text style={styles.orderId}>#{item.orderNumber || item._id.slice(-8).toUpperCase()}</Text>
+            <Text style={styles.orderDate}>{date}</Text>
+          </View>
+          <View style={[styles.statusBadge, { backgroundColor: cfg.bg }]}>
+            <Ionicons name={cfg.icon} size={13} color={cfg.color} />
+            <Text style={[styles.statusText, { color: cfg.color }]}>{cfg.label}</Text>
+          </View>
         </View>
-      </View>
-      <View style={styles.cardBody}>
-        <Text style={styles.orderInfo}>Date: {new Date(item.date).toLocaleDateString()}</Text>
-        <Text style={styles.orderInfo}>Items: {item.itemCount}</Text>
-        <Text style={styles.orderTotal}>Total: ₦{item.total.toLocaleString()}</Text>
-      </View>
-      <View style={styles.cardFooter}>
-        <TouchableOpacity
-          style={[styles.detailsButton, !canReorder && styles.disabledButton]}
-          onPress={() => canReorder && onReorder(item._id)}
-          disabled={!canReorder || isReordering}
-        >
-          <Text style={[styles.detailsButtonText, !canReorder && styles.disabledButtonText]}>{isReordering ? 'Adding...' : 'Re-order'}</Text>
-        </TouchableOpacity>
-        <TouchableOpacity
-          style={styles.trackButton}
-          onPress={() => Alert.alert('Track Order', `Tracking order ${item._id}...`)}
-          // Long press to send a test notification for this order
-          onLongPress={() => sendTestNotification(item._id)}
-        >
-          <Text style={styles.trackButtonText}>Track Order</Text>
-        </TouchableOpacity>
-      </View>
-    </View>
-  );
-};
 
-// Function to simulate sending a push notification
-async function sendTestNotification(orderId: string) {
-  try {
-    await Notifications.scheduleNotificationAsync({
-      content: {
-        title: 'Order Status Update 🚚',
-        body: `Your order ${orderId} has been shipped!`,
-        data: { orderId: orderId },
-      },
-      trigger: { type: 'timeInterval', seconds: 2, repeats: false } as any,
-    });
-    Toast.show({ type: 'info', text1: 'Test Notification Sent', text2: 'You should receive a notification in 2 seconds.' });
-  } catch (err) {
-    // Fail gracefully in Expo Go or environments without notifications support
-    console.warn('Cannot send test notification in this environment:', err);
-    Toast.show({ type: 'info', text1: 'Notifications unavailable', text2: 'Push notifications are not available in this environment.' });
-  }
+        <View style={styles.cardDivider} />
+
+        <View style={styles.cardBody}>
+          <View style={styles.bodyRow}>
+            <MaterialCommunityIcons name="package-variant" size={16} color="#6B7280" />
+            <Text style={styles.bodyText}>{itemCount} item{itemCount !== 1 ? 's' : ''}</Text>
+          </View>
+          <Text style={styles.totalText}>₦{Number(item.total).toLocaleString()}</Text>
+        </View>
+
+        <View style={styles.cardFooter}>
+          <TouchableOpacity
+            style={styles.trackBtn}
+            onPress={() => router.push({ pathname: '/(routes)/my-orders/[orderId]', params: { orderId: item._id } } as any)}
+          >
+            <Ionicons name="location-outline" size={14} color="#FF8C00" />
+            <Text style={styles.trackBtnText}>Track Order</Text>
+          </TouchableOpacity>
+
+          {item.status === 'delivered' && (
+            <TouchableOpacity
+              style={styles.reorderBtn}
+              onPress={() => { Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium); onReorder(item); }}
+            >
+              <Ionicons name="refresh" size={14} color="#fff" />
+              <Text style={styles.reorderBtnText}>Re-order</Text>
+            </TouchableOpacity>
+          )}
+        </View>
+      </TouchableOpacity>
+    </Animated.View>
+  );
 }
 
 export default function MyOrdersScreen() {
   const { addToCart } = useCart();
-  const { data: orders, isLoading } = useQuery({ queryKey: ['myOrders'], queryFn: fetchOrders });
 
-  const reorderMutation = useMutation({
-    mutationFn: fetchOrderDetails,
-    onSuccess: (products) => {
-      products.forEach(product => addToCart(product));
-      Toast.show({
-        type: 'success',
-        text1: 'Items Added to Cart',
-        text2: 'The items from your past order have been added to your cart.',
-      });
-    },
-    onError: (error: Error) => {
-      Toast.show({ type: 'error', text1: 'Re-order Failed', text2: error.message });
+  const { data: orders = [], isLoading, refetch } = useQuery<Order[]>({
+    queryKey: ['myOrders'],
+    queryFn: async () => {
+      const res = await axiosInstance.get('/marketplace/api/orders');
+      return res.data.data || [];
     },
   });
 
-  const handleReorder = (orderId: string) => reorderMutation.mutate(orderId);
+  useFocusEffect(useCallback(() => { refetch(); }, []));
+
+  const reorderMutation = useMutation({
+    mutationFn: async (order: Order) => {
+      // Fetch full product details for each item and add to cart
+      const products = order.products || [];
+      products.forEach((item: any) => {
+        if (item.product) {
+          addToCart({
+            _id: item.product._id || item.product,
+            name: item.product.name || 'Product',
+            price: item.price,
+            image: item.product.images?.[0]?.url || '',
+          });
+        }
+      });
+      return products.length;
+    },
+    onSuccess: (count) => {
+      Toast.show({ type: 'success', text1: '🛒 Added to Cart', text2: `${count} item(s) added from your past order` });
+      router.push('/_hidden/cart');
+    },
+    onError: () => Toast.show({ type: 'error', text1: 'Re-order failed' }),
+  });
 
   return (
     <LinearGradient colors={['#FF8C00', '#4B2E05']} style={{ flex: 1 }}>
       <SafeAreaView style={styles.container}>
-        <View style={styles.header}>
-          <TouchableOpacity onPress={() => router.back()} style={styles.backButton}>
+        <Animated.View entering={FadeInDown.springify()} style={styles.header}>
+          <TouchableOpacity onPress={() => router.back()} style={styles.backBtn}>
             <Ionicons name="arrow-back" size={24} color="#fff" />
           </TouchableOpacity>
           <Text style={styles.headerTitle}>My Orders</Text>
-          <View style={{ width: 24 }} />
-        </View>
+          <View style={{ width: 40 }} />
+        </Animated.View>
 
         {isLoading ? (
-          <ActivityIndicator size="large" color="#fff" style={{ marginTop: 50 }} />
+          <View style={styles.loadingBox}>
+            <ActivityIndicator size="large" color="#fff" />
+            <Text style={styles.loadingText}>Loading your orders...</Text>
+          </View>
+        ) : orders.length === 0 ? (
+          <Animated.View entering={FadeInDown.delay(200).springify()} style={styles.emptyBox}>
+            <MaterialCommunityIcons name="shopping-outline" size={72} color="rgba(255,255,255,0.5)" />
+            <Text style={styles.emptyTitle}>No orders yet</Text>
+            <Text style={styles.emptySubtitle}>Your orders will appear here once you start shopping</Text>
+            <TouchableOpacity style={styles.shopNowBtn} onPress={() => router.push('/(tabs)' as any)}>
+              <Text style={styles.shopNowText}>Start Shopping</Text>
+            </TouchableOpacity>
+          </Animated.View>
         ) : (
           <FlatList
             data={orders}
-            renderItem={({ item }) => (
-              <OrderItem
+            keyExtractor={(item) => item._id}
+            contentContainerStyle={styles.list}
+            renderItem={({ item, index }) => (
+              <OrderCard
                 item={item}
-                onReorder={handleReorder}
-                isReordering={reorderMutation.isPending && reorderMutation.variables === item._id}
+                index={index}
+                onReorder={(order) => reorderMutation.mutate(order)}
               />
             )}
-            keyExtractor={(item) => item._id}
-            contentContainerStyle={styles.listContainer}
+            showsVerticalScrollIndicator={false}
           />
         )}
       </SafeAreaView>
@@ -168,35 +175,31 @@ export default function MyOrdersScreen() {
 
 const styles = StyleSheet.create({
   container: { flex: 1 },
-  header: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', padding: 16, paddingTop: 24, borderBottomWidth: 1, borderBottomColor: 'rgba(255,255,255,0.1)' },
-  backButton: { padding: 4 },
-  headerTitle: { fontSize: 22, fontWeight: 'bold', color: '#fff' },
-  listContainer: { padding: 16 },
-  orderCard: { backgroundColor: 'rgba(255,255,255,0.95)', borderRadius: 12, marginBottom: 16, overflow: 'hidden' },
-  cardHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', padding: 16, borderBottomWidth: 1, borderBottomColor: '#E5E7EB' },
-  orderId: { fontSize: 16, fontWeight: 'bold', color: '#111827' },
-  statusBadge: { flexDirection: 'row', alignItems: 'center', borderRadius: 12, paddingHorizontal: 10, paddingVertical: 4, gap: 4 },
-  statusText: { fontSize: 12, fontWeight: 'bold' },
-  badgeDelivered: { backgroundColor: '#D1FAE5' },
-  badgeTextDelivered: { color: '#065F46' },
-  badgeShipped: { backgroundColor: '#DBEAFE' },
-  badgeTextShipped: { color: '#1E40AF' },
-  badgeProcessing: { backgroundColor: '#FEF3C7' },
-  badgeTextProcessing: { color: '#92400E' },
-  badgeCancelled: { backgroundColor: '#FEE2E2' },
-  badgeTextCancelled: { color: '#991B1B' },
-  cardBody: { padding: 16 },
-  orderInfo: { fontSize: 14, color: '#4B5563', marginBottom: 4 },
-  orderTotal: { fontSize: 16, fontWeight: 'bold', color: '#111827', marginTop: 8 },
-  cardFooter: { flexDirection: 'row', backgroundColor: '#F9FAFB', borderTopWidth: 1, borderTopColor: '#E5E7EB' },
-  detailsButton: { flex: 1, padding: 16, alignItems: 'center', borderRightWidth: 1, borderRightColor: '#E5E7EB' },
-  detailsButtonText: { color: '#4B5563', fontWeight: '600' },
-  disabledButton: {
-    backgroundColor: '#F3F4F6',
-  },
-  disabledButtonText: {
-    color: '#9CA3AF',
-  },
-  trackButton: { flex: 1, padding: 16, alignItems: 'center', backgroundColor: '#FFEFD5' },
-  trackButtonText: { color: '#FF8C00', fontWeight: 'bold' },
+  header: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', padding: 16, paddingTop: 8 },
+  backBtn: { padding: 8, backgroundColor: 'rgba(255,255,255,0.2)', borderRadius: 12 },
+  headerTitle: { fontSize: 20, fontWeight: 'bold', color: '#fff' },
+  list: { padding: 16, gap: 12, paddingBottom: 40 },
+  card: { backgroundColor: '#fff', borderRadius: 16, overflow: 'hidden', shadowColor: '#000', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.08, shadowRadius: 8, elevation: 4 },
+  cardHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start', padding: 16, paddingBottom: 12 },
+  orderId: { fontSize: 15, fontWeight: '800', color: '#111827' },
+  orderDate: { fontSize: 12, color: '#9CA3AF', marginTop: 2 },
+  statusBadge: { flexDirection: 'row', alignItems: 'center', paddingHorizontal: 10, paddingVertical: 5, borderRadius: 20, gap: 4 },
+  statusText: { fontSize: 12, fontWeight: '700' },
+  cardDivider: { height: 1, backgroundColor: '#F3F4F6', marginHorizontal: 16 },
+  cardBody: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', padding: 16, paddingVertical: 12 },
+  bodyRow: { flexDirection: 'row', alignItems: 'center', gap: 6 },
+  bodyText: { fontSize: 14, color: '#6B7280' },
+  totalText: { fontSize: 16, fontWeight: '800', color: '#111827' },
+  cardFooter: { flexDirection: 'row', gap: 10, padding: 16, paddingTop: 0 },
+  trackBtn: { flex: 1, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 6, paddingVertical: 10, borderRadius: 10, borderWidth: 1.5, borderColor: '#FF8C00' },
+  trackBtnText: { color: '#FF8C00', fontWeight: '700', fontSize: 13 },
+  reorderBtn: { flex: 1, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 6, paddingVertical: 10, borderRadius: 10, backgroundColor: '#FF8C00' },
+  reorderBtnText: { color: '#fff', fontWeight: '700', fontSize: 13 },
+  loadingBox: { flex: 1, justifyContent: 'center', alignItems: 'center', gap: 12 },
+  loadingText: { color: '#fff', fontSize: 15 },
+  emptyBox: { flex: 1, justifyContent: 'center', alignItems: 'center', padding: 40, gap: 12 },
+  emptyTitle: { fontSize: 22, fontWeight: 'bold', color: '#fff' },
+  emptySubtitle: { fontSize: 14, color: 'rgba(255,255,255,0.75)', textAlign: 'center' },
+  shopNowBtn: { backgroundColor: '#fff', paddingHorizontal: 28, paddingVertical: 14, borderRadius: 25, marginTop: 8 },
+  shopNowText: { color: '#FF8C00', fontWeight: '700', fontSize: 16 },
 });

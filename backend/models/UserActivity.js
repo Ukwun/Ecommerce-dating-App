@@ -9,7 +9,28 @@ const userActivitySchema = new mongoose.Schema({
   },
   activityType: {
     type: String,
-    enum: ['product_view', 'product_search', 'add_to_cart', 'purchase', 'add_favorite', 'remove_favorite', 'product_click', 'seller_view', 'category_browse'],
+    enum: [
+      'product_view',
+      'product_search',
+      'add_to_cart',
+      'remove_from_cart',
+      'checkout_start',
+      'checkout_completed',
+      'purchase',
+      'payment_success',
+      'payment_failed',
+      'app_open',
+      'session_start',
+      'session_end',
+      'retention_heartbeat',
+      'message_sent',
+      'message_received',
+      'add_favorite',
+      'remove_favorite',
+      'product_click',
+      'seller_view',
+      'category_browse'
+    ],
     required: true,
     index: true
   },
@@ -35,14 +56,14 @@ const userActivitySchema = new mongoose.Schema({
     deviceInfo: String,
     referrer: String
   }
-}, { timestamps: false });
+}, { timestamps: true });
 
 // Index for quick lookups
 userActivitySchema.index({ userId: 1, timestamp: -1 });
 userActivitySchema.index({ userId: 1, activityType: 1, timestamp: -1 });
 userActivitySchema.index({ productId: 1, userId: 1 });
 
-// TTL index - keep activity data for 90 days
-userActivitySchema.index({ createdAt: 1 }, { expireAfterSeconds: 7776000 });
+// TTL index - keep activity data for 90 days.
+userActivitySchema.index({ timestamp: 1 }, { expireAfterSeconds: 7776000 });
 
 module.exports = mongoose.model('UserActivity', userActivitySchema);

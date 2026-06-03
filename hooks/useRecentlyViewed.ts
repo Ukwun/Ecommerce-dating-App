@@ -19,10 +19,9 @@ type Product = {
 
 const fetchProductsByIds = async (ids: string[]): Promise<Product[]> => {
   if (ids.length === 0) return [];
-  // In a real app, you'd have a dedicated endpoint like `/products/batch?ids=id1,id2,id3`
-  // For now, we'll fetch all and filter, which is inefficient but works for a mock.
-  const response = await axiosInstance.get('/product/api/get-all-products');
-  const allProducts = response.data?.products ?? [];
+  // TODO: replace with a dedicated batch endpoint when available.
+  const response = await axiosInstance.get('/marketplace/api/products', { params: { limit: 200 } });
+  const allProducts = response.data?.data ?? [];
   const productMap = new Map(allProducts.map((p: Product) => [p._id, p]));
   return ids.map(id => productMap.get(id)).filter(Boolean) as Product[];
 };

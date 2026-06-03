@@ -2,6 +2,7 @@ const express = require('express');
 const router = express.Router();
 const Product = require('../models/Product');
 const { protect } = require('../middleware/auth');
+const Review = require('../models/Review');
 
 // Create new product
 router.post('/products', protect, async (req, res) => {
@@ -91,16 +92,43 @@ router.get('/products', async (req, res) => {
 // Get single product
 router.get('/products/:id', async (req, res) => {
   try {
-    const product = await Product.findById(req.params.id).populate('seller', 'name avatar');
+    // Check for valid ID format to prevent "No product found" crashes
+    if (!req.params.id.match(/^[0-9a-fA-F]{24}$/)) {
+      return res.status(400).json({ success: false, message: 'Invalid Product ID format' });
+    }
+
+    const product = await Product.findById(req.params.id)
+      .populate('seller', 'name avatar businessName averageRating verified joinedDate')
+      .lean();
 
     if (!product) {
       return res.status(404).json({ success: false, message: 'Product not found' });
     }
 
-    res.status(200).json({ success: true, data: product });
+    // Alibaba Experience: Get reviews, but also similar products and seller performance
+    const reviews = await Review.find({ product: req.params.id })
+      .populate('user', 'name avatar')
+      .sort({ createdAt: -1 })
+      .limit(5);
+
+    // Cross-sell logic: Find items in the same category
+    const similarItems = await Product.find({
+      category: product.category,
+      _id: { $ne: product._id }
+    }).limit(6).select('name price images ratings');
+
+    res.status(200).json({ 
+      success: true, 
+      data: { 
+        ...product, 
+        latestReviews: reviews,
+        similarProducts: similarItems,
+        shippingInfo: { estimatedDays: "3-5 days", cost: "Calculated at checkout" }
+      } 
+    });
   } catch (error) {
-    console.error(error);
-    res.status(500).json({ success: false, message: 'Server Error' });
+    console.error(`Error fetching product ${req.params.id}:`, error);
+    res.status(500).json({ success: false, message: 'Internal Server Error' });
   }
 });
 
@@ -156,6 +184,44 @@ router.delete('/products/:id', protect, async (req, res) => {
   } catch (error) {
     console.error(error);
     res.status(500).json({ success: false, message: 'Server Error' });
+  }
+});
+
+// ✅ Submit review for a product
+router.post('/products/:id/reviews', protect, async (req, res) => {
+  try {
+    const { rating, comment } = req.body;
+    if (!rating || rating < 1 || rating > 5) {
+      return res.status(400).json({ error: 'Rating must be between 1 and 5' });
+    }
+    const product = await Product.findById(req.params.id);
+    if (!product) return res.status(404).json({ error: 'Product not found' });
+
+    // Check if user already reviewed this product
+    const Review = require('../models/Review');
+    const existing = await Review.findOne({ product: req.params.id, user: req.user.id });
+    if (existing) {
+      return res.status(400).json({ error: 'You have already reviewed this product' });
+    }
+
+    const review = await Review.create({
+      product: req.params.id,
+      user: req.user.id,
+      rating: Number(rating),
+      comment: comment || '',
+    });
+
+    // Recalculate product rating
+    const reviews = await Review.find({ product: req.params.id });
+    const avgRating = reviews.reduce((s, r) => s + r.rating, 0) / reviews.length;
+    product.ratings = Math.round(avgRating * 10) / 10;
+    product.numOfReviews = reviews.length;
+    await product.save();
+
+    const populated = await Review.findById(review._id).populate('user', 'name avatar');
+    res.status(201).json({ success: true, data: populated });
+  } catch (error) {
+    res.status(500).json({ error: error.message });
   }
 });
 

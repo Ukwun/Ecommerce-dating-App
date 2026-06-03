@@ -61,18 +61,22 @@ export const CartProvider = ({ children }: { children: ReactNode }) => {
   }, [items, isLoading]);
   
   const addToCart = (product: Product) => {
-    setItems(prevItems => {
-      const existingItem = prevItems.find(item => item._id === product._id);
-      if (existingItem) {
-        // Increase quantity if item already exists
-        return prevItems.map(item =>
-          item._id === product._id ? { ...item, quantity: item.quantity + 1 } : item
-        );
-      }
-      // Add new item
-      return [...prevItems, { ...product, quantity: 1 }];
-    });
-    Alert.alert('Success', `${product.name} has been added to your cart.`);
+    try {
+      setItems(prevItems => {
+        const existingItem = prevItems.find(item => item._id === product._id);
+        if (existingItem) {
+          // Increase quantity if item already exists
+          return prevItems.map(item =>
+            item._id === product._id ? { ...item, quantity: item.quantity + 1 } : item
+          );
+        }
+        // Add new item
+        return [...prevItems, { ...product, quantity: 1 }];
+      });
+      Alert.alert('✓ Added to Cart', `${product.name} added to your cart`);
+    } catch (error) {
+      Alert.alert('Error', 'Failed to add item to cart');
+    }
   };
 
   const updateQuantity = (productId: string, amount: number) => {
@@ -101,10 +105,6 @@ export const CartProvider = ({ children }: { children: ReactNode }) => {
     clearCart,
     cartCount,
   };
-
-  if (isLoading) {
-    return null; // Or a loading spinner, but null is fine for a quick initialization
-  }
 
   return <CartContext.Provider value={value}>{children}</CartContext.Provider>;
 };

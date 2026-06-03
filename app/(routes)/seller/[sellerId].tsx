@@ -1,112 +1,260 @@
-import React, { useEffect, useState } from 'react';
-import { View, Text, StyleSheet, Image, FlatList, TouchableOpacity, ActivityIndicator } from 'react-native';
+import React, { useState, useEffect } from 'react';
+import {
+  View, Text, StyleSheet, Image, FlatList, TouchableOpacity,
+  ActivityIndicator, Dimensions, Share,
+} from 'react-native';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { Ionicons } from '@expo/vector-icons';
+import { Ionicons, MaterialCommunityIcons, Feather } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
+import Animated, {
+  FadeInDown, FadeInUp, useSharedValue, useAnimatedStyle,
+  withSpring, ZoomIn, SlideInRight,
+} from 'react-native-reanimated';
+import * as Haptics from 'expo-haptics';
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import Toast from 'react-native-toast-message';
+import axiosInstance from '@/utils/axiosinstance';
 import { ProductCard } from '@/components/home/products';
 import { useCart } from '@/hooks/CartContext';
 import { useWishlist } from '@/hooks/useWishlist';
-import axiosInstance from '@/utils/axiosinstance';
+import AsyncStorage from '@react-native-async-storage/async-storage';
+
+const { width } = Dimensions.get('window');
+
+const AnimatedTouchable = Animated.createAnimatedComponent(TouchableOpacity);
 
 export default function SellerProfileScreen() {
-  const { sellerId, name, avatar } = useLocalSearchParams();
+  const { sellerId, name, avatar } = useLocalSearchParams<{ sellerId: string; name?: string; avatar?: string }>();
   const router = useRouter();
   const { addToCart } = useCart();
   const { wishlistIds, toggleWishlist } = useWishlist();
-  const [products, setProducts] = useState<any[]>([]);
-  const [loading, setLoading] = useState(true);
+  const queryClient = useQueryClient();
+  const [isFollowing, setIsFollowing] = useState(false);
+  const followScale = useSharedValue(1);
+  const followStyle = useAnimatedStyle(() => ({ transform: [{ scale: followScale.value }] }));
 
-  // In a real app, fetch seller details and products using sellerId
-  const sellerName = name || 'Verified Seller';
-  const sellerAvatar = avatar || 'https://via.placeholder.com/150';
-
-  useEffect(() => {
-    const fetchSellerProducts = async () => {
+  // Fetch seller profile + their products
+  const { data: sellerData, isLoading: loadingSeller } = useQuery({
+    queryKey: ['sellerProfile', sellerId],
+    queryFn: async () => {
       try {
-        const response = await axiosInstance.get(`/marketplace/api/products?seller=${sellerId}`);
-        const mappedProducts = (response.data.data || []).map((p: any) => ({
-          ...p,
-          name: p.title,
-          image: p.thumbnail || (p.images && p.images[0]) || 'https://via.placeholder.com/150'
-        }));
-        setProducts(mappedProducts);
-      } catch (error) {
-        console.error('Failed to fetch seller products', error);
-      } finally {
-        setLoading(false);
+        const res = await axiosInstance.get(`/seller/api/profile?userId=${sellerId}`);
+        return res.data.data;
+      } catch {
+        return null;
       }
-    };
+    },
+    enabled: !!sellerId,
+  });
 
-    if (sellerId) {
-      fetchSellerProducts();
-    }
+  const { data: products = [], isLoading: loadingProducts } = useQuery({
+    queryKey: ['sellerProducts', sellerId],
+    queryFn: async () => {
+      const res = await axiosInstance.get(`/marketplace/api/products?seller=${sellerId}`);
+      return (res.data.data || []).map((p: any) => ({
+        ...p,
+        name: p.name || p.title,
+        image: p.thumbnail || p.images?.[0]?.url || p.images?.[0] || '',
+        rating: p.ratings || 0,
+      }));
+    },
+    enabled: !!sellerId,
+  });
+
+  const { data: ratings } = useQuery({
+    queryKey: ['sellerRatings', sellerId],
+    queryFn: async () => {
+      try {
+        const res = await axiosInstance.get(`/marketplace/api/seller-ratings/${sellerId}`);
+        return res.data.data || { averageRating: 0, totalRatings: 0, ratings: [] };
+      } catch {
+        return { averageRating: 0, totalRatings: 0, ratings: [] };
+      }
+    },
+    enabled: !!sellerId,
+  });
+
+  // Check follow status from storage
+  useEffect(() => {
+    AsyncStorage.getItem(`@follow_${sellerId}`).then(v => { if (v === '1') setIsFollowing(true); });
   }, [sellerId]);
 
+  const handleFollow = () => {
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+    followScale.value = withSpring(1.2, {}, () => { followScale.value = withSpring(1); });
+    const next = !isFollowing;
+    setIsFollowing(next);
+    AsyncStorage.setItem(`@follow_${sellerId}`, next ? '1' : '0');
+    Toast.show({
+      type: 'success',
+      text1: next ? '✅ Following seller' : 'Unfollowed',
+      text2: next ? `You'll see ${name || 'this seller'}'s new listings first` : '',
+    });
+  };
+
+  const handleChatSeller = () => {
+    router.push({
+      pathname: '/(routes)/chat/[id]',
+      params: { id: sellerId, name: name || 'Seller', avatar: avatar || '' },
+    } as any);
+  };
+
+  const handleShare = async () => {
+    await Share.share({ message: `Check out ${name || 'this seller'} on Marketplace! They have amazing products 🛍️` });
+  };
+
+  const sellerName = name || sellerData?.businessName || 'Verified Seller';
+  const sellerAvatar = avatar || 'https://i.pravatar.cc/150?u=' + sellerId;
+  const avgRating = ratings?.averageRating || sellerData?.averageRating || 0;
+  const totalRatings = ratings?.totalRatings || sellerData?.totalRatings || 0;
+  const totalSales = sellerData?.totalSales || 0;
+
   return (
-    <LinearGradient colors={['#FF8C00', '#4B2E05']} style={{ flex: 1 }}>
-      <SafeAreaView style={styles.container}>
-        {/* Header */}
-        <View style={styles.header}>
-          <TouchableOpacity onPress={() => router.back()} style={styles.backButton}>
-            <Ionicons name="arrow-back" size={24} color="#fff" />
-          </TouchableOpacity>
-          <Text style={styles.headerTitle}>Seller Profile</Text>
-          <View style={{ width: 24 }} />
-        </View>
-
-        <View style={styles.profileSection}>
-          <Image source={{ uri: sellerAvatar as string }} style={styles.avatar} />
-          <View style={styles.infoContainer}>
-            <View style={styles.nameRow}>
-              <Text style={styles.name}>{sellerName}</Text>
-              <Ionicons name="checkmark-circle" size={20} color="#10B981" style={{ marginLeft: 6 }} />
-            </View>
-            <Text style={styles.stats}>4.9 ★ (1.2k reviews) • 500+ Sales</Text>
-          </View>
-        </View>
-
-        <View style={styles.productsContainer}>
-          <Text style={styles.sectionTitle}>Products</Text>
-          {loading ? (
-            <ActivityIndicator size="large" color="#FF8C00" style={{ marginTop: 20 }} />
-          ) : (
-            <FlatList
-              data={products}
-              keyExtractor={(item) => item._id}
-              renderItem={({ item }) => (
-                <View style={{ flex: 0.5, padding: 4 }}>
-                   <ProductCard
-                    item={item}
-                    wishlist={wishlistIds}
-                    toggleWishlist={toggleWishlist}
-                    addToCart={addToCart}
-                  />
+    <View style={{ flex: 1, backgroundColor: '#F9FAFB' }}>
+      <FlatList
+        data={products}
+        numColumns={2}
+        keyExtractor={(item) => item._id}
+        showsVerticalScrollIndicator={false}
+        columnWrapperStyle={{ justifyContent: 'space-between', paddingHorizontal: 16 }}
+        contentContainerStyle={{ paddingBottom: 40 }}
+        ListHeaderComponent={
+          <>
+            {/* Hero Header */}
+            <LinearGradient colors={['#FF8C00', '#4B2E05']} style={styles.heroGradient}>
+              <SafeAreaView>
+                <View style={styles.headerRow}>
+                  <TouchableOpacity onPress={() => router.back()} style={styles.headerBtn}>
+                    <Ionicons name="arrow-back" size={22} color="#fff" />
+                  </TouchableOpacity>
+                  <TouchableOpacity onPress={handleShare} style={styles.headerBtn}>
+                    <Feather name="share-2" size={20} color="#fff" />
+                  </TouchableOpacity>
                 </View>
-              )}
-              numColumns={2}
-              contentContainerStyle={{ paddingBottom: 20 }}
-              showsVerticalScrollIndicator={false}
-              ListEmptyComponent={<Text style={{ textAlign: 'center', marginTop: 20, color: '#666' }}>No products found for this seller.</Text>}
-            />
-          )}
-        </View>
-      </SafeAreaView>
-    </LinearGradient>
+              </SafeAreaView>
+
+              {/* Profile Card */}
+              <Animated.View entering={FadeInUp.delay(100).springify()} style={styles.profileCard}>
+                <View style={styles.avatarWrapper}>
+                  <Image source={{ uri: sellerAvatar }} style={styles.avatar} />
+                  <View style={styles.verifiedDot}>
+                    <Ionicons name="checkmark" size={12} color="#fff" />
+                  </View>
+                </View>
+
+                <Text style={styles.sellerName}>{sellerName}</Text>
+                {sellerData?.businessCategory && (
+                  <Text style={styles.sellerCategory}>{sellerData.businessCategory}</Text>
+                )}
+
+                {/* Stats Row */}
+                <View style={styles.statsRow}>
+                  <View style={styles.statItem}>
+                    <Text style={styles.statNumber}>{products.length}</Text>
+                    <Text style={styles.statLabel}>Products</Text>
+                  </View>
+                  <View style={styles.statDivider} />
+                  <View style={styles.statItem}>
+                    <Text style={styles.statNumber}>{avgRating > 0 ? avgRating.toFixed(1) : '—'}</Text>
+                    <Text style={styles.statLabel}>Rating</Text>
+                  </View>
+                  <View style={styles.statDivider} />
+                  <View style={styles.statItem}>
+                    <Text style={styles.statNumber}>{totalSales > 0 ? `${totalSales}+` : totalRatings}</Text>
+                    <Text style={styles.statLabel}>{totalSales > 0 ? 'Sales' : 'Reviews'}</Text>
+                  </View>
+                </View>
+
+                {/* Star Rating */}
+                {avgRating > 0 && (
+                  <Animated.View entering={ZoomIn.delay(300)} style={styles.starRow}>
+                    {[1, 2, 3, 4, 5].map(i => (
+                      <Ionicons key={i} name={i <= Math.round(avgRating) ? 'star' : 'star-outline'} size={18} color="#FFD700" />
+                    ))}
+                    <Text style={styles.ratingCount}>({totalRatings})</Text>
+                  </Animated.View>
+                )}
+
+                {/* Action Buttons */}
+                <View style={styles.actionRow}>
+                  <AnimatedTouchable
+                    style={[styles.followBtn, isFollowing && styles.followBtnActive, followStyle]}
+                    onPress={handleFollow}
+                    activeOpacity={1}
+                  >
+                    <Ionicons name={isFollowing ? 'person-remove' : 'person-add'} size={16} color={isFollowing ? '#FF8C00' : '#fff'} />
+                    <Text style={[styles.followBtnText, isFollowing && { color: '#FF8C00' }]}>
+                      {isFollowing ? 'Following' : 'Follow'}
+                    </Text>
+                  </AnimatedTouchable>
+
+                  <TouchableOpacity style={styles.chatBtn} onPress={handleChatSeller}>
+                    <Ionicons name="chatbubble-ellipses" size={16} color="#fff" />
+                    <Text style={styles.chatBtnText}>Message</Text>
+                  </TouchableOpacity>
+                </View>
+              </Animated.View>
+            </LinearGradient>
+
+            {/* Products Header */}
+            <Animated.View entering={FadeInDown.delay(200).springify()} style={styles.productsHeader}>
+              <Text style={styles.productsTitle}>
+                Products <Text style={styles.productsCount}>({products.length})</Text>
+              </Text>
+            </Animated.View>
+
+            {loadingProducts && (
+              <View style={{ paddingVertical: 30, alignItems: 'center' }}>
+                <ActivityIndicator size="large" color="#FF8C00" />
+              </View>
+            )}
+          </>
+        }
+        renderItem={({ item, index }) => (
+          <Animated.View entering={FadeInDown.delay(index * 60).springify()} style={{ width: '48%', marginBottom: 16 }}>
+            <ProductCard item={item} wishlist={wishlistIds} toggleWishlist={toggleWishlist} addToCart={addToCart} index={index} />
+          </Animated.View>
+        )}
+        ListEmptyComponent={
+          !loadingProducts ? (
+            <Animated.View entering={FadeInDown.delay(300)} style={styles.emptyProducts}>
+              <MaterialCommunityIcons name="package-variant-closed" size={48} color="#D1D5DB" />
+              <Text style={styles.emptyText}>No products listed yet</Text>
+            </Animated.View>
+          ) : null
+        }
+      />
+    </View>
   );
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1 },
-  header: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', padding: 16 },
-  backButton: { padding: 4 },
-  headerTitle: { fontSize: 20, fontWeight: 'bold', color: '#fff' },
-  profileSection: { alignItems: 'center', paddingVertical: 20 },
-  avatar: { width: 100, height: 100, borderRadius: 50, borderWidth: 3, borderColor: '#fff' },
-  infoContainer: { marginTop: 12, alignItems: 'center' },
-  nameRow: { flexDirection: 'row', alignItems: 'center' },
-  name: { fontSize: 24, fontWeight: 'bold', color: '#fff' },
-  stats: { color: 'rgba(255,255,255,0.8)', marginTop: 4 },
-  productsContainer: { flex: 1, backgroundColor: '#F3F4F6', borderTopLeftRadius: 30, borderTopRightRadius: 30, padding: 16 },
-  sectionTitle: { fontSize: 18, fontWeight: 'bold', color: '#111827', marginBottom: 16, marginLeft: 4 },
+  heroGradient: { paddingBottom: 0 },
+  headerRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingHorizontal: 16, paddingBottom: 12 },
+  headerBtn: { padding: 8, backgroundColor: 'rgba(255,255,255,0.2)', borderRadius: 12 },
+  profileCard: { backgroundColor: '#fff', margin: 16, borderRadius: 24, padding: 24, alignItems: 'center', shadowColor: '#000', shadowOffset: { width: 0, height: 8 }, shadowOpacity: 0.1, shadowRadius: 16, elevation: 8 },
+  avatarWrapper: { position: 'relative', marginBottom: 14 },
+  avatar: { width: 90, height: 90, borderRadius: 45, borderWidth: 3, borderColor: '#FF8C00' },
+  verifiedDot: { position: 'absolute', bottom: 2, right: 2, backgroundColor: '#10B981', width: 24, height: 24, borderRadius: 12, justifyContent: 'center', alignItems: 'center', borderWidth: 2, borderColor: '#fff' },
+  sellerName: { fontSize: 22, fontWeight: '800', color: '#111827', textAlign: 'center', marginBottom: 4 },
+  sellerCategory: { fontSize: 13, color: '#9CA3AF', marginBottom: 16 },
+  statsRow: { flexDirection: 'row', alignItems: 'center', width: '100%', justifyContent: 'center', marginBottom: 12 },
+  statItem: { flex: 1, alignItems: 'center' },
+  statNumber: { fontSize: 20, fontWeight: '800', color: '#111827' },
+  statLabel: { fontSize: 12, color: '#9CA3AF', marginTop: 2, textTransform: 'uppercase', letterSpacing: 0.5 },
+  statDivider: { width: 1, height: 36, backgroundColor: '#F3F4F6' },
+  starRow: { flexDirection: 'row', alignItems: 'center', gap: 2, marginBottom: 18 },
+  ratingCount: { fontSize: 13, color: '#9CA3AF', marginLeft: 6 },
+  actionRow: { flexDirection: 'row', gap: 12, width: '100%' },
+  followBtn: { flex: 1, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 6, backgroundColor: '#FF8C00', paddingVertical: 12, borderRadius: 14 },
+  followBtnActive: { backgroundColor: '#FFF7ED', borderWidth: 2, borderColor: '#FF8C00' },
+  followBtnText: { color: '#fff', fontWeight: '700', fontSize: 14 },
+  chatBtn: { flex: 1, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 6, backgroundColor: '#111827', paddingVertical: 12, borderRadius: 14 },
+  chatBtnText: { color: '#fff', fontWeight: '700', fontSize: 14 },
+  productsHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingHorizontal: 20, paddingTop: 8, paddingBottom: 14 },
+  productsTitle: { fontSize: 18, fontWeight: '800', color: '#111827' },
+  productsCount: { color: '#9CA3AF', fontWeight: '500' },
+  emptyProducts: { alignItems: 'center', paddingVertical: 40, gap: 10 },
+  emptyText: { fontSize: 15, color: '#9CA3AF' },
 });

@@ -1,9 +1,11 @@
 const express = require('express');
 const router = express.Router();
 const Product = require('../models/Product');
-const UserActivity = require('../models/UserActivity');
 const RecommendationEngine = require('../utils/RecommendationEngine');
 const { protect } = require('../middleware/auth');
+const Wishlist = require('../models/Wishlist');
+const { EVENT_TYPES, isValidEventType } = require('../constants/eventTaxonomy');
+const { trackUserEvent } = require('../utils/eventLogger');
 
 /**
  * @route   POST /marketplace/api/activity/log
@@ -14,15 +16,22 @@ router.post('/activity/log', protect, async (req, res) => {
   try {
     const { activityType, productId, sellerId, searchQuery, category, price, metadata } = req.body;
 
-    const activity = await UserActivity.create({
+    if (!isValidEventType(activityType)) {
+      return res.status(400).json({
+        success: false,
+        message: `Invalid activity type. Use canonical taxonomy events only.`,
+      });
+    }
+
+    const activity = await trackUserEvent({
       userId: req.user.id,
-      activityType,
-      productId: productId || null,
-      sellerId: sellerId || null,
-      searchQuery: searchQuery || null,
-      category: category || null,
-      price: price || null,
-      metadata: metadata || {}
+      eventType: activityType,
+      productId,
+      sellerId,
+      searchQuery,
+      category,
+      price,
+      metadata,
     });
 
     res.status(201).json({
@@ -47,6 +56,12 @@ router.get('/discover', protect, async (req, res) => {
     const { page = 1, limit = 20 } = req.query;
     const skip = (page - 1) * limit;
 
+    await trackUserEvent({
+      userId: req.user.id,
+      eventType: EVENT_TYPES.RETENTION_HEARTBEAT,
+      metadata: { surface: 'marketplace_discover', page: Number(page), limit: Number(limit) },
+    });
+
     // Get personalized recommendations
     const personalizedProducts = await RecommendationEngine.getPersonalizedProducts(
       req.user.id,
@@ -65,6 +80,18 @@ router.get('/discover', protect, async (req, res) => {
       recommendedProducts = personalizedProducts.slice(0, limit);
     }
 
+    // Realistic Experience: Check which products are already in user's wishlist
+    const wishlistItems = await Wishlist.find({ user: req.user.id });
+    const wishlistProductIds = new Set(wishlistItems.map(item => item.product.toString()));
+
+    const enhancedData = recommendedProducts.map(product => {
+      const p = product.toObject ? product.toObject() : product;
+      return {
+        ...p,
+        isFavorite: wishlistProductIds.has(p._id.toString())
+      };
+    });
+
     // Get total count of available products
     const totalProducts = await Product.countDocuments({ stock: { $gt: 0 } });
     const totalPages = Math.ceil(totalProducts / limit);
@@ -74,7 +101,8 @@ router.get('/discover', protect, async (req, res) => {
       page,
       limit,
       totalPages,
-      data: recommendedProducts,
+      // Modern sorting: Mix engagement score with newness for a "Fresh & Relevant" feed
+      data: enhancedData.sort((a, b) => (b.engagementScore || 0) - (a.engagementScore || 0) || b.createdAt - a.createdAt),
       hasMore: page < totalPages
     });
   } catch (error) {
@@ -146,11 +174,11 @@ router.get('/products/search', protect, async (req, res) => {
 
     // Log search activity
     if (q) {
-      await UserActivity.create({
+      await trackUserEvent({
         userId: req.user.id,
-        activityType: 'product_search',
+        eventType: EVENT_TYPES.PRODUCT_SEARCH,
         searchQuery: q,
-        metadata: { searchTerm: q }
+        metadata: { searchTerm: q },
       });
     }
 

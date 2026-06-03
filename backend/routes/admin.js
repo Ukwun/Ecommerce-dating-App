@@ -6,6 +6,7 @@ const AdminUser = require('../models/AdminUser');
 const Order = require('../models/Order');
 const User = require('../models/User');
 const { protect, adminWithPermission, logSecurityAction } = require('../middleware/admin');
+const nodemailer = require('nodemailer');
 
 const router = express.Router();
 
@@ -64,27 +65,54 @@ router.get('/sellers/:sellerId', protect, adminWithPermission('view_seller_detai
   }
 });
 
-// ✅ Approve seller application
-router.post('/sellers/:sellerId/approve', protect, adminWithPermission('approve_sellers'), async (req, res) => {
+// Seller requests verification
+router.post('/sellers/:sellerId/request-verification', protect, async (req, res) => {
   try {
-    const { notes } = req.body;
-
+    const { documents } = req.body;
     const seller = await SellerProfile.findById(req.params.sellerId);
     if (!seller) {
       return res.status(404).json({ error: 'Seller not found' });
     }
+    seller.verificationStatus = 'pending';
+    seller.verificationDocuments = documents || [];
+    await seller.save();
+    res.status(200).json({ success: true, message: 'Verification requested', data: seller });
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});
 
+// ✅ Approve seller application
+router.post('/sellers/:sellerId/approve', protect, adminWithPermission('approve_sellers'), async (req, res) => {
+  try {
+    const { notes } = req.body;
+    const seller = await SellerProfile.findById(req.params.sellerId).populate('userId', 'name email');
+    if (!seller) {
+      return res.status(404).json({ error: 'Seller not found' });
+    }
     seller.verificationStatus = 'approved';
     seller.verificationDate = new Date();
     seller.approvedBy = req.admin._id;
     seller.verificationNotesFromAdmin = notes || '';
+    seller.verificationDocuments = seller.verificationDocuments || [];
     await seller.save();
-
-    // Send notification to seller
-    // TODO: Implement email notification
-
+    // Send notification to seller (email)
+    if (seller.userId && seller.userId.email) {
+      const transporter = nodemailer.createTransport({
+        service: 'gmail',
+        auth: {
+          user: process.env.GMAIL_USER,
+          pass: process.env.GMAIL_PASS
+        }
+      });
+      await transporter.sendMail({
+        from: `Marketplace Admin <${process.env.GMAIL_USER}>`,
+        to: seller.userId.email,
+        subject: 'Your Seller Application is Approved!',
+        text: `Hi ${seller.userId.name},\n\nCongratulations! Your seller application has been approved. You can now start listing products and selling on the marketplace.\n\nBest regards,\nMarketplace Team`,
+      });
+    }
     logSecurityAction(req, null, 'seller_approved', 'success', `Seller ${seller.businessName} approved`);
-
     res.status(200).json({
       success: true,
       message: 'Seller approved successfully',
@@ -100,24 +128,32 @@ router.post('/sellers/:sellerId/approve', protect, adminWithPermission('approve_
 router.post('/sellers/:sellerId/reject', protect, adminWithPermission('reject_sellers'), async (req, res) => {
   try {
     const { reason } = req.body;
-
-    if (!reason) {
-      return res.status(400).json({ error: 'Rejection reason is required' });
-    }
-
-    const seller = await SellerProfile.findById(req.params.sellerId);
+    const seller = await SellerProfile.findById(req.params.sellerId).populate('userId', 'name email');
     if (!seller) {
       return res.status(404).json({ error: 'Seller not found' });
     }
-
     seller.verificationStatus = 'rejected';
     seller.rejectionReason = reason;
     seller.verificationDate = new Date();
     seller.approvedBy = req.admin._id;
     await seller.save();
-
+    // Send rejection email
+    if (seller.userId && seller.userId.email) {
+      const transporter = nodemailer.createTransport({
+        service: 'gmail',
+        auth: {
+          user: process.env.GMAIL_USER,
+          pass: process.env.GMAIL_PASS
+        }
+      });
+      await transporter.sendMail({
+        from: `Marketplace Admin <${process.env.GMAIL_USER}>`,
+        to: seller.userId.email,
+        subject: 'Your Seller Application was Rejected',
+        text: `Hi ${seller.userId.name},\n\nUnfortunately, your seller application was rejected. Reason: ${reason}\n\nBest regards,\nMarketplace Team`,
+      });
+    }
     logSecurityAction(req, null, 'seller_rejected', 'success', `Seller ${seller.businessName} rejected`);
-
     res.status(200).json({
       success: true,
       message: 'Seller application rejected',

@@ -8,4 +8,5 @@ services:
     # Environment variables must be set in Render dashboard:
     # MONGO_URI, JWT_SECRET, NODE_ENV=production, PORT=8082
     # EMAIL_SERVICE, EMAIL_USERNAME, EMAIL_PASSWORD, EMAIL_FROM
+    # ALERT_WEBHOOK_URL (Slack/Teams/custom webhook for critical monitoring alerts)
 

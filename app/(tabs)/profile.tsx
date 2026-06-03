@@ -15,45 +15,22 @@ import { Ionicons, Feather } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useRouter } from 'expo-router';
 import * as ImagePicker from 'expo-image-picker';
+import Animated, { FadeInDown, SlideInUp, ZoomIn } from 'react-native-reanimated';
 import { useAuth } from '../../hooks/AuthContext';
 import { useUserMarketplaceStats } from '../../hooks/useUserMarketplaceStats';
+import { useImageUpload } from '@/hooks/useImageUpload';
+import { AnimatedButton } from '@/components/AnimatedButton';
 import axiosInstance from '@/utils/axiosinstance';
+import Toast from 'react-native-toast-message';
 
-const uploadImageToImageKit = async (uri: string) => {
-  const response = await fetch(uri);
-  const blob = await response.blob();
-  const base64 = await new Promise<string>((resolve, reject) => {
-    const reader = new FileReader();
-    reader.onload = () => resolve(reader.result as string);
-    reader.onerror = (error) => reject(error);
-    reader.readAsDataURL(blob);
-  });
-
-  const base64Data = base64.split(',')[1];
-  const formData = new FormData();
-  formData.append('file', base64Data);
-  formData.append('fileName', `avatar_${Date.now()}.jpg`);
-  formData.append('folder', '/avatars');
-
-  const imageKitResponse = await fetch('https://upload.imagekit.io/api/v1/files/upload', {
-    method: 'POST',
-    headers: {
-      Authorization: `Basic ${btoa(process.env.EXPO_PUBLIC_IMAGEKIT_PRIVATE_KEY! + ':')}`,
-    },
-    body: formData,
-  });
-
-  const imageKitData = await imageKitResponse.json();
-  if (!imageKitResponse.ok) {
-    throw new Error(imageKitData.message || 'ImageKit upload failed');
-  }
-  return { url: imageKitData.url, fileId: imageKitData.fileId };
-};
+const AnimatedView = Animated.createAnimatedComponent(View);
+const AnimatedTouchable = Animated.createAnimatedComponent(TouchableOpacity);
 
 export default function ProfileScreen() {
   const router = useRouter();
-  const { user, logout, setUser } = useAuth() as any;
+  const { user, logout, updateUser } = useAuth();
   const { stats } = useUserMarketplaceStats();
+  const { uploadImage, uploading: imageUploading } = useImageUpload();
   const [uploading, setUploading] = useState(false);
 
   const handleLogout = () => {
@@ -84,23 +61,23 @@ export default function ProfileScreen() {
         mediaTypes: ImagePicker.MediaTypeOptions.Images,
         allowsEditing: true,
         aspect: [1, 1],
-        quality: 0.5,
+        quality: 0.7,
       });
 
       if (!result.canceled) {
         setUploading(true);
-        const { url } = await uploadImageToImageKit(result.assets[0].uri);
+        const { url } = await uploadImage(result.assets[0].uri, '/avatars');
         
         // Update backend
         await axiosInstance.put('/auth/api/update-details', { avatar: url });
         
         // Update local state
-        if (user && setUser) setUser({ ...user, avatar: { url } });
+        if (user) await updateUser({ avatar: { url } as any });
         
-        Alert.alert('Success', 'Profile picture updated successfully');
+        Toast.show({ type: 'success', text1: 'Profile Updated!', text2: 'Your picture has been changed' });
       }
     } catch (error) {
-      Alert.alert('Error', 'Failed to update profile picture');
+      Toast.show({ type: 'error', text1: 'Error', text2: 'Failed to update profile picture' });
     } finally {
       setUploading(false);
     }
@@ -109,13 +86,13 @@ export default function ProfileScreen() {
   const handleBoostProfile = async () => {
     try {
       await axiosInstance.post('/auth/api/boost-profile');
-      Alert.alert('🚀 Boost Activated!', 'Your profile will be highlighted for 30 minutes.');
+      Toast.show({ type: 'success', text1: '🚀 Boost Activated!', text2: 'Your profile will be highlighted for 30 minutes.' });
     } catch (error) {
-      Alert.alert('Error', 'Failed to boost profile');
+      Toast.show({ type: 'error', text1: 'Error', text2: 'Failed to boost profile' });
     }
   };
 
-  const menuItems: { icon: string; label: string; description: string; route?: string; action?: () => void; color: string; iconLib: any }[] = [
+  const menuItems = [
     {
       icon: 'plus-square',
       label: 'Sell on Marketplace',
@@ -140,7 +117,6 @@ export default function ProfileScreen() {
       color: '#8B5CF6',
       iconLib: Feather
     },
-
     {
       icon: 'shopping-bag',
       label: 'My Orders',
@@ -161,7 +137,7 @@ export default function ProfileScreen() {
       icon: 'heart',
       label: 'Wishlist',
       description: 'Your favorite items',
-      action: () => router.push('/(tabs)/discover'),
+      route: '/_hidden/wishlist',
       color: '#EF4444',
       iconLib: Feather
     },
@@ -189,14 +165,6 @@ export default function ProfileScreen() {
       color: '#6B7280',
       iconLib: Feather
     },
-    {
-      icon: 'log-out',
-      label: 'Log Out',
-      description: 'Sign out of your account',
-      action: handleLogout,
-      color: '#EF4444',
-      iconLib: Feather
-    },
   ];
 
   return (
@@ -212,37 +180,34 @@ export default function ProfileScreen() {
           style={styles.headerGradient}
         >
           <SafeAreaView>
-            <View style={styles.headerContent}>
+            <Animated.View entering={FadeInDown.springify()} style={styles.headerContent}>
               <Text style={styles.headerTitle}>Profile</Text>
-              <TouchableOpacity 
-                style={styles.headerButton}
-                onPress={() => Alert.alert('Edit Profile', 'Edit profile feature coming soon!')}
-              >
+              <AnimatedButton onPress={() => router.push('/(routes)/settings' as any)} style={styles.headerButton}>
                 <Feather name="edit-2" size={24} color="white" />
-              </TouchableOpacity>
-            </View>
+              </AnimatedButton>
+            </Animated.View>
           </SafeAreaView>
         </LinearGradient>
 
         {/* Profile Card */}
-        <View style={styles.cardContainer}>
+        <Animated.View entering={SlideInUp.springify()} style={styles.cardContainer}>
           <View style={styles.profileCard}>
-            <View style={styles.avatarContainer}>
+            <Animated.View entering={ZoomIn.springify()} style={styles.avatarContainer}>
               <Image 
                 source={{ uri: user?.avatar?.url || 'https://i.pravatar.cc/300' }} 
                 style={styles.avatar}
               />
-              <TouchableOpacity 
-                style={styles.cameraButton}
+              <AnimatedButton 
                 onPress={handleUpdateProfilePicture}
-                disabled={uploading}
+                style={styles.cameraButton}
+                haptic="light"
               >
-                {uploading ? 
+                {uploading || imageUploading ? 
                   <ActivityIndicator size="small" color="#fff" /> : 
                   <Ionicons name="camera" size={22} color="white" />
                 }
-              </TouchableOpacity>
-            </View>
+              </AnimatedButton>
+            </Animated.View>
             
             <Text style={styles.userName}>
               {user?.name || 'Guest User'}
@@ -269,9 +234,10 @@ export default function ProfileScreen() {
             </View>
 
             {/* Match Me Button */}
-            <TouchableOpacity 
+            <AnimatedButton 
+              onPress={() => router.push('/(routes)/dating-profile-setup' as any)}
               style={styles.matchMeButton}
-              onPress={() => router.push('/(routes)/match-search' as any)}
+              haptic="medium"
             >
               <LinearGradient
                 colors={['#FF006E', '#FF4785']}
@@ -279,52 +245,57 @@ export default function ProfileScreen() {
                 end={{ x: 1, y: 0 }}
                 style={styles.matchMeGradient}
               >
-                <Text style={styles.matchMeText}>Match Me</Text>
-                <Ionicons name="heart" size={20} color="#fff" style={{ marginLeft: 8 }} />
+                <Text style={styles.matchMeText}>❤️ Setup Dating</Text>
               </LinearGradient>
-            </TouchableOpacity>
+            </AnimatedButton>
           </View>
-        </View>
+        </Animated.View>
 
         {/* Menu Items */}
         <View style={styles.menuContainer}>
           {menuItems.map((item, index) => (
-            <TouchableOpacity
+            <Animated.View 
               key={index}
-              style={styles.menuItem}
-              onPress={() => {
-                if (item.action) {
-                  item.action();
-                } else if (item.route) {
-                   router.push(item.route as any);
-                } else {
-                   Alert.alert(item.label, "Route not configured.");
-                }
-              }}
+              entering={FadeInDown.springify().delay(index * 50)}
             >
-              <View 
-                style={[styles.iconContainer, { backgroundColor: `${item.color}15` }]}
+              <AnimatedButton
+                onPress={() => {
+                  if (item.action) {
+                    item.action();
+                  } else if (item.route) {
+                     router.push(item.route as any);
+                  }
+                }}
+                style={styles.menuItem}
+                haptic="light"
               >
-                <item.iconLib name={item.icon as any} size={30} color={item.color} />
-              </View>
-              <View style={styles.menuTextContainer}>
-                <Text style={styles.menuLabel}>{item.label}</Text>
-                <Text style={styles.menuDescription}>{item.description}</Text>
-              </View>
-              <Feather name="chevron-right" size={26} color="#C7C7CC" />
-            </TouchableOpacity>
+                <View 
+                  style={[styles.iconContainer, { backgroundColor: `${item.color}15` }]}
+                >
+                  <item.iconLib name={item.icon as any} size={30} color={item.color} />
+                </View>
+                <View style={styles.menuTextContainer}>
+                  <Text style={styles.menuLabel}>{item.label}</Text>
+                  <Text style={styles.menuDescription}>{item.description}</Text>
+                </View>
+                <Feather name="chevron-right" size={24} color="#C7C7CC" />
+              </AnimatedButton>
+            </Animated.View>
           ))}
 
           {/* Logout Button */}
-          <TouchableOpacity 
-            style={styles.logoutButton}
-            onPress={handleLogout}
-          >
-            <View style={styles.logoutIconContainer}>
-              <Feather name="log-out" size={30} color="#EF4444" />
-            </View>
-            <Text style={styles.logoutText}>Log Out</Text>
-          </TouchableOpacity>
+          <Animated.View entering={FadeInDown.springify().delay((menuItems.length) * 50)}>
+            <AnimatedButton 
+              style={styles.logoutButton}
+              onPress={handleLogout}
+              haptic="medium"
+            >
+              <View style={styles.logoutIconContainer}>
+                <Feather name="log-out" size={30} color="#EF4444" />
+              </View>
+              <Text style={styles.logoutText}>Log Out</Text>
+            </AnimatedButton>
+          </Animated.View>
         </View>
       </ScrollView>
     </View>

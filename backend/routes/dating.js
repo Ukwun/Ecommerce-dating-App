@@ -393,4 +393,71 @@ router.post('/profile/unblock/:userId', protect, async (req, res) => {
   }
 });
 
+/**
+ * GET /dating/api/smart-matches
+ * Get smart match suggestions for the user
+ */
+router.get('/smart-matches', protect, async (req, res) => {
+  try {
+    const userProfile = await DatingProfile.findOne({ userId: req.user._id });
+    if (!userProfile) {
+      return res.status(404).json({ message: 'Profile not found' });
+    }
+    // Find matches based on interests, location, and preferences
+    const matches = await DatingProfile.find({
+      _id: { $ne: userProfile._id },
+      isSearchable: true,
+      gender: { $in: userProfile.interestedIn },
+      interestedIn: userProfile.gender,
+      interests: { $in: userProfile.interests },
+      'location.city': userProfile.location.city
+    }).limit(20);
+    res.json({ matches });
+  } catch (error) {
+    res.status(500).json({ message: error.message });
+  }
+});
+
+/**
+ * GET /dating/api/discover
+ * Interest-based discovery
+ */
+router.get('/discover', protect, async (req, res) => {
+  try {
+    const userProfile = await DatingProfile.findOne({ userId: req.user._id });
+    if (!userProfile) {
+      return res.status(404).json({ message: 'Profile not found' });
+    }
+    // Find profiles with at least one shared interest
+    const profiles = await DatingProfile.find({
+      _id: { $ne: userProfile._id },
+      isSearchable: true,
+      interests: { $in: userProfile.interests }
+    }).limit(20);
+    res.json({ profiles });
+  } catch (error) {
+    res.status(500).json({ message: error.message });
+  }
+});
+
+/**
+ * POST /dating/api/verify
+ * Verification system (photo upload, etc.)
+ */
+router.post('/verify', protect, async (req, res) => {
+  try {
+    const { verificationPhotoUrl } = req.body;
+    const profile = await DatingProfile.findOne({ userId: req.user._id });
+    if (!profile) {
+      return res.status(404).json({ message: 'Profile not found' });
+    }
+    profile.verificationPhotoUrl = verificationPhotoUrl;
+    profile.verificationScore = 100; // Mark as fully verified
+    await profile.save();
+    res.json({ message: 'Profile verified', profile });
+  } catch (error) {
+    res.status(500).json({ message: error.message });
+  }
+});
+
 module.exports = router;

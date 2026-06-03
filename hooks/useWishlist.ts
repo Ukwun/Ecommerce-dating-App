@@ -1,6 +1,5 @@
-import { useState, useEffect } from 'react';
-import { Platform, ToastAndroid, Alert } from 'react-native';
-import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import { useState } from 'react';
+import { useQueryClient, useQuery, useMutation } from '@tanstack/react-query';
 import axiosInstance from '@/utils/axiosinstance';
 
 export const useWishlist = () => {
@@ -38,22 +37,10 @@ export const useWishlist = () => {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['wishlist'] });
-      const message = 'Updated wishlist';
-      if (Platform.OS === 'android') {
-        ToastAndroid.show(message, ToastAndroid.SHORT);
-      } else {
-        Alert.alert('Success', message);
-      }
     },
     onError: (error) => {
       // Revert optimistic update on error
       queryClient.invalidateQueries({ queryKey: ['wishlist'] });
-      const message = error instanceof Error ? error.message : 'Failed to update wishlist';
-      if (Platform.OS === 'android') {
-        ToastAndroid.show(message, ToastAndroid.SHORT);
-      } else {
-        Alert.alert('Error', message);
-      }
     },
   });
 

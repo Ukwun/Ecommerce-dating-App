@@ -7,7 +7,10 @@ import { useTheme } from '@react-navigation/native';
 import { useQuery } from '@tanstack/react-query';
 import axios from 'axios';
 
-const API_BASE_URL = process.env.EXPO_PUBLIC_BACKEND_URL || 'http://192.168.1.100:5000';
+const API_BASE_URL =
+  process.env.EXPO_PUBLIC_SERVER_URI ||
+  process.env.EXPO_PUBLIC_BACKEND_URL ||
+  'https://marketplace-backend.railway.app';
 
 export default function AdminDashboard() {
   const router = useRouter();

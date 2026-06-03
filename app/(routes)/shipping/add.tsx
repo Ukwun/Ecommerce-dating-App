@@ -8,6 +8,8 @@ import { useMutation, useQueryClient } from '@tanstack/react-query';
 import Toast from 'react-native-toast-message';
 import MapView, { Region } from 'react-native-maps';
 import * as Location from 'expo-location';
+import AsyncStorage from '@react-native-async-storage/async-storage';
+import axios from 'axios';
 
 type AddressFormData = {
   name: string;
@@ -19,10 +21,19 @@ type AddressFormData = {
   isDefault: boolean;
 };
 
-const addAddress = async (data: AddressFormData) => {
-  // Simulate API call
-  console.log('Adding address:', data);
-  return new Promise(resolve => setTimeout(() => resolve({ success: true }), 1000));
+const API_BASE_URL = process.env.EXPO_PUBLIC_SERVER_URI || process.env.EXPO_PUBLIC_BACKEND_URL || 'https://marketplace-backend.railway.app';
+
+const addAddress = async (data: AddressFormData & { latitude?: number; longitude?: number }) => {
+  const token = await AsyncStorage.getItem('access_token');
+  const payload = { ...data };
+  if (data.latitude && data.longitude) {
+    payload.latitude = data.latitude;
+    payload.longitude = data.longitude;
+  }
+  const response = await axios.post(`${API_BASE_URL}/shipping/api/shipping-address`, payload, {
+    headers: { Authorization: `Bearer ${token}` }
+  });
+  return response.data;
 };
 
 export default function AddAddressScreen() {
@@ -33,6 +44,7 @@ export default function AddAddressScreen() {
   const queryClient = useQueryClient();
   const [mapRegion, setMapRegion] = useState<Region | null>(null);
   const [isGeocoding, setIsGeocoding] = useState(false);
+  const [pinnedLocation, setPinnedLocation] = useState<{ latitude: number; longitude: number } | null>(null);
   
   const mutation = useMutation({
     mutationFn: addAddress,
@@ -62,11 +74,13 @@ export default function AddAddressScreen() {
         longitudeDelta: 0.01,
       };
       setMapRegion(initialRegion);
+      setPinnedLocation({ latitude: location.coords.latitude, longitude: location.coords.longitude });
     })();
   }, []);
 
   const handleRegionChangeComplete = async (region: Region) => {
     setMapRegion(region);
+    setPinnedLocation({ latitude: region.latitude, longitude: region.longitude });
     setIsGeocoding(true);
     try {
       const geocoded = await Location.reverseGeocodeAsync({
@@ -89,7 +103,7 @@ export default function AddAddressScreen() {
   };
 
   const onSubmit = (data: AddressFormData) => {
-    mutation.mutate(data);
+    mutation.mutate({ ...data, latitude: pinnedLocation?.latitude, longitude: pinnedLocation?.longitude });
   };
 
   const renderInput = (name: Exclude<keyof AddressFormData, 'isDefault'>, placeholder: string) => (

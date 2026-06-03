@@ -9,7 +9,19 @@ const userSchema = new mongoose.Schema({
   resetPasswordExpire: Date,
   boostExpiresAt: Date,
   isPremium: { type: Boolean, default: false },
-  subscriptionExpiresAt: Date
+  subscriptionExpiresAt: Date,
+  location: {
+    type: {
+      type: String,
+      enum: ['Point'],
+      default: 'Point'
+    },
+    coordinates: {
+      type: [Number],
+      default: undefined
+    }
+  },
+  pushToken: { type: String },
 }, { timestamps: true });
 
 module.exports = mongoose.model('User', userSchema);

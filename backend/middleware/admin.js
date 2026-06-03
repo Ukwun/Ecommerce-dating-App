@@ -2,17 +2,22 @@ const jwt = require('jsonwebtoken');
 const AdminUser = require('../models/AdminUser');
 const SellerProfile = require('../models/SellerProfile');
 const SecurityLog = require('../models/SecurityLog');
+const { evaluateAbuseRisk } = require('../utils/fraudMonitor');
 
 // Protect route - requires authentication
 const protect = (req, res, next) => {
   try {
+    if (!process.env.JWT_SECRET) {
+      return res.status(500).json({ message: 'JWT_SECRET is not configured' });
+    }
+
     const token = req.headers.authorization?.split(' ')[1]; // Bearer token
 
     if (!token) {
       return res.status(401).json({ message: 'No token provided' });
     }
 
-    const decoded = jwt.verify(token, process.env.JWT_SECRET || 'your_jwt_secret_key_change_this_in_production');
+    const decoded = jwt.verify(token, process.env.JWT_SECRET);
     req.user = decoded;
     
     // Log access
@@ -111,10 +116,15 @@ const seller = async (req, res, next) => {
 };
 
 // Log security action
-const logSecurityAction = async (req, res, action, status = 'success', errorMessage = null) => {
+const logSecurityAction = async (req, action, status = 'success', errorMessage = null) => {
   try {
     const userAgent = req.headers['user-agent'] || 'Unknown';
     const ipAddress = req.ip || req.connection.remoteAddress || 'Unknown';
+
+    const riskEvaluation = await evaluateAbuseRisk({
+      userId: req.user?.id,
+      ipAddress,
+    });
 
     const log = new SecurityLog({
       userId: req.user?.id,
@@ -127,10 +137,16 @@ const logSecurityAction = async (req, res, action, status = 'success', errorMess
       endpoint: req.path,
       status,
       errorMessage,
+      riskLevel: riskEvaluation.riskLevel,
       sessionId: req.sessionID,
       metadata: {
         body: req.body?.password ? { ...req.body, password: '***' } : req.body,
-        query: req.query
+        query: req.query,
+        riskSignals: {
+          failedLogins: riskEvaluation.failedLogins,
+          failedPayments: riskEvaluation.failedPayments,
+          suspiciousActions: riskEvaluation.suspiciousActions,
+        }
       }
     });
 

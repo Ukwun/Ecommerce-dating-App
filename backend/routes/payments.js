@@ -3,15 +3,25 @@ const axios = require('axios');
 const Payment = require('../models/Payment');
 const Order = require('../models/Order');
 const { protect } = require('../middleware/auth');
+const SecurityLog = require('../models/SecurityLog');
+const { EVENT_TYPES } = require('../constants/eventTaxonomy');
+const { trackUserEvent } = require('../utils/eventLogger');
+const { evaluateAbuseRisk } = require('../utils/fraudMonitor');
 
 const router = express.Router();
 
-const PAYSTACK_SECRET = process.env.PAYSTACK_SECRET_KEY || 'sk_test_your_key_here';
+const PAYSTACK_SECRET = process.env.PAYSTACK_SECRET_KEY;
 const PAYSTACK_BASE_URL = 'https://api.paystack.co';
+
+const getClientIp = (req) => req.ip || req.connection?.remoteAddress || 'Unknown';
 
 // ✅ Initialize payment with Paystack
 router.post('/payments/initialize', protect, async (req, res) => {
   try {
+    if (!PAYSTACK_SECRET) {
+      return res.status(500).json({ error: 'PAYSTACK_SECRET_KEY is not configured' });
+    }
+
     const { orderId, email, amount } = req.body;
 
     if (!orderId || !email || !amount) {
@@ -62,6 +72,19 @@ router.post('/payments/initialize', protect, async (req, res) => {
 
     await payment.save();
 
+    await SecurityLog.create({
+      userId: req.user.id,
+      username: email,
+      action: 'payment_initiated',
+      description: 'payment initialization requested',
+      ipAddress: getClientIp(req),
+      userAgent: req.headers['user-agent'] || 'Unknown',
+      method: req.method,
+      endpoint: req.path,
+      status: 'success',
+      metadata: { orderId, amount },
+    }).catch(() => {});
+
     res.json({
       success: true,
       message: 'Payment initialized',
@@ -79,6 +102,10 @@ router.post('/payments/initialize', protect, async (req, res) => {
 // ✅ Verify payment
 router.post('/payments/verify', protect, async (req, res) => {
   try {
+    if (!PAYSTACK_SECRET) {
+      return res.status(500).json({ error: 'PAYSTACK_SECRET_KEY is not configured' });
+    }
+
     const { reference } = req.body;
 
     if (!reference) {
@@ -121,7 +148,29 @@ router.post('/payments/verify', protect, async (req, res) => {
         order.payment.paidAt = new Date();
         order.status = 'confirmed';
         await order.save();
+
+        await trackUserEvent({
+          userId: req.user.id,
+          eventType: EVENT_TYPES.PAYMENT_SUCCESS,
+          price: paystackData.amount / 100,
+          metadata: {
+            orderId: String(order._id),
+            reference,
+          },
+        });
       }
+
+      await SecurityLog.create({
+        userId: req.user.id,
+        action: 'payment_verified',
+        description: 'payment verified successfully',
+        ipAddress: getClientIp(req),
+        userAgent: req.headers['user-agent'] || 'Unknown',
+        method: req.method,
+        endpoint: req.path,
+        status: 'success',
+        metadata: { reference },
+      }).catch(() => {});
 
       return res.json({
         success: true,
@@ -137,6 +186,43 @@ router.post('/payments/verify', protect, async (req, res) => {
       payment.failureReason = paystackData.gateway_response;
       await payment.save();
 
+      await trackUserEvent({
+        userId: req.user.id,
+        eventType: EVENT_TYPES.PAYMENT_FAILED,
+        metadata: {
+          reference,
+          reason: paystackData.gateway_response,
+        },
+      });
+
+      await SecurityLog.create({
+        userId: req.user.id,
+        action: 'payment_verified',
+        description: 'payment verification failed',
+        ipAddress: getClientIp(req),
+        userAgent: req.headers['user-agent'] || 'Unknown',
+        method: req.method,
+        endpoint: req.path,
+        status: 'failed',
+        metadata: { reference, reason: paystackData.gateway_response },
+      }).catch(() => {});
+
+      const risk = await evaluateAbuseRisk({ userId: req.user.id, ipAddress: getClientIp(req) });
+      if (risk.riskLevel === 'high') {
+        await SecurityLog.create({
+          userId: req.user.id,
+          action: 'suspicious_activity_detected',
+          description: 'high risk payment failure threshold reached',
+          ipAddress: getClientIp(req),
+          userAgent: req.headers['user-agent'] || 'Unknown',
+          method: req.method,
+          endpoint: req.path,
+          status: 'blocked',
+          riskLevel: 'high',
+          metadata: { reference },
+        }).catch(() => {});
+      }
+
       return res.status(400).json({
         success: false,
         error: 'Payment verification failed',
@@ -144,6 +230,14 @@ router.post('/payments/verify', protect, async (req, res) => {
       });
     }
   } catch (error) {
+    await trackUserEvent({
+      userId: req.user?.id,
+      eventType: EVENT_TYPES.PAYMENT_FAILED,
+      metadata: {
+        source: 'payments_verify_exception',
+        error: error.message,
+      },
+    });
     res.status(500).json({ error: error.message });
   }
 });
@@ -203,16 +297,20 @@ router.get('/payments', protect, async (req, res) => {
   }
 });
 
-// ✅ Payment webhook from Paystack
+// ✅ Payment webhook from Paystack — with real signature verification
 router.post('/payments/webhook/paystack', async (req, res) => {
   try {
-    const hash = req.headers['x-paystack-signature'];
-    const body = JSON.stringify(req.body);
+    const signature = req.headers['x-paystack-signature'];
+    const crypto = require('crypto');
+    const hash = crypto
+      .createHmac('sha512', PAYSTACK_SECRET || '')
+      .update(JSON.stringify(req.body))
+      .digest('hex');
 
-    // Verify signature (optional but recommended)
-    // const crypto = require('crypto');
-    // const hash2 = crypto.createHmac('sha512', PAYSTACK_SECRET).update(body).digest('hex');
-    // if (hash !== hash2) return res.status(400).json({ error: 'Invalid signature' });
+    if (PAYSTACK_SECRET && signature !== hash) {
+      console.warn('⚠️  Invalid Paystack webhook signature');
+      return res.status(400).json({ error: 'Invalid signature' });
+    }
 
     const { event, data } = req.body;
 

@@ -62,9 +62,9 @@ router.post("/login", async (req, res) => {
     }
 
     console.log('🎉 Login successful for:', user.email);
-    const jwtSecret = process.env.JWT_SECRET || 'default-secret-key-change-in-production';
-    if (!process.env.JWT_SECRET) {
-      console.warn('⚠️ JWT_SECRET not set in environment variables, using default');
+    const jwtSecret = process.env.JWT_SECRET;
+    if (!jwtSecret) {
+      return res.status(500).json({ error: 'JWT_SECRET is not configured' });
     }
     const accessToken = jwt.sign({ id: user._id, email: user.email }, jwtSecret, { expiresIn: '7d' });
     res.json({ success: true, message: 'Login successful', accessToken, user: { id: user._id, name: user.name, email: user.email } });

@@ -31,6 +31,7 @@ const sellerProfileSchema = new mongoose.Schema({
   rejectionReason: String,
   suspensionReason: String,
   suspensionUntil: Date,
+  verificationDocuments: [{ type: String }], // URLs or document references
   
   // Identity Verification
   bvn: String, // Business Verification Number (for Nigeria)

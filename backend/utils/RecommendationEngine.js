@@ -1,6 +1,8 @@
 const Product = require('../models/Product');
 const UserActivity = require('../models/UserActivity');
 const User = require('../models/User');
+const MonitoringMetric = require('../models/MonitoringMetric');
+const mongoose = require('mongoose');
 
 /**
  * Recommendation Engine - Generates personalized product recommendations
@@ -115,6 +117,13 @@ class RecommendationEngine {
       return recommendedProducts;
     } catch (error) {
       console.error('Error in getPersonalizedProducts:', error);
+      await MonitoringMetric.create({
+        source: 'recommendation_engine',
+        metricType: 'personalized_fetch_failure',
+        status: 'warning',
+        value: 1,
+        metadata: { userId: String(userId), error: error.message },
+      }).catch(() => {});
       // Return top products as fallback
       return await Product.find({ stock: { $gt: 0 } })
         .select('name price oldPrice category images ratings numOfReviews seller')
@@ -180,6 +189,13 @@ class RecommendationEngine {
       return products;
     } catch (error) {
       console.error('Error in getTrendingProducts:', error);
+      await MonitoringMetric.create({
+        source: 'recommendation_engine',
+        metricType: 'trending_fetch_failure',
+        status: 'warning',
+        value: 1,
+        metadata: { error: error.message },
+      }).catch(() => {});
       throw error;
     }
   }
@@ -205,6 +221,13 @@ class RecommendationEngine {
       return similarProducts;
     } catch (error) {
       console.error('Error in getSimilarProducts:', error);
+      await MonitoringMetric.create({
+        source: 'recommendation_engine',
+        metricType: 'similar_fetch_failure',
+        status: 'warning',
+        value: 1,
+        metadata: { productId: String(productId), error: error.message },
+      }).catch(() => {});
       throw error;
     }
   }
@@ -214,15 +237,52 @@ class RecommendationEngine {
    */
   static async getLocalProducts(userId, limit = 20) {
     try {
-      // TODO: Implement location-based product discovery
-      // For now, return most popular products
-      return await Product.find({ stock: { $gt: 0 } })
-        .populate('seller', 'name avatar')
-        .sort({ ratings: -1, numOfReviews: -1 })
-        .limit(limit);
+      // Get user's last known location
+      const user = await User.findById(userId);
+      if (!user || !user.location || !user.location.coordinates) {
+        // Fallback: return most popular products
+        return await Product.find({ stock: { $gt: 0 } })
+          .populate('seller', 'name avatar location')
+          .sort({ ratings: -1, numOfReviews: -1 })
+          .limit(limit);
+      }
+      // Find products with seller location near user
+      // Assumes seller has location: { type: 'Point', coordinates: [lng, lat] }
+      const [userLng, userLat] = user.location.coordinates;
+      const products = await Product.aggregate([
+        {
+          $lookup: {
+            from: 'sellerprofiles',
+            localField: 'seller',
+            foreignField: '_id',
+            as: 'sellerInfo'
+          }
+        },
+        { $unwind: '$sellerInfo' },
+        { $match: { stock: { $gt: 0 } } },
+        {
+          $addFields: {
+            distance: {
+              $sqrt: {
+                $add: [
+                  { $pow: [{ $subtract: ['$sellerInfo.location.coordinates.0', userLng] }, 2] },
+                  { $pow: [{ $subtract: ['$sellerInfo.location.coordinates.1', userLat] }, 2] }
+                ]
+              }
+            }
+          }
+        },
+        { $sort: { distance: 1, ratings: -1 } },
+        { $limit: limit }
+      ]);
+      return products;
     } catch (error) {
       console.error('Error in getLocalProducts:', error);
-      throw error;
+      // Fallback: return most popular products
+      return await Product.find({ stock: { $gt: 0 } })
+        .populate('seller', 'name avatar location')
+        .sort({ ratings: -1, numOfReviews: -1 })
+        .limit(limit);
     }
   }
 
@@ -233,7 +293,7 @@ class RecommendationEngine {
     try {
       const stats = await UserActivity.aggregate([
         {
-          $match: { userId: require('mongoose').Types.ObjectId(userId) }
+          $match: { userId: new mongoose.Types.ObjectId(userId) }
         },
         {
           $group: {

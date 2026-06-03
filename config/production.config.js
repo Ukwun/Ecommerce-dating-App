@@ -38,7 +38,7 @@ module.exports = {
 
   // API Configuration
   api: {
-    baseUrl: process.env.EXPO_PUBLIC_API_URL || 'https://api.marketplace.com',
+    baseUrl: process.env.EXPO_PUBLIC_BACKEND_URL || process.env.EXPO_PUBLIC_SERVER_URI || process.env.EXPO_PUBLIC_API_URL || 'https://marketplace-backend.railway.app',
     timeout: 10000,
     retryAttempts: 3,
   },
