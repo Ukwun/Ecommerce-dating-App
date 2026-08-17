@@ -30,7 +30,14 @@ const datingProfileSchema = new mongoose.Schema({
   isSearchable: { type: Boolean, default: true },
   pushToken: String,
   isTwoFactorEnabled: { type: Boolean, default: false },
-  verificationPhotoUrl: String
+  verificationPhotoUrl: String,
+  biometricConsent: {
+    grantedAt: Date,
+    policyVersion: String,
+    revokedAt: Date
+  },
+  biometricVerifiedAt: Date,
+  biometricProvider: String
 }, { timestamps: true });
 
 // Index for geospatial queries

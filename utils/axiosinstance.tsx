@@ -23,22 +23,35 @@ const getExpoLanBackendBase = (): string | null => {
 // In dev, prefer the active Expo LAN host so phone testing keeps working if local IP changes.
 // PRODUCTION READY: For 6 clients across cities, we MUST use the public Render URL.
 // Use environment variable or default to production backend
-const DEFAULT_BACKEND_URL = 'https://marketplace-backend.railway.app';
+const DEFAULT_BACKEND_URL = 'https://ecommerce-dating-app.onrender.com';
 let resolvedBase = process.env.EXPO_PUBLIC_BACKEND_URL || DEFAULT_BACKEND_URL;
 
 // During local development only, we attempt to find the local machine IP
-if (__DEV__ && !process.env.EXPO_PUBLIC_BACKEND_URL) {
-    const lanBase = getExpoLanBackendBase();
-    if (lanBase) resolvedBase = lanBase;
-}
+// DISABLED: MongoDB Atlas connection issues, using Render backend instead
+// if (__DEV__ && !process.env.EXPO_PUBLIC_BACKEND_URL) {
+//     const lanBase = getExpoLanBackendBase();
+//     if (lanBase) resolvedBase = lanBase;
+// }
 
 console.log('🔌 [NETWORK] Current Base URL:', resolvedBase);
 
 const axiosInstance = axios.create({
     baseURL: resolvedBase,
     withCredentials: false,
-    timeout: 60000, // Increased to 60s for Render free tier cold starts
+    timeout: 90000, // Increased to 90s for Render free tier cold starts
 });
+
+// Retry logic for network requests (handles Render backend wake-up)
+const retryCount = new Map<string, number>();
+const MAX_RETRIES = 2;
+
+const getRetryCount = (url: string): number => retryCount.get(url) || 0;
+const incrementRetryCount = (url: string): number => {
+    const newCount = (getRetryCount(url) || 0) + 1;
+    retryCount.set(url, newCount);
+    return newCount;
+};
+const resetRetryCount = (url: string): boolean => retryCount.delete(url);
 
 let isRefreshing = false;
 let refreshSubscribers: (() => void)[] = [];
@@ -123,32 +136,62 @@ const onRefreshSuccess = () => {
 // Request interceptor
 axiosInstance.interceptors.request.use(
     async (config) => {
+        console.log('📤 [AXIOS REQUEST]', config.method?.toUpperCase(), config.url);
         // Add authorization header if token exists
         const token = await getAccessToken();
         if (token) {
             config.headers.Authorization = `Bearer ${token}`;
+            console.log('📤 [AXIOS] Authorization header added');
         }
         return config;
     },
-    (error) => Promise.reject(error)
+    (error) => {
+        console.error('📤 [AXIOS REQUEST ERROR]', error);
+        return Promise.reject(error);
+    }
 );
 
-// Response interceptor for handling token refresh
+// Response interceptor for handling token refresh & retries
 axiosInstance.interceptors.response.use(
-    (response) => response,
+    (response) => {
+        // Reset retry count on success
+        if (response.config?.url) {
+            resetRetryCount(response.config.url);
+        }
+        return response;
+    },
     async (error) => {
         // REAL-WORLD FEEDBACK: Distinguish between timeouts, cold starts, and absolute network failure
         const url = error.config?.url || 'unknown';
-        console.error(`🌐 [NETWORK ERROR] ${error.message} on path: ${url}`);
+        const isTimeout = error.code === 'ECONNABORTED' || error.message.includes('timeout');
+        const isNetworkError = !error.response && error.code !== 'ECONNABORTED';
+        
+        console.error(`🌐 [NETWORK ERROR] ${error.message} on path: ${url} (timeout: ${isTimeout}, network: ${isNetworkError})`);
 
-        if (error.code === 'ECONNABORTED' || !error.response) {
+        // Retry logic for timeout/network errors (max 2 retries)
+        if ((isTimeout || isNetworkError) && error.config && getRetryCount(url) < MAX_RETRIES) {
+            incrementRetryCount(url);
+            const retryNum = getRetryCount(url);
+            const delayMs = Math.pow(2, retryNum) * 1000; // Exponential backoff: 2s, 4s
+            
+            console.log(`🔄 Retry attempt ${retryNum} for ${url} (waiting ${delayMs}ms for Render to wake up)...`);
+            
+            return new Promise((resolve) => {
+                setTimeout(() => {
+                    resolve(axiosInstance(error.config));
+                }, delayMs);
+            });
+        }
+
+        if (isTimeout || isNetworkError) {
+            resetRetryCount(url);
             const isRender = resolvedBase.includes('onrender.com');
             const msg = isRender 
-                ? "The server is waking up (Render cold start) or your connection is unstable. Please wait 30 seconds and try again."
+                ? "Server timeout (Render may be waking up from sleep). Please:\n1. Wait 30 seconds\n2. Check your WiFi/data\n3. Try again\n\nIf it persists, contact support@marketplace.app"
                 : "The server is unreachable. Please check your internet connection.";
             
-            Alert.alert("Connection Issue", msg);
-            return Promise.reject(error);
+            console.warn(`⚠️ [${isRender ? 'RENDER' : 'NETWORK'}] Connection failed after retries`);
+            return Promise.reject(new Error(msg));
         }
 
         const originalRequest = error.config as CustomAxiosRequestConfig;
@@ -179,7 +222,7 @@ axiosInstance.interceptors.response.use(
                 
                 if (response.data && response.data.accessToken) {
                     const newAccessToken = response.data.accessToken;
-                    await storeTokens(newAccessToken);
+                    await storeTokens(newAccessToken, response.data.refreshToken);
                     axiosInstance.defaults.headers.common['Authorization'] = `Bearer ${newAccessToken}`;
                     onRefreshSuccess();
                     
@@ -210,8 +253,8 @@ axiosInstance.interceptors.response.use(
 // Health check function to verify backend connectivity
 export const checkBackendHealth = async (): Promise<{ status: 'ok' | 'error'; message: string; url?: string }> => {
     try {
-        // Using the new health endpoint for a realistic "pre-flight" check
-        const response = await axios.get(`${resolvedBase}/auth/api/health`, {
+        // Using the health endpoint - matches server.js route
+        const response = await axios.get(`${resolvedBase}/health`, {
             timeout: 4000,
         });
         console.log('✅ Backend health check passed:', response.data);
@@ -226,6 +269,19 @@ export const checkBackendHealth = async (): Promise<{ status: 'ok' | 'error'; me
             url: resolvedBase
         };
     }
+};
+
+// Keep-alive pinger for Render free tier (prevents 15-min sleep)
+export const startBackendKeepAlive = (): (() => void) => {
+    const interval = setInterval(async () => {
+        try {
+            await checkBackendHealth();
+        } catch (error) {
+            // Silent fail - don't spam logs during normal operation
+        }
+    }, 14 * 60 * 1000); // Ping every 14 minutes
+
+    return () => clearInterval(interval);
 };
 
 export default axiosInstance;

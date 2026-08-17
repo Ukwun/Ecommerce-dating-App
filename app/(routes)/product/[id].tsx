@@ -77,7 +77,7 @@ export default function ProductDetail() {
 
   useEffect(() => {
     footerY.value = withSpring(0, { damping: 18 });
-  }, []);
+  }, [footerY]);
 
   useEffect(() => {
     if (!id) return;
@@ -88,12 +88,12 @@ export default function ProductDetail() {
         if (!mounted) return;
         const p = res.data?.data || res.data;
         p.images = p.images?.length > 0 ? p.images : [{ url: p.image || 'https://via.placeholder.com/400' }];
-        p.colors = p.colors?.length > 0 ? p.colors : ['#FF8C00', '#111827', '#FFFFFF', '#4B5563'];
-        p.sizes = p.sizes?.length > 0 ? p.sizes : ['S', 'M', 'L', 'XL', 'XXL'];
+        p.colors = p.colors || [];
+        p.sizes = p.sizes || [];
         p.reviews = p.reviews || [];
         setProduct(p);
-        setSelectedColor(p.colors[0]);
-        setSelectedSize(p.sizes[2] || p.sizes[0]);
+        setSelectedColor(p.colors[0] || '');
+        setSelectedSize(p.sizes[0] || '');
       })
       .catch(() => setProduct(null))
       .finally(() => { if (mounted) setLoading(false); });
@@ -101,7 +101,7 @@ export default function ProductDetail() {
       mounted = false;
       if (id) addProductToRecentlyViewed(id);
     };
-  }, [id]);
+  }, [addProductToRecentlyViewed, id]);
 
   const { data: similarProducts, isLoading: isLoadingSimilar } = useQuery({
     queryKey: ['similar', id, product?.category],

@@ -14,6 +14,12 @@ interface User {
         url: string;
     }
     isPremium?: boolean;
+    emailVerified?: boolean;
+    roles?: {
+        buyer: boolean;
+        seller: { status: string; businessName?: string } | null;
+        admin: { role: string; permissions: string[] } | null;
+    };
 }
 
 interface AuthContextType {
@@ -39,7 +45,17 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
             try {
                 const userString = await SecureStore.getItemAsync('user');
                 if (userString) {
-                    setUser(JSON.parse(userString));
+                    const cachedUser = JSON.parse(userString);
+                    setUser(cachedUser);
+                    try {
+                        const response = await axiosInstance.get('/auth/api/me');
+                        if (response.data?.user) {
+                            setUser(response.data.user);
+                            await SecureStore.setItemAsync('user', JSON.stringify(response.data.user));
+                        }
+                    } catch (error: any) {
+                        if (error?.response?.status === 401 || error?.response?.status === 403) setUser(null);
+                    }
                 }
             } catch (e) {
                 console.error("Failed to load user from storage", e);
@@ -94,6 +110,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
 
                         if (response.data?.accessToken) {
                             await SecureStore.setItemAsync('access_token', response.data.accessToken);
+                            if (response.data.refreshToken) await SecureStore.setItemAsync('refresh_token', response.data.refreshToken);
                             
                             // Update the Authorization header for the retry
                             originalRequest.headers.Authorization = `Bearer ${response.data.accessToken}`;
@@ -120,6 +137,22 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
         return () => axiosInstance.interceptors.response.eject(interceptor);
     }, []);
 
+    // Keep backend awake by pinging health endpoint every 15 minutes when user is logged in
+    useEffect(() => {
+        if (!user) return;
+
+        const keepAliveInterval = setInterval(async () => {
+            try {
+                await axiosInstance.get('/health');
+                console.log('✅ Backend keep-alive ping successful');
+            } catch (error) {
+                console.log('⚠️ Keep-alive ping failed (backend may be sleeping):', error instanceof Error ? error.message : 'Unknown error');
+            }
+        }, 15 * 60 * 1000); // 15 minutes
+
+        return () => clearInterval(keepAliveInterval);
+    }, [user]);
+
     const login = async (userData: User, accessToken: string, refreshToken?: string) => {
         try {
             setUser(userData);
@@ -130,6 +163,13 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
             if (refreshToken) promises.push(SecureStore.setItemAsync('refresh_token', refreshToken));
             await Promise.all(promises);
             console.log('✅ User login stored successfully:', userData.email);
+            
+            // Ping backend immediately to wake it up
+            setTimeout(() => {
+                axiosInstance.get('/health').catch(() => {
+                    console.log('⚠️ Initial wake-up ping sent to backend');
+                });
+            }, 500);
         } catch (error) {
             console.error('❌ Error storing login data:', error);
             setUser(userData);
@@ -148,6 +188,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
 
             if (response.data?.accessToken) {
                 await SecureStore.setItemAsync('access_token', response.data.accessToken);
+                if (response.data.refreshToken) await SecureStore.setItemAsync('refresh_token', response.data.refreshToken);
                 return true;
             }
             return false;

@@ -32,7 +32,7 @@ export const AnimatedCheckbox: React.FC<AnimatedCheckboxProps> = ({ checked, onC
       duration: 250,
       easing: Easing.bezier(0.4, 0, 0.2, 1)
     });
-  }, [checked]);
+  }, [checked, progress]);
 
   const animatedContainerStyle = useAnimatedStyle(() => {
     const backgroundColor = interpolateColor(progress.value, [0, 1], ['#F2F2F7', '#007AFF']);

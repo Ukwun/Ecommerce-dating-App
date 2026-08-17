@@ -1,5 +1,5 @@
-import React from 'react';
-import { View, Text, FlatList, StyleSheet, Image, TouchableOpacity, ScrollView } from 'react-native';
+import React, { useCallback, useEffect, useState } from 'react';
+import { View, Text, FlatList, StyleSheet, Image, TouchableOpacity, ScrollView , ActivityIndicator } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
@@ -7,8 +7,8 @@ import { router } from 'expo-router';
 import LottieView from 'lottie-react-native';
 import { useCart } from '@/hooks/CartContext';
 import { useCheckout } from '@/hooks/CheckoutContext';
-import { useEffect, useState } from 'react';
-import { ActivityIndicator } from 'react-native';
+
+
 import { getCachedRates, convert } from '@/utils/currency';
 
 const CartItem = ({ item, onUpdateQuantity, onRemove, currency, convertFn }: { item: any, onUpdateQuantity: any, onRemove: any, currency: string, convertFn?: (n:number)=>Promise<number> }) => {
@@ -28,7 +28,7 @@ const CartItem = ({ item, onUpdateQuantity, onRemove, currency, convertFn }: { i
       }
     })();
     return () => { mounted = false; };
-  }, [item.price, currency]);
+  }, [convertFn, currency, item.price]);
 
   const displayPrice = () => {
     if (currency === 'NGN') return `₦${item.price.toLocaleString()}`;
@@ -70,6 +70,7 @@ export default function CartScreen() {
 
   const subtotal = items.reduce((sum: number, item: { price: number; quantity: number }) => sum + item.price * item.quantity, 0);
   const { deliveryOption, currency } = useCheckout();
+  const convertCartPrice = useCallback((amount: number) => convert(amount, 'NGN', currency), [currency]);
   // Adjust shipping cost based on delivery preference
   const shipping = deliveryOption === 'station' ? 0 : 500;
   const total = subtotal + shipping;
@@ -131,7 +132,7 @@ export default function CartScreen() {
                 onUpdateQuantity={updateQuantity}
                 onRemove={removeFromCart}
                 currency={currency}
-                convertFn={(n:number) => convert(n, 'NGN', currency)}
+                convertFn={convertCartPrice}
               />
             ))}
 

@@ -104,7 +104,7 @@ export default function HomeScreen() {
     if (items.length > 0) {
       badgeScale.value = withSpring(1.4, {}, () => { badgeScale.value = withSpring(1); });
     }
-  }, [items.length]);
+  }, [badgeScale, items.length]);
 
   const fetchVerifiedSellers = async () => {
     try {
@@ -141,14 +141,14 @@ export default function HomeScreen() {
 
       if (fetchedData.length < 10) setHasMore(false);
       if (pageNum === 1) {
-        setProducts(mappedProducts.length === 0 ? fallbackProducts : mappedProducts);
+        setProducts(mappedProducts);
         if (mappedProducts.length === 0) setHasMore(false);
       } else {
         setProducts(prev => [...prev, ...mappedProducts]);
       }
       setPage(pageNum);
     } catch {
-      if (pageNum === 1) { setProducts(fallbackProducts); setHasMore(false); }
+      if (pageNum === 1) { setProducts([]); setHasMore(false); }
     } finally {
       setLoading(false); setLoadingMore(false); setRefreshing(false);
     }
@@ -161,7 +161,7 @@ export default function HomeScreen() {
   useEffect(() => {
     const t = setTimeout(() => { setPage(1); setHasMore(true); fetchProducts(1); }, 400);
     return () => clearTimeout(t);
-  }, [searchQuery, filters, activeCategory]);
+  }, [fetchProducts]);
 
   const onRefresh = () => { setRefreshing(true); fetchProducts(1, true); };
 

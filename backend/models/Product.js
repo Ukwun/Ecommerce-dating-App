@@ -31,6 +31,7 @@ const productSchema = new mongoose.Schema({
     required: [true, 'Please enter product stock'],
     default: 1
   },
+  reservedStock: { type: Number, default: 0, min: 0 },
   inStock: {
     type: Boolean,
     default: true

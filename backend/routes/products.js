@@ -2,10 +2,11 @@ const express = require('express');
 const router = express.Router();
 const Product = require('../models/Product');
 const { protect } = require('../middleware/auth');
+const { seller } = require('../middleware/admin');
 const Review = require('../models/Review');
 
 // Create new product
-router.post('/products', protect, async (req, res) => {
+router.post('/products', protect, seller, async (req, res) => {
   try {
     const { name, description, price, oldPrice, category, stock, sizes, colors, images } = req.body;
 

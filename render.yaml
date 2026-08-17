@@ -2,11 +2,59 @@ services:
   - type: web
     name: marketplace-backend
     env: node
-    plan: free
+    plan: starter
     buildCommand: cd backend && npm install
     startCommand: cd backend && npm start
+    healthCheckPath: /health
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: REQUIRE_REDIS
+        value: "true"
+      - key: REDIS_URL
+        fromService:
+          type: keyvalue
+          name: marketplace-redis
+          property: connectionString
+      - key: MONGO_URI
+        sync: false
+      - key: JWT_SECRET
+        sync: false
+      - key: PAYSTACK_SECRET_KEY
+        sync: false
+      - key: IMAGEKIT_PRIVATE_KEY
+        sync: false
+      - key: RESEND_API_KEY
+        sync: false
+      - key: RESEND_FROM_EMAIL
+        sync: false
     # Environment variables must be set in Render dashboard:
     # MONGO_URI, JWT_SECRET, NODE_ENV=production, PORT=8082
     # EMAIL_SERVICE, EMAIL_USERNAME, EMAIL_PASSWORD, EMAIL_FROM
     # ALERT_WEBHOOK_URL (Slack/Teams/custom webhook for critical monitoring alerts)
+  - type: worker
+    name: marketplace-worker
+    env: node
+    plan: starter
+    buildCommand: cd backend && npm ci --omit=dev
+    startCommand: cd backend && npm run worker
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: REDIS_URL
+        fromService:
+          type: keyvalue
+          name: marketplace-redis
+          property: connectionString
+      - key: MONGO_URI
+        sync: false
+      - key: RESEND_API_KEY
+        sync: false
+      - key: RESEND_FROM_EMAIL
+        sync: false
+  - type: keyvalue
+    name: marketplace-redis
+    plan: starter
+    maxmemoryPolicy: noeviction
+    ipAllowList: []
 

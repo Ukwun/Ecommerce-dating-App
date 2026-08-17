@@ -14,7 +14,8 @@ const sellerRatingSchema = new mongoose.Schema({
   },
   order: {
     type: mongoose.Schema.Types.ObjectId,
-    ref: 'Order'
+    ref: 'Order',
+    required: true
   },
   rating: {
     type: Number,
@@ -40,6 +41,6 @@ const sellerRatingSchema = new mongoose.Schema({
 
 // Index for quick lookups
 sellerRatingSchema.index({ seller: 1, createdAt: -1 });
-sellerRatingSchema.index({ buyer: 1, seller: 1 }, { unique: true });
+sellerRatingSchema.index({ buyer: 1, seller: 1, order: 1 }, { unique: true });
 
 module.exports = mongoose.model('SellerRating', sellerRatingSchema);

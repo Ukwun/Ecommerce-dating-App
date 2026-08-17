@@ -6,12 +6,17 @@
     "start": "node server.js",
     "dev": "nodemon",
     "test:e2e": "node scripts/e2e-smoke.js",
-    "build": "npx babel . --out-dir dist --extensions \".js\" --ignore \"node_modules\" --copy-files && echo '{\"type\": \"commonjs\"}' > dist/package.json",
+    "test:integration": "node --test --test-concurrency=1 test/critical-flows.test.js",
+    "worker": "node worker.js",
+    "build": "babel server.js worker.js config constants controllers jobs middleware models routes socket utils --out-dir dist --extensions \".js\" --copy-files && node scripts/write-dist-package.js",
     "serve": "npm run build && node dist/server.js"
   },
   "dependencies": {
+    "@aws-sdk/client-rekognition": "^3.1095.0",
+    "@socket.io/redis-adapter": "^8.3.0",
     "axios": "^1.7.0",
     "bcryptjs": "^2.4.3",
+    "bullmq": "^6.1.2",
     "cors": "^2.8.5",
     "dotenv": "^16.4.5",
     "expo-server-sdk": "^3.11.0",
@@ -22,16 +27,18 @@
     "mongodb": "^6.7.0",
     "mongoose": "^8.4.1",
     "node-fetch": "^2.7.0",
-    "nodemailer": "^6.9.7",
+    "redis": "^6.2.1",
     "socket.io": "^4.8.3",
-    "uuid": "^9.0.1"
+    "uuid": "^11.1.1"
   },
   "devDependencies": {
     "@babel/cli": "^7.24.7",
     "@babel/core": "^7.24.7",
     "@babel/node": "^7.24.7",
     "@babel/preset-env": "^7.24.7",
-    "nodemon": "^3.1.10"
+    "nodemon": "^3.1.10",
+    "socket.io-client": "^4.8.3",
+    "supertest": "^7.2.2"
   },
   "description": "",
   "keywords": [],

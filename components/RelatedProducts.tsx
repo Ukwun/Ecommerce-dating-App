@@ -65,7 +65,7 @@ const RelatedProductCard = ({ item, index }: { item: Product; index: number }) =
     } catch (e) { /* silent log failure */ }
 
     router.push({
-      pathname: "/(routes)/product-details",
+      pathname: "/(routes)/product/[id]",
       params: { id: item._id }
     });
   };

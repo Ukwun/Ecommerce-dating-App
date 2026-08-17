@@ -1,8 +1,8 @@
 const axios = require('axios');
 
-let pingInterval = null;
+let pingInterval: ReturnType<typeof setInterval> | null = null;
 
-const startKeepAlive = (backendUrl, intervalMs = 300000) => {
+const startKeepAlive = (backendUrl: string, intervalMs = 300000) => {
   // Clear any existing interval
   if (pingInterval) clearInterval(pingInterval);
 
@@ -17,11 +17,11 @@ const startKeepAlive = (backendUrl, intervalMs = 300000) => {
   console.log(`✅ Keep-alive started. Pinging ${backendUrl} every ${intervalMs / 1000 / 60} minutes`);
 };
 
-const pingBackend = async (backendUrl) => {
+const pingBackend = async (backendUrl: string) => {
   try {
     const response = await axios.get(`${backendUrl}/health`, { timeout: 5000 });
     console.log(`🔌 Keep-alive ping successful:`, response.data.message);
-  } catch (error) {
+  } catch (error: any) {
     console.warn(`⚠️ Keep-alive ping failed: ${error.message}`);
   }
 };

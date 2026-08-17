@@ -1,11 +1,11 @@
 import React, { useState } from 'react';
-import { View, Text, FlatList, StyleSheet, TouchableOpacity, ActivityIndicator, RefreshControl, TextInput, SafeAreaView } from 'react-native';
+import { View, Text, FlatList, StyleSheet, TouchableOpacity, ActivityIndicator, RefreshControl, TextInput, SafeAreaView , Image } from 'react-native';
 import { useInfiniteQuery } from '@tanstack/react-query';
 import { router } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import axiosInstance from '@/utils/axiosinstance';
 import { useTheme } from '@/hooks/useTheme';
-import { Image } from 'react-native';
+
 
 export default function SellersScreen() {
   const { isDark } = useTheme();

@@ -9,19 +9,15 @@ import {
   ActivityIndicator,
   StatusBar,
   RefreshControl,
-  Dimensions,
   TextInput,
 } from 'react-native';
 import { Ionicons, MaterialCommunityIcons, Feather } from '@expo/vector-icons';
 import { useFocusEffect, useRouter } from 'expo-router';
 import { useMarketplaceDiscovery } from '../../hooks/useMarketplaceDiscovery';
 import { useDatingProfile } from '../../hooks/useDating';
+import { useWishlist } from '@/hooks/useWishlist';
 import { LinearGradient } from 'expo-linear-gradient';
-import Animated, { FadeInDown, ZoomIn } from 'react-native-reanimated';
 import Toast from 'react-native-toast-message';
-
-
-const { width } = Dimensions.get('window');
 
 export default function DiscoverScreen() {
   const router = useRouter();
@@ -43,6 +39,7 @@ export default function DiscoverScreen() {
     logRetentionHeartbeat,
   } = useMarketplaceDiscovery();
 
+  const { wishlistIds } = useWishlist();
   const [refreshing, setRefreshing] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
   const [activeTab, setActiveTab] = useState<'personalized' | 'trending'>('personalized');
@@ -52,16 +49,20 @@ export default function DiscoverScreen() {
     useCallback(() => {
       logSessionStart('discover_tab');
       refetch();
-    }, [])
+    }, [logSessionStart, refetch])
   );
 
   useEffect(() => {
     logAppOpen();
-  }, []);
+  }, [logAppOpen]);
+
+  useEffect(() => {
+    setFavoriteIds(new Set(wishlistIds));
+  }, [wishlistIds]);
 
   useEffect(() => {
     logRetentionHeartbeat('discover_tab');
-  }, [activeTab]);
+  }, [activeTab, logRetentionHeartbeat]);
 
   const handleRefresh = async () => {
     setRefreshing(true);

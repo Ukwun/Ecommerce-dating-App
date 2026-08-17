@@ -75,6 +75,13 @@ router.post('/chat/send/:conversationId', protect, async (req, res) => {
       return res.status(403).json({ message: 'This conversation is closed' });
     }
 
+    const isParticipant = conversation.participants.some(
+      participantId => participantId.toString() === senderId
+    );
+    if (!isParticipant) {
+      return res.status(403).json({ message: 'Not authorized for this conversation' });
+    }
+
     // Create new message object
     const newMessage = {
       senderId,

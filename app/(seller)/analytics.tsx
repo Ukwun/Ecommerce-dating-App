@@ -10,7 +10,7 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 const API_BASE_URL =
   process.env.EXPO_PUBLIC_SERVER_URI ||
   process.env.EXPO_PUBLIC_BACKEND_URL ||
-  'https://marketplace-backend.railway.app';
+  'https://ecommerce-dating-app.onrender.com';
 
 export default function SellerAnalyticsScreen() {
   const theme = useTheme();

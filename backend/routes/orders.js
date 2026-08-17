@@ -3,6 +3,7 @@ const Order = require('../models/Order');
 const Product = require('../models/Product');
 const Cart = require('../models/Cart');
 const { protect } = require('../middleware/auth');
+const AdminUser = require('../models/AdminUser');
 const { EVENT_TYPES } = require('../constants/eventTaxonomy');
 const { trackUserEvent } = require('../utils/eventLogger');
 
@@ -10,6 +11,10 @@ const router = express.Router();
 
 // ✅ Create order from cart
 router.post('/orders', protect, async (req, res) => {
+  const reservedProducts = [];
+  const releaseReservations = () => Promise.all(
+    reservedProducts.map(entry => Product.updateOne({ _id: entry.product }, { $inc: { reservedStock: -entry.quantity } }))
+  );
   try {
     const { products, shippingAddress, shippingCost } = req.body;
 
@@ -29,21 +34,37 @@ router.post('/orders', protect, async (req, res) => {
     if (!shippingAddress) {
       return res.status(400).json({ error: 'Shipping address required' });
     }
+    const allowedShippingCosts = [1000, 2500];
+    if (!allowedShippingCosts.includes(Number(shippingCost))) {
+      return res.status(422).json({ error: 'Invalid shipping method or price' });
+    }
 
     let subtotal = 0;
     const orderProducts = [];
+    const fulfillmentMap = new Map();
 
     // Validate and prepare products
     for (const item of products) {
       const product = await Product.findById(item.product);
       
-      if (!product) {
+      if (!product || !product.inStock) {
+        await releaseReservations();
         return res.status(400).json({ error: `Product ${item.product} not found` });
       }
 
-      if (product.stock < item.quantity) {
+      if (product.stock - (product.reservedStock || 0) < item.quantity) {
+        await releaseReservations();
         return res.status(400).json({ error: `Insufficient stock for ${product.name}` });
       }
+      const reserved = await Product.updateOne(
+        { _id: product._id, $expr: { $gte: [{ $subtract: ['$stock', { $ifNull: ['$reservedStock', 0] }] }, item.quantity] } },
+        { $inc: { reservedStock: item.quantity } }
+      );
+      if (!reserved.modifiedCount) {
+        await releaseReservations();
+        return res.status(409).json({ error: `${product.name} was just reserved by another buyer` });
+      }
+      reservedProducts.push({ product: product._id, quantity: item.quantity });
 
       const totalPrice = product.price * item.quantity;
       subtotal += totalPrice;
@@ -54,12 +75,11 @@ router.post('/orders', protect, async (req, res) => {
         price: product.price,
         totalPrice
       });
-
-      // Update product stock
-      product.stock -= item.quantity;
-      product.purchases += item.quantity;
-      product.inStock = product.stock > 0;
-      await product.save();
+      const sellerId = String(product.seller);
+      const fulfillment = fulfillmentMap.get(sellerId) || { seller: product.seller, products: [], subtotal: 0 };
+      fulfillment.products.push({ product: product._id, quantity: item.quantity, totalPrice });
+      fulfillment.subtotal += totalPrice;
+      fulfillmentMap.set(sellerId, fulfillment);
 
       await trackUserEvent({
         userId: req.user.id,
@@ -71,12 +91,14 @@ router.post('/orders', protect, async (req, res) => {
       });
     }
 
-    const tax = Math.round(subtotal * 0.1); // 10% tax
-    const total = subtotal + shippingCost + tax;
+    const taxRate = Number(process.env.MARKETPLACE_TAX_RATE || 0.075);
+    const tax = Math.round(subtotal * taxRate);
+    const total = subtotal + Number(shippingCost) + tax;
 
     const order = new Order({
       user: req.user.id,
       products: orderProducts,
+      fulfillments: Array.from(fulfillmentMap.values()),
       shippingAddress,
       subtotal,
       shippingCost,
@@ -163,7 +185,8 @@ router.get('/orders/:id', protect, async (req, res) => {
       return res.status(404).json({ error: 'Order not found' });
     }
 
-    if (order.user._id.toString() !== req.user.id && req.user.role !== 'admin') {
+    const adminUser = await AdminUser.findOne({ userId: req.user.id, isActive: true });
+    if (order.user._id.toString() !== req.user.id && !adminUser?.permissions?.includes('manage_orders')) {
       return res.status(403).json({ error: 'Not authorized' });
     }
 
@@ -192,6 +215,17 @@ router.put('/orders/:id/status', protect, async (req, res) => {
       return res.status(404).json({ error: 'Order not found' });
     }
 
+    const [adminUser, orderProducts] = await Promise.all([
+      AdminUser.findOne({ userId: req.user.id, isActive: true }),
+      Product.find({ _id: { $in: order.products.map(item => item.product) } }).select('seller')
+    ]);
+    const canManageAllOrders = adminUser?.permissions?.includes('manage_orders');
+    const ownsEveryProduct = orderProducts.length === order.products.length &&
+      orderProducts.every(product => product.seller.toString() === req.user.id);
+    if (!canManageAllOrders && !ownsEveryProduct) {
+      return res.status(403).json({ error: 'Only the order seller or an authorized administrator can update status' });
+    }
+
     order.status = status;
     if (status === 'delivered') {
       order.deliveredAt = Date.now();
@@ -209,6 +243,50 @@ router.put('/orders/:id/status', protect, async (req, res) => {
   }
 });
 
+// Update only the authenticated seller's portion of a multi-seller order.
+router.put('/orders/:id/fulfillments/status', protect, async (req, res) => {
+  try {
+    const { status, trackingNumber, carrier } = req.body;
+    const validStatuses = ['confirmed', 'processing', 'shipped', 'delivered', 'cancelled'];
+    if (!validStatuses.includes(status)) return res.status(400).json({ error: 'Invalid fulfillment status' });
+    const order = await Order.findById(req.params.id);
+    if (!order) return res.status(404).json({ error: 'Order not found' });
+    const fulfillment = order.fulfillments.find(item => item.seller.toString() === req.user.id);
+    if (!fulfillment) return res.status(403).json({ error: 'This order has no fulfillment assigned to your seller account' });
+    const transitions = {
+      pending: ['confirmed', 'cancelled'],
+      confirmed: ['processing', 'cancelled'],
+      processing: ['shipped', 'cancelled'],
+      shipped: ['delivered'],
+      delivered: [],
+      cancelled: [],
+      refunded: [],
+    };
+    if (!transitions[fulfillment.status]?.includes(status)) {
+      return res.status(409).json({ error: `Cannot move fulfillment from ${fulfillment.status} to ${status}` });
+    }
+    if (status === 'shipped' && (!trackingNumber || !carrier)) {
+      return res.status(400).json({ error: 'Carrier and tracking number are required when shipping' });
+    }
+    fulfillment.status = status;
+    if (trackingNumber) fulfillment.trackingNumber = trackingNumber;
+    if (carrier) fulfillment.carrier = carrier;
+    if (status === 'shipped') fulfillment.shippedAt = new Date();
+    if (status === 'delivered') fulfillment.deliveredAt = new Date();
+    const statuses = order.fulfillments.map(item => item.status);
+    if (statuses.every(value => value === 'delivered')) order.status = 'delivered';
+    else if (statuses.some(value => value === 'shipped')) order.status = 'shipped';
+    else if (statuses.some(value => value === 'processing')) order.status = 'processing';
+    else if (statuses.every(value => value === 'cancelled')) order.status = 'cancelled';
+    else if (statuses.some(value => value === 'confirmed')) order.status = 'confirmed';
+    await order.save();
+    res.json({ success: true, data: fulfillment, orderStatus: order.status });
+  } catch (error) {
+    await releaseReservations().catch(() => {});
+    res.status(500).json({ error: error.message });
+  }
+});
+
 // ✅ Cancel order
 router.put('/orders/:id/cancel', protect, async (req, res) => {
   try {
@@ -218,7 +296,8 @@ router.put('/orders/:id/cancel', protect, async (req, res) => {
       return res.status(404).json({ error: 'Order not found' });
     }
 
-    if (order.user.toString() !== req.user.id && req.user.role !== 'admin') {
+    const adminUser = await AdminUser.findOne({ userId: req.user.id, isActive: true }).select('permissions');
+    if (order.user.toString() !== req.user.id && !adminUser?.permissions?.includes('manage_orders')) {
       return res.status(403).json({ error: 'Not authorized' });
     }
 
@@ -226,18 +305,23 @@ router.put('/orders/:id/cancel', protect, async (req, res) => {
       return res.status(400).json({ error: `Cannot cancel order in ${order.status} status` });
     }
 
-    // Restore product stock
+    // Release a pending reservation or restore committed inventory.
     for (const item of order.products) {
       const product = await Product.findById(item.product);
       if (product) {
-        product.stock += item.quantity;
-        product.purchases -= item.quantity;
-        product.inStock = true;
+        if (order.inventoryReservationStatus === 'reserved') {
+          product.reservedStock = Math.max(0, (product.reservedStock || 0) - item.quantity);
+        } else if (order.inventoryReservationStatus === 'committed') {
+          product.stock += item.quantity;
+          product.purchases = Math.max(0, product.purchases - item.quantity);
+          product.inStock = true;
+        }
         await product.save();
       }
     }
 
     order.status = 'cancelled';
+    order.inventoryReservationStatus = 'released';
     await order.save();
 
     res.json({
@@ -253,7 +337,8 @@ router.put('/orders/:id/cancel', protect, async (req, res) => {
 // ✅ Get order statistics (admin)
 router.get('/admin/stats/orders', protect, async (req, res) => {
   try {
-    if (req.user.role !== 'admin') {
+    const adminUser = await AdminUser.findOne({ userId: req.user.id, isActive: true }).select('permissions');
+    if (!adminUser?.permissions?.includes('view_analytics')) {
       return res.status(403).json({ error: 'Admin only' });
     }
 

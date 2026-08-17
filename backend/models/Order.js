@@ -31,6 +31,24 @@ const orderSchema = new mongoose.Schema({
       required: true
     }
   }],
+  fulfillments: [{
+    seller: { type: mongoose.Schema.Types.ObjectId, ref: 'User', required: true },
+    products: [{
+      product: { type: mongoose.Schema.Types.ObjectId, ref: 'Product', required: true },
+      quantity: { type: Number, required: true },
+      totalPrice: { type: Number, required: true }
+    }],
+    subtotal: { type: Number, required: true },
+    status: {
+      type: String,
+      enum: ['pending', 'confirmed', 'processing', 'shipped', 'delivered', 'cancelled', 'refunded'],
+      default: 'pending'
+    },
+    trackingNumber: String,
+    carrier: String,
+    shippedAt: Date,
+    deliveredAt: Date
+  }],
   shippingAddress: {
     name: String,
     addressLine1: String,
@@ -85,6 +103,15 @@ const orderSchema = new mongoose.Schema({
   estimatedDelivery: Date,
   deliveredAt: Date,
   notes: String,
+  inventoryReservationStatus: {
+    type: String,
+    enum: ['reserved', 'committed', 'released'],
+    default: 'reserved'
+  },
+  inventoryReservationExpiresAt: {
+    type: Date,
+    default: () => new Date(Date.now() + 30 * 60 * 1000)
+  },
   driverRating: {
     type: Number,
     min: 1,

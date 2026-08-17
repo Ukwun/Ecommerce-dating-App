@@ -9,8 +9,7 @@ export default function HiddenLayout() {
     <Stack
       screenOptions={{
         headerShown: false,
-        cardStyle: { backgroundColor: isDark ? '#111827' : '#fff' },
-        animationEnabled: true,
+        contentStyle: { backgroundColor: isDark ? '#111827' : '#fff' },
         animationTypeForReplace: 'pop',
         gestureEnabled: true,
       }}

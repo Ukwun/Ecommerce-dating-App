@@ -1,4 +1,4 @@
-﻿import { View, Text, StyleSheet, TouchableOpacity, Animated } from 'react-native'
+import { View, Text, StyleSheet, TouchableOpacity, Animated } from 'react-native'
 import React, { useEffect, useRef } from 'react'
 import { Ionicons } from '@expo/vector-icons'
 import { router } from 'expo-router'

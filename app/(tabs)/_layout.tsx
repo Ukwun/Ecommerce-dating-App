@@ -58,7 +58,7 @@ export default function TabLayout() {
         name="discover"
         options={{
           title: 'Discover',
-          tabBarIcon: ({ color, size }) => <Feather name="heart" size={size} color={color} />,
+          tabBarIcon: ({ color, size }) => <Feather name="compass" size={size} color={color} />,
         }}
       />
 
@@ -66,7 +66,7 @@ export default function TabLayout() {
         name="matches"
         options={{
           title: 'Matches',
-          tabBarIcon: ({ color, size }) => <AntDesign name="star" size={size} color={color} />,
+          tabBarIcon: ({ color, size }) => <AntDesign name="heart" size={size} color={color} />,
         }}
       />
 
@@ -74,7 +74,7 @@ export default function TabLayout() {
         name="messages"
         options={{
           title: 'Messages',
-          tabBarIcon: ({ color, size }) => <AntDesign name="message" size={size} color={color} />,
+          tabBarIcon: ({ color, size }) => <Feather name="message-square" size={size} color={color} />,
         }}
       />
 

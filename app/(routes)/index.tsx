@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useCallback, useEffect, useState } from 'react';
 import { View, Text, FlatList, Image, TouchableOpacity, StyleSheet, ActivityIndicator, Alert } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
@@ -12,7 +12,7 @@ export default function MyListingsScreen() {
   const [products, setProducts] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
 
-  const fetchMyProducts = async () => {
+  const fetchMyProducts = useCallback(async () => {
     try {
       setLoading(true);
       const response = await axiosInstance.get(`/marketplace/api/products?seller=${user?.id}`);
@@ -22,13 +22,13 @@ export default function MyListingsScreen() {
     } finally {
       setLoading(false);
     }
-  };
+  }, [user?.id]);
 
   useEffect(() => {
     if (user) {
       fetchMyProducts();
     }
-  }, [user]);
+  }, [fetchMyProducts, user]);
 
   const handleDelete = (id: string) => {
     Alert.alert(

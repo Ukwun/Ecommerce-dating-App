@@ -9,8 +9,8 @@
         "buildType": "apk"
       },
       "env": {
-        "EXPO_PUBLIC_BACKEND_URL": "https://marketplace-backend.railway.app",
-        "EXPO_PUBLIC_SERVER_URI": "https://marketplace-backend.railway.app"
+        "EXPO_PUBLIC_BACKEND_URL": "https://ecommerce-dating-app.onrender.com",
+        "EXPO_PUBLIC_SERVER_URI": "https://ecommerce-dating-app.onrender.com"
       }
     },
     "preview2": {
@@ -18,8 +18,8 @@
         "buildType": "apk"
       },
       "env": {
-        "EXPO_PUBLIC_BACKEND_URL": "https://marketplace-backend.railway.app",
-        "EXPO_PUBLIC_SERVER_URI": "https://marketplace-backend.railway.app"
+        "EXPO_PUBLIC_BACKEND_URL": "https://ecommerce-dating-app.onrender.com",
+        "EXPO_PUBLIC_SERVER_URI": "https://ecommerce-dating-app.onrender.com"
       }
     },
     "preview3": {
@@ -27,8 +27,8 @@
         "buildType": "apk"
       },
       "env": {
-        "EXPO_PUBLIC_BACKEND_URL": "https://marketplace-backend.railway.app",
-        "EXPO_PUBLIC_SERVER_URI": "https://marketplace-backend.railway.app"
+        "EXPO_PUBLIC_BACKEND_URL": "https://ecommerce-dating-app.onrender.com",
+        "EXPO_PUBLIC_SERVER_URI": "https://ecommerce-dating-app.onrender.com"
       }
     },
     "production": {

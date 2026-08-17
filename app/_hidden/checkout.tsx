@@ -58,7 +58,7 @@ export default function CheckoutScreen() {
       const def = addresses.find(a => a.isDefault) || addresses[0];
       setSelectedAddress(def);
     }
-  }, [addresses]);
+  }, [addresses, selectedAddress]);
 
   const subtotal = items.reduce((s, i) => s + i.price * i.quantity, 0);
   const shipping = deliveryOption === 'station' ? 0 :

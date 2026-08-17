@@ -51,7 +51,7 @@ export const FlyingItem = ({ startPos, endPos, onComplete, imageUri }: FlyingIte
       withTiming(startPos.y - 50, { duration: 200 }),
       withTiming(endPos.y, { 
         duration: 600,
-        easing: Easing.in(Easing.sine)
+        easing: Easing.in(Easing.sin)
       }, () => {
         runOnJS(onComplete)();
       })

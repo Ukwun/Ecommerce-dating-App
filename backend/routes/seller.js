@@ -4,9 +4,39 @@ const SellerAnalytics = require('../models/SellerAnalytics');
 const Order = require('../models/Order');
 const Product = require('../models/Product');
 const Return = require('../models/Return');
+const SellerFollow = require('../models/SellerFollow');
 const { protect, seller } = require('../middleware/admin');
 
 const router = express.Router();
+
+router.get('/profiles/:sellerId', async (req, res) => {
+  try {
+    const profile = await SellerProfile.findOne({ _id: req.params.sellerId, verificationStatus: 'approved' }).populate('userId', 'name avatar createdAt');
+    if (!profile) return res.status(404).json({ error: 'Verified seller not found' });
+    const followers = await SellerFollow.countDocuments({ seller: profile._id });
+    return res.json({ success: true, data: { ...profile.toObject(), followers } });
+  } catch {
+    return res.status(400).json({ error: 'Invalid seller profile' });
+  }
+});
+
+router.get('/profiles/:sellerId/follow-status', protect, async (req, res) => {
+  const following = await SellerFollow.exists({ follower: req.user.id, seller: req.params.sellerId });
+  res.json({ success: true, following: Boolean(following) });
+});
+
+router.post('/profiles/:sellerId/follow', protect, async (req, res) => {
+  const profile = await SellerProfile.findOne({ _id: req.params.sellerId, verificationStatus: 'approved' }).select('userId');
+  if (!profile) return res.status(404).json({ error: 'Verified seller not found' });
+  if (profile.userId.toString() === req.user.id) return res.status(400).json({ error: 'You cannot follow your own store' });
+  await SellerFollow.updateOne({ follower: req.user.id, seller: profile._id }, { $setOnInsert: { follower: req.user.id, seller: profile._id } }, { upsert: true });
+  res.status(201).json({ success: true, following: true });
+});
+
+router.delete('/profiles/:sellerId/follow', protect, async (req, res) => {
+  await SellerFollow.deleteOne({ follower: req.user.id, seller: req.params.sellerId });
+  res.json({ success: true, following: false });
+});
 
 // ============================================================================
 // SELLER PROFILE MANAGEMENT
@@ -152,17 +182,28 @@ router.get('/orders', protect, seller, async (req, res) => {
       .limit(parseInt(limit))
       .sort({ createdAt: -1 });
 
+    const sellerProductSet = new Set(productIds.map(id => id.toString()));
+    const scopedOrders = orders.map(order => {
+      const value = order.toObject();
+      value.products = value.products.filter(item => sellerProductSet.has(String(item.product?._id || item.product)));
+      value.fulfillments = (value.fulfillments || []).filter(item => String(item.seller) === req.user.id);
+      value.subtotal = value.fulfillments.reduce((sum, item) => sum + Number(item.subtotal || 0), 0);
+      value.total = value.subtotal;
+      delete value.payment;
+      return value;
+    });
+
     const total = await Order.countDocuments({
       'products.product': { $in: productIds }
     });
 
     res.status(200).json({
       success: true,
-      count: orders.length,
+      count: scopedOrders.length,
       total,
       page: parseInt(page),
       pages: Math.ceil(total / limit),
-      data: orders
+      data: scopedOrders
     });
   } catch (error) {
     res.status(500).json({ error: error.message });

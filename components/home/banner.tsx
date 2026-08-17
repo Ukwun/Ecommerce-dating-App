@@ -1,7 +1,6 @@
-﻿import React, { useRef, useEffect, useCallback, useState } from 'react'
-import { View, Text, Image, StyleSheet, FlatList, Dimensions, NativeSyntheticEvent, NativeScrollEvent } from 'react-native'
+import React, { useRef, useEffect, useCallback, useState } from 'react'
+import { View, Text, Image, StyleSheet, FlatList, Dimensions, NativeSyntheticEvent, NativeScrollEvent , TouchableOpacity } from 'react-native'
 import { LinearGradient } from 'expo-linear-gradient'
-import { TouchableOpacity } from 'react-native'
 import VectorSvg from '@/assets/svgs/vector'
 
 const { width } = Dimensions.get('window');

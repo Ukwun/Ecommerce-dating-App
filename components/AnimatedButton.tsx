@@ -1,5 +1,5 @@
 import React from 'react';
-import { TouchableOpacity, ViewStyle, TextStyle } from 'react-native';
+import { TouchableOpacity, ViewStyle, StyleProp } from 'react-native';
 import Animated, {
   useSharedValue,
   useAnimatedStyle,
@@ -15,7 +15,7 @@ const AnimatedTouchable = Animated.createAnimatedComponent(TouchableOpacity);
 interface AnimatedButtonProps {
   onPress: () => void;
   children: React.ReactNode;
-  style?: ViewStyle | Animated.AnimatedStyleProp<ViewStyle>;
+  style?: StyleProp<ViewStyle>;
   disabled?: boolean;
   haptic?: 'light' | 'medium' | 'heavy';
   scaleOnPress?: number;
@@ -70,7 +70,7 @@ export const AnimatedButton = ({
 interface AnimatedScreenProps {
   children: React.ReactNode;
   entering?: any;
-  style?: ViewStyle | Animated.AnimatedStyleProp<ViewStyle>;
+  style?: StyleProp<ViewStyle>;
 }
 
 export const AnimatedScreen = ({

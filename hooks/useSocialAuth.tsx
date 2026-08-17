@@ -1,268 +1,105 @@
+import * as AppleAuthentication from 'expo-apple-authentication';
 import * as AuthSession from 'expo-auth-session';
+import * as Crypto from 'expo-crypto';
 import * as WebBrowser from 'expo-web-browser';
+import { Platform } from 'react-native';
 import { useState } from 'react';
-import { useAuth } from './AuthContext';
 import Toast from 'react-native-toast-message';
 import axiosInstance from '@/utils/axiosinstance';
-import { Platform } from 'react-native';
-
-// Only import Apple authentication on iOS
-let AppleAuthentication: any = null;
-if (Platform.OS === 'ios') {
-  try {
-    AppleAuthentication = require('expo-apple-authentication');
-  } catch (e) {
-    console.warn('Apple authentication not available');
-  }
-}
+import { useAuth } from './AuthContext';
 
 WebBrowser.maybeCompleteAuthSession();
 
-const BACKEND = process.env.EXPO_PUBLIC_SERVER_URI || 'https://marketplace-backend.railway.app';
-const GOOGLE_CLIENT_ID = process.env.EXPO_PUBLIC_GOOGLE_WEB_CLIENT_ID;
+const GOOGLE_CLIENT_ID = Platform.select({
+  ios: process.env.EXPO_PUBLIC_GOOGLE_IOS_CLIENT_ID,
+  android: process.env.EXPO_PUBLIC_GOOGLE_ANDROID_CLIENT_ID,
+  default: process.env.EXPO_PUBLIC_GOOGLE_WEB_CLIENT_ID,
+});
 const FACEBOOK_APP_ID = process.env.EXPO_PUBLIC_FACEBOOK_APP_ID;
+const redirectUri = AuthSession.makeRedirectUri({ scheme: 'marketplace', path: 'oauth' });
+
+const messageFor = (error: any, fallback: string) =>
+  error?.response?.data?.error || error?.response?.data?.message || error?.message || fallback;
 
 export default function useSocialAuth() {
+  const { login } = useAuth();
   const [isGoogleLoading, setGoogleLoading] = useState(false);
   const [isFacebookLoading, setFacebookLoading] = useState(false);
   const [isAppleLoading, setAppleLoading] = useState(false);
-  const [isPending, setPending] = useState(false);
-  const { login } = useAuth();
+  const isPending = isGoogleLoading || isFacebookLoading || isAppleLoading;
+
+  const finish = async (response: any) => {
+    const { user, accessToken, refreshToken } = response.data || {};
+    if (!user || !accessToken || !refreshToken) throw new Error('Authentication server returned an incomplete session');
+    await login(user, accessToken, refreshToken);
+    Toast.show({ type: 'success', text1: `Welcome, ${user.name}`, text2: 'Your account is ready.' });
+  };
 
   const promptGoogle = async () => {
+    if (!GOOGLE_CLIENT_ID) return Toast.show({ type: 'error', text1: 'Google sign-in unavailable', text2: 'Google client ID is not configured for this device.' });
     setGoogleLoading(true);
     try {
-      if (!GOOGLE_CLIENT_ID || GOOGLE_CLIENT_ID.includes('YOUR_')) {
-        Toast.show({
-          type: 'info',
-          text1: 'Google Sign-in Not Configured',
-          text2: 'Please use email sign-up for now',
-          duration: 3000,
-        });
-        setGoogleLoading(false);
-        return;
-      }
-
-      const redirectUri = AuthSession.makeRedirectUri();
       const discovery = await AuthSession.fetchDiscoveryAsync('https://accounts.google.com');
-
+      const nonce = Crypto.randomUUID();
       const request = new AuthSession.AuthRequest({
         clientId: GOOGLE_CLIENT_ID,
-        scopes: ['openid', 'profile', 'email'],
         redirectUri,
+        scopes: ['openid', 'profile', 'email'],
+        responseType: AuthSession.ResponseType.IdToken,
+        usePKCE: false,
+        extraParams: { nonce, prompt: 'select_account' },
       });
-
       const result = await request.promptAsync(discovery);
-
-      if (result.type === 'success' && result.params?.access_token) {
-        setPending(true);
-
-        try {
-          // Get user info from Google
-          const userInfoResponse = await fetch('https://www.googleapis.com/oauth2/v2/userinfo', {
-            headers: { Authorization: `Bearer ${result.params.access_token}` },
-          });
-          const userInfo = await userInfoResponse.json();
-
-          // Send to backend
-          const response = await axiosInstance.post(`${BACKEND}/auth/api/google`, {
-            accessToken: result.params.access_token,
-            idToken: result.params.id_token,
-            email: userInfo.email,
-            name: userInfo.name,
-          });
-
-          if (response.data?.accessToken && response.data?.user) {
-            await login(response.data.user, response.data.accessToken);
-            Toast.show({
-              type: 'success',
-              text1: '✅ Welcome!',
-              text2: `Signed in as ${response.data.user.name}`,
-            });
-          }
-        } catch (error) {
-          Toast.show({
-            type: 'error',
-            text1: 'Sign-in Failed',
-            text2: error instanceof Error ? error.message : 'Could not complete Google sign-in',
-          });
-        } finally {
-          setPending(false);
-        }
-      } else if (result.type !== 'dismiss') {
-        Toast.show({
-          type: 'info',
-          text1: 'Sign-in Cancelled',
-          text2: 'You cancelled Google sign-in',
-        });
-      }
+      if (result.type !== 'success') return;
+      if (!result.params.id_token) throw new Error(result.params?.error_description || 'Google did not return an identity token');
+      await finish(await axiosInstance.post('/auth/api/google-login', { idToken: result.params.id_token }));
     } catch (error) {
-      Toast.show({
-        type: 'error',
-        text1: 'Google Sign-in Error',
-        text2: error instanceof Error ? error.message : 'Unknown error',
-      });
+      Toast.show({ type: 'error', text1: 'Google sign-in failed', text2: messageFor(error, 'Please try again.') });
     } finally {
       setGoogleLoading(false);
     }
   };
 
   const promptFacebook = async () => {
+    if (!FACEBOOK_APP_ID) return Toast.show({ type: 'error', text1: 'Facebook sign-in unavailable', text2: 'Facebook App ID is not configured.' });
     setFacebookLoading(true);
     try {
-      if (!FACEBOOK_APP_ID || FACEBOOK_APP_ID.includes('YOUR_')) {
-        Toast.show({
-          type: 'info',
-          text1: 'Facebook Sign-in Not Configured',
-          text2: 'Please use email sign-up for now',
-          duration: 3000,
-        });
-        setFacebookLoading(false);
-        return;
-      }
-
-      const redirectUri = AuthSession.makeRedirectUri();
-      const authUrl =
-        `https://www.facebook.com/v18.0/dialog/oauth` +
-        `?client_id=${FACEBOOK_APP_ID}` +
-        `&redirect_uri=${encodeURIComponent(redirectUri)}` +
-        `&response_type=token` +
-        `&scope=public_profile,email`;
-
-      const result = await WebBrowser.openAuthSessionAsync(authUrl, redirectUri);
-
-      if (result.type === 'success' && result.url) {
-        setPending(true);
-        const match = result.url.match(/access_token=([^&]+)/);
-        const token = match?.[1];
-
-        if (token) {
-          try {
-            // Get user info from Facebook
-            const userInfoResponse = await fetch(
-              `https://graph.facebook.com/me?fields=id,name,email&access_token=${token}`
-            );
-            const userInfo = await userInfoResponse.json();
-
-            // Send to backend
-            const response = await axiosInstance.post(`${BACKEND}/auth/api/facebook`, {
-              accessToken: token,
-              email: userInfo.email,
-              name: userInfo.name,
-            });
-
-            if (response.data?.accessToken && response.data?.user) {
-              await login(response.data.user, response.data.accessToken);
-              Toast.show({
-                type: 'success',
-                text1: '✅ Welcome!',
-                text2: `Signed in as ${response.data.user.name}`,
-              });
-            }
-          } catch (error) {
-            Toast.show({
-              type: 'error',
-              text1: 'Sign-in Failed',
-              text2: error instanceof Error ? error.message : 'Could not complete Facebook sign-in',
-            });
-          } finally {
-            setPending(false);
-          }
-        }
-      } else if (result.type !== 'dismiss') {
-        Toast.show({
-          type: 'info',
-          text1: 'Sign-in Cancelled',
-          text2: 'You cancelled Facebook sign-in',
-        });
-      }
+      const state = Crypto.randomUUID();
+      const url = `https://www.facebook.com/v23.0/dialog/oauth?client_id=${encodeURIComponent(FACEBOOK_APP_ID)}&redirect_uri=${encodeURIComponent(redirectUri)}&response_type=token&scope=public_profile,email&state=${encodeURIComponent(state)}`;
+      const result = await WebBrowser.openAuthSessionAsync(url, redirectUri);
+      if (result.type !== 'success') return;
+      const fragment = result.url.split('#')[1] || '';
+      const params = new URLSearchParams(fragment);
+      if (params.get('state') !== state) throw new Error('Facebook authentication state mismatch');
+      const accessToken = params.get('access_token');
+      if (!accessToken) throw new Error(params.get('error_description') || 'Facebook did not return an access token');
+      await finish(await axiosInstance.post('/auth/api/facebook-login', { accessToken }));
     } catch (error) {
-      Toast.show({
-        type: 'error',
-        text1: 'Facebook Sign-in Error',
-        text2: error instanceof Error ? error.message : 'Unknown error',
-      });
+      Toast.show({ type: 'error', text1: 'Facebook sign-in failed', text2: messageFor(error, 'Please try again.') });
     } finally {
       setFacebookLoading(false);
     }
   };
 
   const promptApple = async () => {
-    if (Platform.OS !== 'ios') {
-      Toast.show({
-        type: 'info',
-        text1: 'Apple Sign-in',
-        text2: 'Apple Sign-in only available on iOS',
-      });
-      return;
-    }
-
-    if (!AppleAuthentication) {
-      Toast.show({
-        type: 'error',
-        text1: 'Apple Sign-in Not Available',
-        text2: 'Please use Google or Facebook sign-in',
-      });
-      return;
-    }
-
+    if (Platform.OS !== 'ios') return;
     setAppleLoading(true);
     try {
+      if (!(await AppleAuthentication.isAvailableAsync())) throw new Error('Sign in with Apple is unavailable on this device');
       const credential = await AppleAuthentication.signInAsync({
-        requestedScopes: [
-          AppleAuthentication.AppleAuthenticationScope.FULL_NAME,
-          AppleAuthentication.AppleAuthenticationScope.EMAIL,
-        ],
+        requestedScopes: [AppleAuthentication.AppleAuthenticationScope.FULL_NAME, AppleAuthentication.AppleAuthenticationScope.EMAIL],
       });
-
-      if (credential.identityToken) {
-        setPending(true);
-
-        try {
-          const response = await axiosInstance.post(`${BACKEND}/auth/api/apple`, {
-            identityToken: credential.identityToken,
-            email: credential.email,
-            name: credential.fullName?.givenName || 'Apple User',
-          });
-
-          if (response.data?.accessToken && response.data?.user) {
-            await login(response.data.user, response.data.accessToken);
-            Toast.show({
-              type: 'success',
-              text1: '✅ Welcome!',
-              text2: `Signed in as ${response.data.user.name}`,
-            });
-          }
-        } catch (error) {
-          Toast.show({
-            type: 'error',
-            text1: 'Sign-in Failed',
-            text2: error instanceof Error ? error.message : 'Could not complete Apple sign-in',
-          });
-        } finally {
-          setPending(false);
-        }
-      }
-    } catch (error) {
-      if ((error as any).code !== 'ERR_CANCELED') {
-        Toast.show({
-          type: 'error',
-          text1: 'Apple Sign-in Error',
-          text2: error instanceof Error ? error.message : 'Unknown error',
-        });
+      if (!credential.identityToken) throw new Error('Apple did not return an identity token');
+      const name = credential.fullName ? AppleAuthentication.formatFullName(credential.fullName) : undefined;
+      await finish(await axiosInstance.post('/auth/api/apple-login', { identityToken: credential.identityToken, email: credential.email, name }));
+    } catch (error: any) {
+      if (error?.code !== 'ERR_REQUEST_CANCELED' && error?.code !== 'ERR_CANCELED') {
+        Toast.show({ type: 'error', text1: 'Apple sign-in failed', text2: messageFor(error, 'Please try again.') });
       }
     } finally {
       setAppleLoading(false);
     }
   };
 
-  return {
-    promptGoogle,
-    promptFacebook,
-    promptApple,
-    isGoogleLoading,
-    isFacebookLoading,
-    isAppleLoading,
-    isPending,
-  };
+  return { promptGoogle, promptFacebook, promptApple, isGoogleLoading, isFacebookLoading, isAppleLoading, isPending };
 }

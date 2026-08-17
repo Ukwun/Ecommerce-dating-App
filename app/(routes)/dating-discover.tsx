@@ -29,7 +29,7 @@ export default function DatingDiscoverScreen() {
   useFocusEffect(
     useCallback(() => {
       fetchProfiles();
-    }, [])
+    }, [fetchProfiles])
   );
 
   const handleLike = async () => {

@@ -7,6 +7,7 @@ require('dotenv').config();
 
 // Import Routes
 const authRoutes = require('./routes/userRoutes');
+const socialAuthRoutes = require('./routes/socialAuth');
 const datingRoutes = require('./routes/dating');
 const discoveryRoutes = require('./routes/discovery');
 const swipeRoutes = require('./routes/swipe');
@@ -37,6 +38,8 @@ const uploadRoutes = require('./routes/upload');
 // Import Rate Limiters
 const { generalLimiter, authLimiter, createProductLimiter, paymentLimiter, supportLimiter } = require('./middleware/rateLimiter');
 const { startAnalyticsAggregationJob } = require('./jobs/analyticsAggregationJob');
+const { attachRedisAdapter } = require('./config/redis');
+const { scheduleAnalyticsAggregation } = require('./jobs/queue');
 
 const app = express();
 const server = http.createServer(app);
@@ -63,14 +66,19 @@ const corsOptions = {
 
 // Middleware
 app.use(cors(corsOptions));
-app.use(express.json());
+app.use(express.json({
+  verify: (req, _res, buffer) => {
+    req.rawBody = buffer;
+  }
+}));
 app.use(express.urlencoded({ extended: true }));
 
 // Health check endpoint (no auth required)
 app.get('/health', (req, res) => {
-  res.status(200).json({
-    status: 'ok',
-    message: 'Backend server is running and accessible',
+  const databaseReady = mongoose.connection.readyState === 1;
+  res.status(databaseReady ? 200 : 503).json({
+    status: databaseReady ? 'ok' : 'degraded',
+    database: databaseReady ? 'connected' : 'unavailable',
     timestamp: new Date().toISOString()
   });
 });
@@ -79,7 +87,12 @@ app.get('/health', (req, res) => {
 app.use(generalLimiter);
 
 // Database Connection
-mongoose.connect(process.env.MONGO_URI)
+mongoose.connect(process.env.MONGO_URI, {
+  maxPoolSize: Number(process.env.MONGO_MAX_POOL_SIZE || 50),
+  minPoolSize: Number(process.env.MONGO_MIN_POOL_SIZE || 5),
+  serverSelectionTimeoutMS: 10000,
+  maxIdleTimeMS: 60000,
+})
   .then(() => console.log('✅ MongoDB connected successfully'))
   .catch(err => console.error('❌ MongoDB connection error:', err));
 
@@ -88,6 +101,7 @@ require('./socket/socketHandler')(io);
 require('./socket/supportHandler')(io);
 
 // Register Routes
+app.use('/auth/api', authLimiter, socialAuthRoutes);
 app.use('/auth/api', authLimiter, authRoutes);
 app.use('/dating/api', datingRoutes);
 app.use('/dating/api', discoveryRoutes);
@@ -131,5 +145,15 @@ server.listen(PORT, '0.0.0.0', () => {
   console.log(`🚀 Server running on port ${PORT} (listening on all interfaces)`);
   console.log(`🚀 Backend accessible at: http://192.168.70.160:${PORT}`);
   console.log(`🔌 WebSocket server active on port ${PORT}`);
-  startAnalyticsAggregationJob();
+  scheduleAnalyticsAggregation().then(scheduled => {
+    if (!scheduled) startAnalyticsAggregationJob();
+  }).catch(error => {
+    console.error('Analytics queue scheduling failed:', error.message);
+    if (process.env.REQUIRE_REDIS !== 'true') startAnalyticsAggregationJob();
+  });
+});
+
+attachRedisAdapter(io).catch(error => {
+  console.error('Redis adapter startup failed:', error.message);
+  if (process.env.REQUIRE_REDIS === 'true') process.exit(1);
 });

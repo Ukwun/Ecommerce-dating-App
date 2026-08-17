@@ -1,135 +1,45 @@
-import React from 'react';
-import { View, Text, TextInput, StyleSheet, ScrollView, TouchableOpacity, Switch } from 'react-native';
+import React, { useState } from 'react';
+import { ActivityIndicator, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { useForm, Controller, useWatch } from 'react-hook-form';
-import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
+import { Ionicons } from '@expo/vector-icons';
 import { router } from 'expo-router';
-import { useMutation, useQueryClient } from '@tanstack/react-query';
+import * as WebBrowser from 'expo-web-browser';
 import Toast from 'react-native-toast-message';
-
-type CardFormData = {
-  cardHolderName: string;
-  cardNumber: string;
-  expiryDate: string;
-  cvv: string;
-  isDefault: boolean;
-};
-
-// Mock API call
-const addPaymentMethod = async (data: CardFormData) => {
-  console.log('Adding new card:', data);
-  // Simulate network delay
-  return new Promise(resolve => setTimeout(() => resolve({ success: true }), 1000));
-};
+import axiosInstance from '@/utils/axiosinstance';
 
 export default function AddPaymentMethodScreen() {
-  const { control, handleSubmit, formState: { errors, isValid }, watch } = useForm<CardFormData>({
-    mode: 'onChange',
-    defaultValues: { cardHolderName: '', cardNumber: '', expiryDate: '', cvv: '', isDefault: false },
-  });
-  const queryClient = useQueryClient();
+  const [loading, setLoading] = useState(false);
 
-  const mutation = useMutation({
-    mutationFn: addPaymentMethod,
-    onSuccess: () => {
-      Toast.show({ type: 'success', text1: 'Card Added Successfully!' });
-      queryClient.invalidateQueries({ queryKey: ['paymentMethods'] });
+  const authorizeCard = async () => {
+    setLoading(true);
+    try {
+      const initialized = await axiosInstance.post('/marketplace/api/payment-methods/initialize');
+      const { authorization_url: authorizationUrl, reference } = initialized.data.data;
+      const result = await WebBrowser.openAuthSessionAsync(authorizationUrl, 'marketplace://payment-method-added');
+      if (result.type !== 'success') return;
+      await axiosInstance.post('/marketplace/api/payment-methods/verify', { reference, isDefault: true });
+      Toast.show({ type: 'success', text1: 'Card saved securely', text2: 'The ₦50 verification charge is being refunded.' });
       router.back();
-    },
-    onError: (error: Error) => {
-      Toast.show({ type: 'error', text1: 'Failed to add card', text2: error.message });
-    },
-  });
-
-  const onSubmit = (data: CardFormData) => {
-    mutation.mutate(data);
-  };
-
-  const formatCardNumber = (text: string) => {
-    return text.replace(/\s?/g, '').replace(/(\d{4})/g, '$1 ').trim();
-  };
-
-  const formatExpiryDate = (text: string) => {
-    if (text.length === 2 && !text.includes('/')) {
-      return `${text}/`;
+    } catch (error: any) {
+      Toast.show({ type: 'error', text1: 'Could not save card', text2: error?.response?.data?.error || error.message });
+    } finally {
+      setLoading(false);
     }
-    return text;
   };
-
-  const renderInput = (name: keyof CardFormData, placeholder: string, keyboardType: 'default' | 'numeric' = 'default', maxLength?: number, formatter?: (text: string) => string) => (
-    <View style={styles.inputGroup}>
-      <Text style={styles.label}>{placeholder}</Text>
-      <Controller
-        control={control}
-        name={name}
-        rules={{ required: `${placeholder} is required.` }}
-        render={({ field: { onChange, onBlur, value } }) => (
-          <TextInput
-            style={[styles.input, errors[name] && styles.inputError]}
-            placeholder={`Enter ${placeholder.toLowerCase()}`}
-            onBlur={onBlur}
-            onChangeText={(text) => onChange(formatter ? formatter(text) : text)}
-            value={value as string}
-            keyboardType={keyboardType}
-            maxLength={maxLength}
-            secureTextEntry={name === 'cvv'}
-          />
-        )}
-      />
-      {errors[name] && <Text style={styles.errorText}>{errors[name]?.message}</Text>}
-    </View>
-  );
 
   return (
     <SafeAreaView style={styles.container}>
       <View style={styles.header}>
-        <TouchableOpacity onPress={() => router.back()} style={styles.backButton}>
-          <Ionicons name="arrow-back" size={24} color="#333" />
-        </TouchableOpacity>
-        <Text style={styles.headerTitle}>Add New Card</Text>
+        <TouchableOpacity onPress={() => router.back()}><Ionicons name="arrow-back" size={24} color="#111827" /></TouchableOpacity>
+        <Text style={styles.title}>Add a payment card</Text>
       </View>
-
-      <ScrollView contentContainerStyle={styles.scrollContainer}>
-        <View style={styles.cardPreview}>
-          <MaterialCommunityIcons name="credit-card-chip" size={40} color="#FFD700" />
-          <Text style={styles.cardPreviewNumber}>{watch('cardNumber') || '**** **** **** ****'}</Text>
-          <View style={styles.cardPreviewBottom}>
-            <Text style={styles.cardPreviewName}>{watch('cardHolderName') || 'CARDHOLDER NAME'}</Text>
-            <Text style={styles.cardPreviewExpiry}>{watch('expiryDate') || 'MM/YY'}</Text>
-          </View>
-        </View>
-
-        {renderInput('cardHolderName', 'Cardholder Name')}
-        {renderInput('cardNumber', 'Card Number', 'numeric', 19, formatCardNumber)}
-        <View style={styles.row}>
-          <View style={{ flex: 1 }}>{renderInput('expiryDate', 'Expiry Date (MM/YY)', 'numeric', 5, formatExpiryDate)}</View>
-          <View style={{ flex: 1 }}>{renderInput('cvv', 'CVV', 'numeric', 3)}</View>
-        </View>
-
-        <View style={styles.switchContainer}>
-          <Text style={styles.label}>Set as default payment method</Text>
-          <Controller
-            control={control}
-            name="isDefault"
-            render={({ field: { onChange, value } }) => (
-              <Switch
-                trackColor={{ false: '#767577', true: '#FFC107' }}
-                thumbColor={value ? '#FF8C00' : '#f4f3f4'}
-                onValueChange={onChange}
-                value={value}
-              />
-            )}
-          />
-        </View>
-      </ScrollView>
-
-      <View style={styles.footer}>
-        <TouchableOpacity
-          style={[styles.submitButton, (!isValid || mutation.isPending) && styles.submitButtonDisabled]}
-          onPress={handleSubmit(onSubmit)}
-          disabled={!isValid || mutation.isPending}
-        >
-          <Text style={styles.submitButtonText}>{mutation.isPending ? 'Saving...' : 'Save Card'}</Text>
+      <View style={styles.content}>
+        <View style={styles.icon}><Ionicons name="shield-checkmark" size={48} color="#2563EB" /></View>
+        <Text style={styles.heading}>Secure card authorization</Text>
+        <Text style={styles.body}>Your card details are entered only on Paystack’s secure checkout. This app stores a reusable authorization token and masked card details—never your card number or CVV.</Text>
+        <Text style={styles.note}>Paystack charges ₦50 to verify the card. The app immediately initiates a refund after successful authorization.</Text>
+        <TouchableOpacity style={[styles.button, loading && styles.disabled]} onPress={authorizeCard} disabled={loading}>
+          {loading ? <ActivityIndicator color="#fff" /> : <Text style={styles.buttonText}>Continue securely</Text>}
         </TouchableOpacity>
       </View>
     </SafeAreaView>
@@ -137,48 +47,15 @@ export default function AddPaymentMethodScreen() {
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: '#F9FAFB' },
-  header: { flexDirection: 'row', alignItems: 'center', padding: 16, borderBottomWidth: 1, borderBottomColor: '#E5E7EB' },
-  backButton: { marginRight: 16 },
-  headerTitle: { fontSize: 20, fontWeight: 'bold', color: '#111827' },
-  scrollContainer: { padding: 16 },
-  label: { fontSize: 16, fontWeight: '600', color: '#374151', marginBottom: 8 },
-  inputGroup: { marginBottom: 20 },
-  input: { backgroundColor: '#fff', borderWidth: 1, borderColor: '#D1D5DB', borderRadius: 8, padding: 12, fontSize: 16 },
-  inputError: { borderColor: '#EF4444' },
-  errorText: { color: '#EF4444', marginTop: 4 },
-  row: { flexDirection: 'row', gap: 16 },
-  switchContainer: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingVertical: 12, marginTop: 10 },
-  footer: { padding: 16, borderTopWidth: 1, borderTopColor: '#E5E7EB', backgroundColor: '#fff' },
-  submitButton: { backgroundColor: '#FF8C00', padding: 16, borderRadius: 12, alignItems: 'center' },
-  submitButtonDisabled: { backgroundColor: '#FDBA74' },
-  submitButtonText: { color: '#fff', fontSize: 18, fontWeight: 'bold' },
-  cardPreview: {
-    backgroundColor: '#111827',
-    borderRadius: 12,
-    padding: 20,
-    marginBottom: 24,
-    height: 180,
-    justifyContent: 'space-between',
-  },
-  cardPreviewNumber: {
-    color: '#fff',
-    fontSize: 22,
-    letterSpacing: 2,
-    fontFamily: 'monospace',
-  },
-  cardPreviewBottom: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'flex-end',
-  },
-  cardPreviewName: {
-    color: '#D1D5DB',
-    fontSize: 14,
-    textTransform: 'uppercase',
-  },
-  cardPreviewExpiry: {
-    color: '#D1D5DB',
-    fontSize: 14,
-  },
+  container: { flex: 1, backgroundColor: '#fff' },
+  header: { flexDirection: 'row', alignItems: 'center', gap: 16, padding: 20, borderBottomWidth: 1, borderBottomColor: '#E5E7EB' },
+  title: { fontSize: 20, fontWeight: '800', color: '#111827' },
+  content: { flex: 1, justifyContent: 'center', padding: 28 },
+  icon: { alignSelf: 'center', width: 88, height: 88, borderRadius: 44, backgroundColor: '#EFF6FF', alignItems: 'center', justifyContent: 'center', marginBottom: 24 },
+  heading: { fontSize: 24, fontWeight: '800', color: '#111827', textAlign: 'center' },
+  body: { color: '#4B5563', lineHeight: 22, textAlign: 'center', marginTop: 12 },
+  note: { color: '#92400E', backgroundColor: '#FFFBEB', padding: 14, borderRadius: 12, lineHeight: 20, marginTop: 20 },
+  button: { backgroundColor: '#2563EB', padding: 16, borderRadius: 14, alignItems: 'center', marginTop: 28 },
+  disabled: { opacity: 0.65 },
+  buttonText: { color: '#fff', fontWeight: '800', fontSize: 16 },
 });

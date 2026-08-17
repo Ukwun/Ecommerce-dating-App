@@ -43,7 +43,7 @@ export default function DatingProfileSetup() {
         router.replace('/(tabs)/matches' as any);
       }
     }
-  }, [profile, profileLoading]);
+  }, [profile, profileLoading, router]);
 
   const handlePhotoSelect = async () => {
     const result = await ImagePicker.launchImageLibraryAsync({

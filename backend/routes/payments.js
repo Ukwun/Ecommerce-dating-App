@@ -2,6 +2,12 @@ const express = require('express');
 const axios = require('axios');
 const Payment = require('../models/Payment');
 const Order = require('../models/Order');
+const Product = require('../models/Product');
+const User = require('../models/User');
+const Return = require('../models/Return');
+const PaymentMethod = require('../models/PaymentMethod');
+const Subscription = require('../models/Subscription');
+const AdminUser = require('../models/AdminUser');
 const { protect } = require('../middleware/auth');
 const SecurityLog = require('../models/SecurityLog');
 const { EVENT_TYPES } = require('../constants/eventTaxonomy');
@@ -15,6 +21,136 @@ const PAYSTACK_BASE_URL = 'https://api.paystack.co';
 
 const getClientIp = (req) => req.ip || req.connection?.remoteAddress || 'Unknown';
 
+router.get('/payment-methods', protect, async (req, res) => {
+  const methods = await PaymentMethod.find({ user: req.user.id }).sort({ isDefault: -1, createdAt: -1 });
+  res.json({ success: true, data: methods });
+});
+
+router.post('/payment-methods/initialize', protect, async (req, res) => {
+  try {
+    if (!PAYSTACK_SECRET) return res.status(503).json({ error: 'Paystack is not configured' });
+    const user = await User.findById(req.user.id);
+    if (!user) return res.status(404).json({ error: 'User not found' });
+    const reference = `card_${user._id}_${Date.now()}`;
+    const response = await axios.post(`${PAYSTACK_BASE_URL}/transaction/initialize`, {
+      email: user.email,
+      amount: 5000,
+      reference,
+      callback_url: 'marketplace://payment-method-added',
+      metadata: { type: 'payment_method_setup', userId: String(user._id) },
+    }, { headers: { Authorization: `Bearer ${PAYSTACK_SECRET}` }, timeout: 15000 });
+    res.json({ success: true, data: response.data.data });
+  } catch (error) {
+    res.status(error.response?.status || 500).json({ error: error.response?.data?.message || error.message });
+  }
+});
+
+router.post('/payment-methods/verify', protect, async (req, res) => {
+  try {
+    if (!PAYSTACK_SECRET) return res.status(503).json({ error: 'Paystack is not configured' });
+    const { reference, isDefault = false } = req.body;
+    const response = await axios.get(`${PAYSTACK_BASE_URL}/transaction/verify/${encodeURIComponent(reference)}`, { headers: { Authorization: `Bearer ${PAYSTACK_SECRET}` }, timeout: 15000 });
+    const data = response.data.data;
+    if (data.status !== 'success' || data.metadata?.type !== 'payment_method_setup' || String(data.metadata.userId) !== req.user.id) {
+      return res.status(422).json({ error: 'Card authorization could not be verified' });
+    }
+    if (!data.authorization?.reusable || !data.authorization?.authorization_code) {
+      return res.status(422).json({ error: 'This card cannot be saved for future charges' });
+    }
+    if (isDefault) await PaymentMethod.updateMany({ user: req.user.id }, { isDefault: false });
+    const method = await PaymentMethod.findOneAndUpdate(
+      { user: req.user.id, signature: data.authorization.signature },
+      {
+        user: req.user.id,
+        provider: 'paystack',
+        authorizationCode: data.authorization.authorization_code,
+        signature: data.authorization.signature,
+        email: data.customer.email,
+        cardType: data.authorization.card_type,
+        brand: data.authorization.brand,
+        last4: data.authorization.last4,
+        expMonth: data.authorization.exp_month,
+        expYear: data.authorization.exp_year,
+        bank: data.authorization.bank,
+        countryCode: data.authorization.country_code,
+        reusable: true,
+        isDefault,
+      },
+      { new: true, upsert: true, setDefaultsOnInsert: true }
+    );
+    await axios.post(`${PAYSTACK_BASE_URL}/refund`, { transaction: reference, amount: 5000 }, { headers: { Authorization: `Bearer ${PAYSTACK_SECRET}` }, timeout: 15000 });
+    res.json({ success: true, data: method, message: 'Card saved; verification charge refund initiated' });
+  } catch (error) {
+    res.status(error.response?.status || 500).json({ error: error.response?.data?.message || error.message });
+  }
+});
+
+router.delete('/payment-methods/:id', protect, async (req, res) => {
+  const deleted = await PaymentMethod.findOneAndDelete({ _id: req.params.id, user: req.user.id });
+  if (!deleted) return res.status(404).json({ error: 'Payment method not found' });
+  res.json({ success: true });
+});
+
+router.post('/payments/charge-saved', protect, async (req, res) => {
+  try {
+    if (!PAYSTACK_SECRET) return res.status(503).json({ error: 'Paystack is not configured' });
+    const order = await Order.findOne({ _id: req.body.orderId, user: req.user.id });
+    if (!order) return res.status(404).json({ error: 'Order not found' });
+    if (order.payment.status === 'completed') return res.status(409).json({ error: 'Order is already paid' });
+    const method = await PaymentMethod.findOne({ _id: req.body.paymentMethodId, user: req.user.id, reusable: true }).select('+authorizationCode');
+    if (!method) return res.status(404).json({ error: 'Saved payment method not found' });
+    const reference = `order_${order._id}_${Date.now()}`;
+    const response = await axios.post(`${PAYSTACK_BASE_URL}/transaction/charge_authorization`, {
+      authorization_code: method.authorizationCode,
+      email: method.email,
+      amount: Math.round(order.total * 100),
+      reference,
+      callback_url: 'marketplace://payment-complete',
+      metadata: { orderId: String(order._id), userId: req.user.id },
+    }, { headers: { Authorization: `Bearer ${PAYSTACK_SECRET}` }, timeout: 20000 });
+    await Payment.create({
+      user: req.user.id, order: order._id, amount: order.total, currency: 'NGN', method: 'card',
+      status: response.data.data.status === 'success' ? 'processing' : 'pending',
+      paystack: {
+        reference: response.data.data.reference || reference,
+        authorizationCode: method.authorizationCode,
+        cardType: method.cardType,
+        last4: method.last4,
+        signature: method.signature,
+        reusable: true,
+        authorizationUrl: response.data.data.authorization_url,
+      },
+    });
+    res.json({ success: true, data: response.data.data });
+  } catch (error) {
+    res.status(error.response?.status || 500).json({ error: error.response?.data?.message || error.message });
+  }
+});
+
+router.post('/subscriptions/initialize', protect, async (req, res) => {
+  try {
+    if (!PAYSTACK_SECRET) return res.status(503).json({ error: 'Paystack is not configured' });
+    const plans = {
+      monthly: process.env.PAYSTACK_PREMIUM_MONTHLY_PLAN,
+      biannual: process.env.PAYSTACK_PREMIUM_BIANNUAL_PLAN,
+      annual: process.env.PAYSTACK_PREMIUM_ANNUAL_PLAN,
+    };
+    const planCode = plans[req.body.planId];
+    if (!planCode) return res.status(422).json({ error: 'Selected premium plan is not configured' });
+    const user = await User.findById(req.user.id);
+    const response = await axios.post(`${PAYSTACK_BASE_URL}/transaction/initialize`, {
+      email: user.email,
+      plan: planCode,
+      callback_url: 'marketplace://subscription-complete',
+      metadata: { type: 'premium_subscription', userId: String(user._id), planId: req.body.planId },
+    }, { headers: { Authorization: `Bearer ${PAYSTACK_SECRET}` }, timeout: 15000 });
+    await Subscription.create({ user: user._id, planId: req.body.planId, planCode, status: 'pending' });
+    res.json({ success: true, data: response.data.data });
+  } catch (error) {
+    res.status(error.response?.status || 500).json({ error: error.response?.data?.message || error.message });
+  }
+});
+
 // ✅ Initialize payment with Paystack
 router.post('/payments/initialize', protect, async (req, res) => {
   try {
@@ -22,10 +158,10 @@ router.post('/payments/initialize', protect, async (req, res) => {
       return res.status(500).json({ error: 'PAYSTACK_SECRET_KEY is not configured' });
     }
 
-    const { orderId, email, amount } = req.body;
+    const { orderId } = req.body;
 
-    if (!orderId || !email || !amount) {
-      return res.status(400).json({ error: 'Missing required fields' });
+    if (!orderId) {
+      return res.status(400).json({ error: 'Order is required' });
     }
 
     // Verify order exists
@@ -37,6 +173,12 @@ router.post('/payments/initialize', protect, async (req, res) => {
     if (order.user.toString() !== req.user.id) {
       return res.status(403).json({ error: 'Not authorized' });
     }
+    if (order.payment.status === 'completed') {
+      return res.status(409).json({ error: 'Order has already been paid' });
+    }
+    const user = await User.findById(req.user.id);
+    const amount = order.total;
+    const email = user.email;
 
     // Initialize payment with Paystack
     const paystackResponse = await axios.post(
@@ -142,6 +284,18 @@ router.post('/payments/verify', protect, async (req, res) => {
       // Update order payment status
       const order = await Order.findById(payment.order);
       if (order) {
+        if (order.inventoryReservationStatus !== 'committed') {
+          if (order.inventoryReservationExpiresAt < new Date()) {
+            return res.status(409).json({ error: 'Inventory reservation expired; contact support for an automatic refund' });
+          }
+          for (const item of order.products) {
+            await Product.updateOne(
+              { _id: item.product, reservedStock: { $gte: item.quantity }, stock: { $gte: item.quantity } },
+              { $inc: { stock: -item.quantity, reservedStock: -item.quantity, purchases: item.quantity } }
+            );
+          }
+          order.inventoryReservationStatus = 'committed';
+        }
         order.payment.status = 'completed';
         order.payment.transactionId = paystackData.id;
         order.payment.paystackRef = reference;
@@ -251,7 +405,8 @@ router.get('/payments/:id', protect, async (req, res) => {
       return res.status(404).json({ error: 'Payment not found' });
     }
 
-    if (payment.user.toString() !== req.user.id && req.user.role !== 'admin') {
+    const adminUser = await AdminUser.findOne({ userId: req.user.id, isActive: true }).select('permissions');
+    if (payment.user.toString() !== req.user.id && !adminUser?.permissions?.includes('manage_payments')) {
       return res.status(403).json({ error: 'Not authorized' });
     }
 
@@ -300,14 +455,21 @@ router.get('/payments', protect, async (req, res) => {
 // ✅ Payment webhook from Paystack — with real signature verification
 router.post('/payments/webhook/paystack', async (req, res) => {
   try {
+    if (!PAYSTACK_SECRET) {
+      console.error('Paystack webhook rejected: PAYSTACK_SECRET is not configured');
+      return res.status(503).json({ error: 'Payment webhook is not configured' });
+    }
     const signature = req.headers['x-paystack-signature'];
     const crypto = require('crypto');
     const hash = crypto
-      .createHmac('sha512', PAYSTACK_SECRET || '')
-      .update(JSON.stringify(req.body))
+      .createHmac('sha512', PAYSTACK_SECRET)
+      .update(req.rawBody || Buffer.from(JSON.stringify(req.body)))
       .digest('hex');
 
-    if (PAYSTACK_SECRET && signature !== hash) {
+    const signatureIsValid = typeof signature === 'string' &&
+      signature.length === hash.length &&
+      crypto.timingSafeEqual(Buffer.from(signature), Buffer.from(hash));
+    if (!signatureIsValid) {
       console.warn('⚠️  Invalid Paystack webhook signature');
       return res.status(400).json({ error: 'Invalid signature' });
     }
@@ -318,6 +480,10 @@ router.post('/payments/webhook/paystack', async (req, res) => {
       const reference = data.reference;
 
       const payment = await Payment.findOne({ 'paystack.reference': reference });
+      if (payment && (data.currency !== payment.currency || Number(data.amount) !== Math.round(payment.amount * 100))) {
+        console.warn('Paystack webhook amount mismatch:', reference);
+        return res.status(422).json({ error: 'Payment amount or currency mismatch' });
+      }
       if (payment && payment.status !== 'success') {
         payment.status = 'success';
         payment.paidAt = new Date();
@@ -326,10 +492,50 @@ router.post('/payments/webhook/paystack', async (req, res) => {
         // Update order
         const order = await Order.findById(payment.order);
         if (order) {
+          if (order.inventoryReservationStatus !== 'committed') {
+            for (const item of order.products) {
+              await Product.updateOne(
+                { _id: item.product, reservedStock: { $gte: item.quantity }, stock: { $gte: item.quantity } },
+                { $inc: { stock: -item.quantity, reservedStock: -item.quantity, purchases: item.quantity } }
+              );
+            }
+            order.inventoryReservationStatus = 'committed';
+          }
           order.payment.status = 'completed';
           order.status = 'confirmed';
           await order.save();
         }
+      }
+    }
+
+    if (event.startsWith('refund.')) {
+      const payment = await Payment.findOne({ 'paystack.reference': data.transaction_reference });
+      if (payment) {
+        payment.paystack.refundStatus = data.status || event.replace('refund.', '');
+        await payment.save();
+        const returnData = await Return.findOne({ orderId: payment.order, status: 'refund_initiated' });
+        if (returnData && event === 'refund.processed') {
+          returnData.status = 'refund_completed';
+          returnData.refundCompletedAt = new Date();
+          await returnData.save();
+          await Order.findByIdAndUpdate(payment.order, { status: 'refunded', 'payment.status': 'refunded' });
+        }
+      }
+    }
+
+    if (['subscription.create', 'subscription.disable', 'subscription.not_renew', 'invoice.payment_failed'].includes(event)) {
+      const subscription = await Subscription.findOne({ planCode: data.plan?.plan_code, user: data.metadata?.userId });
+      if (subscription) {
+        subscription.subscriptionCode = data.subscription_code || subscription.subscriptionCode;
+        subscription.customerCode = data.customer?.customer_code || subscription.customerCode;
+        subscription.emailToken = data.email_token || subscription.emailToken;
+        subscription.nextPaymentDate = data.next_payment_date || subscription.nextPaymentDate;
+        subscription.status = event === 'subscription.create' ? 'active' : event === 'invoice.payment_failed' ? 'attention' : 'non-renewing';
+        await subscription.save();
+        await User.findByIdAndUpdate(subscription.user, {
+          isPremium: subscription.status === 'active',
+          subscriptionExpiresAt: subscription.nextPaymentDate,
+        });
       }
     }
 

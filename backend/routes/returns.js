@@ -1,6 +1,8 @@
 const express = require('express');
 const Return = require('../models/Return');
 const Order = require('../models/Order');
+const Product = require('../models/Product');
+const SellerProfile = require('../models/SellerProfile');
 const { protect } = require('../middleware/admin');
 const { v4: uuidv4 } = require('uuid');
 
@@ -47,22 +49,35 @@ router.post('/requests', protect, async (req, res) => {
     }
 
     // Check if return already exists
-    const existingReturn = await Return.findOne({ orderId, status: { $nin: ['closed', 'refund_completed'] } });
+    const requestedProductIds = products.map(item => item.productId);
+    const existingReturn = await Return.findOne({
+      orderId,
+      'products.product': { $in: requestedProductIds },
+      status: { $nin: ['closed', 'refund_completed'] }
+    });
     if (existingReturn) {
       return res.status(400).json({ error: 'A return request already exists for this order' });
     }
 
-    // Get seller ID from order
-    const firstProduct = order.products[0];
-    const seller = firstProduct.seller; // Assuming product has seller info
+    const productRecords = await Product.find({ _id: { $in: requestedProductIds } }).select('seller');
+    if (productRecords.length !== requestedProductIds.length) {
+      return res.status(422).json({ error: 'One or more returned products do not exist' });
+    }
+    const sellerUserIds = [...new Set(productRecords.map(product => String(product.seller)))];
+    if (sellerUserIds.length !== 1) {
+      return res.status(422).json({ error: 'Create a separate return request for each seller' });
+    }
+    const seller = await SellerProfile.findOne({ userId: sellerUserIds[0] });
+    if (!seller) return res.status(422).json({ error: 'Seller profile not found' });
 
     // Calculate refund amount (sum of returned items)
     let refundAmount = 0;
     for (const item of products) {
       const orderItem = order.products.find(p => p.product.toString() === item.productId);
-      if (orderItem) {
-        refundAmount += orderItem.price * item.quantity;
+      if (!orderItem || !Number.isInteger(item.quantity) || item.quantity < 1 || item.quantity > orderItem.quantity) {
+        return res.status(422).json({ error: 'Returned quantity is invalid' });
       }
+      refundAmount += orderItem.price * item.quantity;
     }
 
     // Create return request
@@ -70,8 +85,8 @@ router.post('/requests', protect, async (req, res) => {
       returnNumber: generateReturnNumber(),
       orderId,
       buyerId: req.user.id,
-      sellerId: seller,
-      products,
+      sellerId: seller._id,
+      products: products.map(item => ({ ...item, product: item.productId })),
       reason,
       detailedReason: detailedReason || '',
       originalPrice: refundAmount,

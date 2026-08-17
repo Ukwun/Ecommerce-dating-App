@@ -7,27 +7,21 @@ import { router, useLocalSearchParams } from 'expo-router';
 import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
 import { useCheckout } from '@/hooks/CheckoutContext';
 import Toast from 'react-native-toast-message';
+import axiosInstance from '@/utils/axiosinstance';
 
 type PaymentMethod = {
   _id: string;
-  cardType: 'visa' | 'mastercard' | 'verve';
+  cardType: 'visa' | 'mastercard' | 'verve' | string;
   last4: string;
   isDefault: boolean;
 };
 
 const fetchPaymentMethods = async (): Promise<PaymentMethod[]> => {
-  // Mock data. Replace with your actual API call.
-  return [
-    { _id: '1', cardType: 'visa', last4: '1234', isDefault: true },
-    { _id: '2', cardType: 'mastercard', last4: '5678', isDefault: false },
-    { _id: '3', cardType: 'verve', last4: '9012', isDefault: false },
-  ];
+  return (await axiosInstance.get('/marketplace/api/payment-methods')).data?.data ?? [];
 };
 
 const removePaymentMethod = async (methodId: string) => {
-  // Simulate API call
-  console.log('Removing payment method:', methodId);
-  return new Promise(resolve => setTimeout(() => resolve({ success: true }), 1000));
+  return axiosInstance.delete(`/marketplace/api/payment-methods/${methodId}`);
 };
 
 const getCardIcon = (cardType: string) => {

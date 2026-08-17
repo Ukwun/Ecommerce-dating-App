@@ -16,7 +16,7 @@ export default function MatchSearchScreen() {
     }, 3500);
 
     return () => clearTimeout(timer);
-  }, []);
+  }, [router]);
 
   return (
     <View style={styles.container}>

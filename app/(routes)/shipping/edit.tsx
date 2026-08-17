@@ -1,4 +1,4 @@
-import React, { useState, useEffect, Suspense, lazy } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { View, Text, TextInput, StyleSheet, ScrollView, TouchableOpacity, Switch, ActivityIndicator, Platform, Alert } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useForm, Controller } from 'react-hook-form';
@@ -60,7 +60,7 @@ type DeliveryPriceData = {
 };
 
 // Backend API configuration
-const API_BASE_URL = process.env.EXPO_PUBLIC_SERVER_URI || process.env.EXPO_PUBLIC_BACKEND_URL || 'https://marketplace-backend.railway.app';
+const API_BASE_URL = process.env.EXPO_PUBLIC_SERVER_URI || process.env.EXPO_PUBLIC_BACKEND_URL || 'https://ecommerce-dating-app.onrender.com';
 const api = axios.create({
   baseURL: API_BASE_URL,
   timeout: 10000
@@ -124,11 +124,6 @@ export default function EditAddressScreen() {
   // Read URL params as strings, then parse into the typed AddressFormData
   const params = useLocalSearchParams();
 
-  // Handle case where params might be empty on initial render
-  if (!params || Object.keys(params).length === 0) {
-    return <ActivityIndicator style={{ flex: 1 }} size="large" color="#FF8C00" />;
-  }
-
   const parsedParams: AddressFormData = {
     _id: Array.isArray(params._id) ? params._id[0] : params._id ?? '',
     name: Array.isArray(params.name) ? params.name[0] : params.name ?? '',
@@ -157,6 +152,12 @@ export default function EditAddressScreen() {
   const [isGeocoding, setIsGeocoding] = useState(false);
   const [deliveryInfo, setDeliveryInfo] = useState<DeliveryPriceData | null>(null);
   const [showPinGuide, setShowPinGuide] = useState(!pinnedLocation);
+  const initialLocation = useRef(pinnedLocation).current;
+  const initialAddress = useRef({
+    addressLine1: parsedParams.addressLine1,
+    city: parsedParams.city,
+    state: parsedParams.state,
+  }).current;
 
   const mutation = useMutation({
     mutationFn: updateAddress,
@@ -179,15 +180,15 @@ export default function EditAddressScreen() {
       }
 
       // Use pinned location if available, otherwise geocode the address
-      if (pinnedLocation) {
+      if (initialLocation) {
         setMapRegion({
-          latitude: pinnedLocation.latitude,
-          longitude: pinnedLocation.longitude,
+          latitude: initialLocation.latitude,
+          longitude: initialLocation.longitude,
           latitudeDelta: 0.01,
           longitudeDelta: 0.01
         });
       } else {
-        const fullAddress = `${parsedParams.addressLine1}, ${parsedParams.city}, ${parsedParams.state}`;
+        const fullAddress = `${initialAddress.addressLine1}, ${initialAddress.city}, ${initialAddress.state}`;
         try {
           const geocodedLocations = await Location.geocodeAsync(fullAddress);
           if (geocodedLocations.length > 0) {
@@ -219,7 +220,7 @@ export default function EditAddressScreen() {
         }
       }
     })();
-  }, []);
+  }, [initialAddress, initialLocation]);
 
   const handleRegionChangeComplete = async (region: MapRegion) => {
     setMapRegion(region);

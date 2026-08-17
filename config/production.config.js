@@ -38,7 +38,7 @@ module.exports = {
 
   // API Configuration
   api: {
-    baseUrl: process.env.EXPO_PUBLIC_BACKEND_URL || process.env.EXPO_PUBLIC_SERVER_URI || process.env.EXPO_PUBLIC_API_URL || 'https://marketplace-backend.railway.app',
+    baseUrl: process.env.EXPO_PUBLIC_BACKEND_URL || process.env.EXPO_PUBLIC_SERVER_URI || process.env.EXPO_PUBLIC_API_URL || 'https://ecommerce-dating-app.onrender.com',
     timeout: 10000,
     retryAttempts: 3,
   },

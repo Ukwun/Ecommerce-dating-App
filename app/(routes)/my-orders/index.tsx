@@ -103,7 +103,7 @@ export default function MyOrdersScreen() {
     },
   });
 
-  useFocusEffect(useCallback(() => { refetch(); }, []));
+  useFocusEffect(useCallback(() => { refetch(); }, [refetch]));
 
   const reorderMutation = useMutation({
     mutationFn: async (order: Order) => {

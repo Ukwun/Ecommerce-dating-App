@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { View, ScrollView, StyleSheet, TouchableOpacity, Alert, ActivityIndicator } from 'react-native';
+import { View, ScrollView, StyleSheet, TouchableOpacity, Alert, ActivityIndicator , RefreshControl } from 'react-native';
 import { useRouter } from 'expo-router';
 import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
@@ -7,10 +7,13 @@ import { useTheme } from '@react-navigation/native';
 import { useQuery } from '@tanstack/react-query';
 import axios from 'axios';
 
+
+import AsyncStorage from '@react-native-async-storage/async-storage';
+
 const API_BASE_URL =
   process.env.EXPO_PUBLIC_SERVER_URI ||
   process.env.EXPO_PUBLIC_BACKEND_URL ||
-  'https://marketplace-backend.railway.app';
+  'https://ecommerce-dating-app.onrender.com';
 
 export default function AdminDashboard() {
   const router = useRouter();
@@ -123,12 +126,6 @@ export default function AdminDashboard() {
           highlight={dashboard?.openTickets > 0}
         />
 
-        <ActionButton
-          label={`Flagged Orders: ${dashboard?.flaggedOrders || 0}`}
-          icon="🚩"
-          onPress={() => Alert.alert('Not yet implemented')}
-          highlight={dashboard?.flaggedOrders > 0}
-        />
       </View>
 
       {/* Performance Metrics */}
@@ -166,34 +163,6 @@ export default function AdminDashboard() {
         <HealthIndicator label="CDN" status="healthy" />
       </View>
 
-      {/* Admin Tools */}
-      <View style={[styles.section, { backgroundColor: theme.colors.card }]}>
-        <ThemedText style={styles.sectionTitle}>Admin Tools</ThemedText>
-
-        <AdminToolButton
-          label="View Audit Logs"
-          icon="📋"
-          onPress={() => Alert.alert('Feature coming soon')}
-        />
-
-        <AdminToolButton
-          label="Manage Commissions"
-          icon="⚙️"
-          onPress={() => Alert.alert('Feature coming soon')}
-        />
-
-        <AdminToolButton
-          label="Send Announcement"
-          icon="📢"
-          onPress={() => Alert.alert('Feature coming soon')}
-        />
-
-        <AdminToolButton
-          label="System Settings"
-          icon="🔧"
-          onPress={() => Alert.alert('Feature coming soon')}
-        />
-      </View>
     </ScrollView>
   );
 }
@@ -264,9 +233,6 @@ function AdminToolButton({ label, icon, onPress }: any) {
     </TouchableOpacity>
   );
 }
-
-import { RefreshControl } from 'react-native';
-import AsyncStorage from '@react-native-async-storage/async-storage';
 
 const styles = StyleSheet.create({
   container: {

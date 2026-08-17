@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import * as SecureStore from 'expo-secure-store';
 import axiosInstance from '../utils/axiosinstance';
 
@@ -61,12 +61,12 @@ export const useDatingProfile = () => {
     return res.data;
   };
 
-  const fetchUserProfile = async (userId: string) => {
+  const fetchUserProfile = useCallback(async (userId: string) => {
     try {
       const res = await axiosInstance.get(`/dating/api/profile/${userId}`);
       return res.data;
     } catch { return null; }
-  };
+  }, []);
 
   const enableTwoFactor = async (photoUrl: string) => {
     const res = await axiosInstance.post('/dating/api/verification/enable', { photoUrl });
@@ -107,7 +107,7 @@ export const useDiscovery = () => {
   const [currentIndex, setCurrentIndex] = useState(0);
   const [filters, setFilters] = useState({ page: 1, limit: 10, ageMin: 18, ageMax: 80, maxDistance: 50 });
 
-  const fetchProfiles = async (customFilters: any = null) => {
+  const fetchProfiles = useCallback(async (customFilters: any = null) => {
     try {
       setLoading(true);
       const f = customFilters || filters;
@@ -121,7 +121,7 @@ export const useDiscovery = () => {
     } finally {
       setLoading(false);
     }
-  };
+  }, [filters]);
 
   const swipe = async (targetId: string, action: string) => {
     const res = await axiosInstance.post(`/dating/api/swipe/${targetId}`, { action });
@@ -131,7 +131,7 @@ export const useDiscovery = () => {
 
   const getCurrentProfile = () => profiles[currentIndex] || null;
 
-  useEffect(() => { fetchProfiles(); }, []);
+  useEffect(() => { fetchProfiles(); }, [fetchProfiles]);
 
   return { profiles, loading, error, currentIndex, filters, setFilters, fetchProfiles, swipe, getCurrentProfile };
 };
@@ -142,7 +142,7 @@ export const useMatches = () => {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  const fetchMatches = async () => {
+  const fetchMatches = useCallback(async () => {
     const timer = setTimeout(() => setLoading(false), 8000);
     try {
       setLoading(true);
@@ -156,7 +156,7 @@ export const useMatches = () => {
       clearTimeout(timer);
       setLoading(false);
     }
-  };
+  }, []);
 
   const unmatch = async (matchId: string) => {
     await axiosInstance.post(`/dating/api/matches/${matchId}/unmatch`, {});
@@ -170,7 +170,7 @@ export const useMatches = () => {
     return true;
   };
 
-  useEffect(() => { fetchMatches(); }, []);
+  useEffect(() => { fetchMatches(); }, [fetchMatches]);
 
   return { matches, loading, error, fetchMatches, unmatch, blockUser };
 };

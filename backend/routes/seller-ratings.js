@@ -3,6 +3,7 @@ const router = express.Router();
 const SellerRating = require('../models/SellerRating');
 const PushNotification = require('../models/PushNotification');
 const RecommendationEngine = require('../utils/RecommendationEngine');
+const Order = require('../models/Order');
 const { protect } = require('../middleware/auth');
 
 /**
@@ -22,10 +23,16 @@ router.post('/sellers/rate', protect, async (req, res) => {
       });
     }
 
-    // Check if already rated
+    const order = await Order.findOne({ _id: orderId, user: req.user.id, status: 'delivered', 'fulfillments.seller': sellerId });
+    if (!order) {
+      return res.status(403).json({ success: false, message: 'Only a buyer with a delivered order can rate this seller' });
+    }
+
+    // Each seller fulfillment can be rated once per completed order.
     const existingRating = await SellerRating.findOne({
       buyer: req.user.id,
-      seller: sellerId
+      seller: sellerId,
+      order: orderId,
     });
 
     if (existingRating) {

@@ -18,6 +18,9 @@ const protect = (req, res, next) => {
     }
 
     const decoded = jwt.verify(token, process.env.JWT_SECRET);
+    if (decoded.tokenType !== 'access') {
+      return res.status(401).json({ message: 'Invalid token type' });
+    }
     req.user = decoded;
     
     // Log access

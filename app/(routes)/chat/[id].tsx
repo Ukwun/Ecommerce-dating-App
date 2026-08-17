@@ -17,7 +17,7 @@ import { io, Socket } from 'socket.io-client';
 import axiosInstance from '@/utils/axiosinstance';
 import { useAuth } from '@/hooks/AuthContext';
 
-const BACKEND = process.env.EXPO_PUBLIC_SERVER_URI || 'https://marketplace-backend.railway.app';
+const BACKEND = process.env.EXPO_PUBLIC_SERVER_URI || 'https://ecommerce-dating-app.onrender.com';
 
 type Message = { _id: string; content: string; sender: string; createdAt: string; read?: boolean };
 
@@ -96,7 +96,7 @@ export default function ChatScreen() {
     loadHistory();
     setup();
     return () => { socket?.disconnect(); };
-  }, [conversationId]);
+  }, [conversationId, loadHistory, user?.id]);
 
   const handleInputChange = (text: string) => {
     setInput(text);

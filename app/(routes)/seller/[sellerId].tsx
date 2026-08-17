@@ -18,7 +18,6 @@ import axiosInstance from '@/utils/axiosinstance';
 import { ProductCard } from '@/components/home/products';
 import { useCart } from '@/hooks/CartContext';
 import { useWishlist } from '@/hooks/useWishlist';
-import AsyncStorage from '@react-native-async-storage/async-storage';
 
 const { width } = Dimensions.get('window');
 
@@ -39,7 +38,7 @@ export default function SellerProfileScreen() {
     queryKey: ['sellerProfile', sellerId],
     queryFn: async () => {
       try {
-        const res = await axiosInstance.get(`/seller/api/profile?userId=${sellerId}`);
+        const res = await axiosInstance.get(`/seller/api/profiles/${sellerId}`);
         return res.data.data;
       } catch {
         return null;
@@ -49,9 +48,9 @@ export default function SellerProfileScreen() {
   });
 
   const { data: products = [], isLoading: loadingProducts } = useQuery({
-    queryKey: ['sellerProducts', sellerId],
+    queryKey: ['sellerProducts', sellerData?.userId?._id],
     queryFn: async () => {
-      const res = await axiosInstance.get(`/marketplace/api/products?seller=${sellerId}`);
+      const res = await axiosInstance.get(`/marketplace/api/products?seller=${sellerData.userId._id}`);
       return (res.data.data || []).map((p: any) => ({
         ...p,
         name: p.name || p.title,
@@ -59,7 +58,7 @@ export default function SellerProfileScreen() {
         rating: p.ratings || 0,
       }));
     },
-    enabled: !!sellerId,
+    enabled: !!sellerData?.userId?._id,
   });
 
   const { data: ratings } = useQuery({
@@ -75,28 +74,34 @@ export default function SellerProfileScreen() {
     enabled: !!sellerId,
   });
 
-  // Check follow status from storage
   useEffect(() => {
-    AsyncStorage.getItem(`@follow_${sellerId}`).then(v => { if (v === '1') setIsFollowing(true); });
+    axiosInstance.get(`/seller/api/profiles/${sellerId}/follow-status`)
+      .then(response => setIsFollowing(Boolean(response.data?.following)))
+      .catch(() => setIsFollowing(false));
   }, [sellerId]);
 
-  const handleFollow = () => {
+  const handleFollow = async () => {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
     followScale.value = withSpring(1.2, {}, () => { followScale.value = withSpring(1); });
     const next = !isFollowing;
-    setIsFollowing(next);
-    AsyncStorage.setItem(`@follow_${sellerId}`, next ? '1' : '0');
+    try {
+      if (next) await axiosInstance.post(`/seller/api/profiles/${sellerId}/follow`);
+      else await axiosInstance.delete(`/seller/api/profiles/${sellerId}/follow`);
+      setIsFollowing(next);
     Toast.show({
       type: 'success',
       text1: next ? '✅ Following seller' : 'Unfollowed',
       text2: next ? `You'll see ${name || 'this seller'}'s new listings first` : '',
-    });
+      });
+    } catch (error: any) {
+      Toast.show({ type: 'error', text1: 'Could not update follow', text2: error?.response?.data?.error || 'Try again.' });
+    }
   };
 
   const handleChatSeller = () => {
     router.push({
       pathname: '/(routes)/chat/[id]',
-      params: { id: sellerId, name: name || 'Seller', avatar: avatar || '' },
+      params: { id: sellerData?.userId?._id, name: sellerData?.businessName || sellerData?.userId?.name || 'Seller', avatar: sellerData?.userId?.avatar || '' },
     } as any);
   };
 
@@ -104,8 +109,8 @@ export default function SellerProfileScreen() {
     await Share.share({ message: `Check out ${name || 'this seller'} on Marketplace! They have amazing products 🛍️` });
   };
 
-  const sellerName = name || sellerData?.businessName || 'Verified Seller';
-  const sellerAvatar = avatar || 'https://i.pravatar.cc/150?u=' + sellerId;
+  const sellerName = sellerData?.businessName || sellerData?.userId?.name || name || 'Verified Seller';
+  const sellerAvatar = sellerData?.userId?.avatar || avatar;
   const avgRating = ratings?.averageRating || sellerData?.averageRating || 0;
   const totalRatings = ratings?.totalRatings || sellerData?.totalRatings || 0;
   const totalSales = sellerData?.totalSales || 0;

@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import * as FileSystem from 'expo-file-system';
+import * as FileSystem from 'expo-file-system/legacy';
 import axiosInstance from '@/utils/axiosinstance';
 import Toast from 'react-native-toast-message';
 

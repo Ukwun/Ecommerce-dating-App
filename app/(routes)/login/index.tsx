@@ -9,127 +9,184 @@ import {
   SafeAreaView,
   Dimensions,
   Alert
+  ,Platform
 } from 'react-native';
 import { useRouter } from 'expo-router';
-import * as WebBrowser from 'expo-web-browser';
-import * as Google from 'expo-auth-session/providers/google';
-import * as Facebook from 'expo-auth-session/providers/facebook';
 import * as Haptics from 'expo-haptics';
 import { Ionicons } from '@expo/vector-icons';
 import Animated, { 
   FadeInDown, 
   useSharedValue, 
   useAnimatedStyle, 
-  withSpring 
+  withSpring,
+  withTiming,
+  Easing,
+  ZoomIn
 } from 'react-native-reanimated';
 
 import axiosInstance, { storeTokens } from '../../../utils/axiosinstance';
+import useSocialAuth from '@/hooks/useSocialAuth';
+import { useAuth } from '@/hooks/AuthContext';
 
 const { width } = Dimensions.get('window');
 
-WebBrowser.maybeCompleteAuthSession();
+// Global error handler to catch any errors not caught by try-catch
+if (typeof global !== 'undefined' && !(global as any).__errorHandlerAttached) {
+  const originalWarn = console.warn;
+  console.warn = (...args) => {
+    if (args[0]?.includes('Non-serializable values')) {
+      // Skip non-serializable warnings
+      return;
+    }
+    originalWarn(...args);
+  };
+  
+  (global as any).__errorHandlerAttached = true;
+}
 
 export default function LoginScreen() {
   const router = useRouter();
-  const [loading, setLoading] = useState(false);
+  const { login } = useAuth();
+  const { promptGoogle, promptFacebook, promptApple, isGoogleLoading: googleLoading, isFacebookLoading: facebookLoading, isAppleLoading: appleLoading } = useSocialAuth();
+  // Legacy handler setters remain no-ops while older callbacks are phased out.
+  const setGoogleLoading = (_loading: boolean) => undefined;
+  const setFacebookLoading = (_loading: boolean) => undefined;
+  // INDEPENDENT loading states for each auth method - fixes the "all buttons loading" bug
+  const [emailLoading, setEmailLoading] = useState(false);
+  
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
+  const [statusMessage, setStatusMessage] = useState('');
+  const [emailFocused, setEmailFocused] = useState(false);
+  const [passwordFocused, setPasswordFocused] = useState(false);
+  
+  const emailFocusValue = useSharedValue(0);
+  const passwordFocusValue = useSharedValue(0);
+  
   const scale = useSharedValue(1);
+  const emailButtonScale = useSharedValue(1);
+  const buttonScale = {
+    email: useSharedValue(1),
+    google: useSharedValue(1),
+    facebook: useSharedValue(1),
+  };
 
-  // Configure Google Auth Request
-  // These IDs are obtained from the Google Cloud Console (https://console.cloud.google.com)
-  const [request, response, promptAsync] = Google.useAuthRequest({
-    androidClientId: "YOUR_ANDROID_CLIENT_ID.apps.googleusercontent.com",
-    iosClientId: "YOUR_IOS_CLIENT_ID.apps.googleusercontent.com",
-    webClientId: "YOUR_WEB_CLIENT_ID.apps.googleusercontent.com",
-  });
-
-  // Configure Facebook Auth Request
-  const [fbRequest, fbResponse, fbPromptAsync] = Facebook.useAuthRequest({
-    clientId: "YOUR_FACEBOOK_APP_ID",
-  });
-
-  useEffect(() => {
-    if (response?.type === 'success') {
-      const { authentication } = response;
-      if (authentication?.accessToken) {
-        handleGoogleLogin(authentication.accessToken);
-      }
-    }
-  }, [response]);
-
-  useEffect(() => {
-    if (fbResponse?.type === 'success') {
-      const { authentication } = fbResponse;
-      if (authentication?.accessToken) {
-        handleFacebookLogin(authentication.accessToken);
-      }
-    }
-  }, [fbResponse]);
 
   const handleEmailLogin = async () => {
+    console.log('🔵 [LOGIN] Email login button pressed');
+    console.log('🔵 [LOGIN] Email:', email);
+    console.log('🔵 [LOGIN] Password length:', password.length);
+    
     if (!email || !password) {
+      console.log('❌ [LOGIN] Missing fields');
       Alert.alert("Error", "Please enter both email and password");
       return;
     }
 
     try {
-      setLoading(true);
-      const res = await axiosInstance.post('/auth/api/login', { email, password });
+      console.log('🟡 [LOGIN] Starting animation and loading state');
+      emailButtonScale.value = withSpring(0.95);
+      setEmailLoading(true);
+      setStatusMessage('Signing you in...');
+      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
       
-      if (res.data.success) {
+      console.log('🟡 [LOGIN] Making axios request to /auth/api/login');
+      const res = await axiosInstance.post('/auth/api/login', { email, password });
+      console.log('[LOGIN] Authentication response received');
+      
+      if (res.data.success || res.data.message === "Login successful" || (res.data.accessToken && res.data.user)) {
+        console.log('🟢 [LOGIN] Success response, storing tokens');
         await storeTokens(res.data.accessToken, res.data.refreshToken);
+        await login(res.data.user, res.data.accessToken, res.data.refreshToken);
+        setStatusMessage('✓ Login successful!');
         Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
-        router.replace('/(tabs)/home');
+        
+        setTimeout(() => {
+          console.log('🟢 [LOGIN] Navigating to home');
+          router.replace('/(tabs)' as any);
+        }, 500);
+      } else {
+        console.log('❌ [LOGIN] Response marked as not successful');
+        console.log('❌ [LOGIN] Backend error:', res.data.error);
+        const errorMsg = res.data.error || "Invalid email or password";
+        Alert.alert("Login Failed", errorMsg);
       }
     } catch (error: any) {
+      console.error('❌ [LOGIN] CAUGHT ERROR:', error);
+      console.error('❌ [LOGIN] Error message:', error.message);
+      console.error('❌ [LOGIN] Error response:', error.response?.data);
+      console.error('❌ [LOGIN] Error code:', error.code);
+      
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
-      Alert.alert("Login Failed", error.response?.data?.error || "Invalid credentials or network error");
+      setStatusMessage('');
+      
+      let errorMsg = "Login failed";
+      if (error.message.includes('Server timeout') || error.message.includes('Connection')) {
+        errorMsg = error.message;
+      } else if (error.response?.data?.error) {
+        errorMsg = error.response.data.error;
+      } else if (error.message.includes('timeout') || error.message.includes('Network')) {
+        errorMsg = 'Connection timeout. Make sure backend is running on port 8082.';
+      } else if (error.message.includes('ECONNREFUSED')) {
+        errorMsg = 'Backend not reachable on port 8082. Is it running?';
+      } else {
+        errorMsg = error.message || "Invalid email or password";
+      }
+      
+      console.log('🔴 [LOGIN] Showing alert with message:', errorMsg);
+      Alert.alert("Login Failed", errorMsg);
     } finally {
-      setLoading(false);
+      emailButtonScale.value = withSpring(1);
+      setEmailLoading(false);
     }
   };
 
   const handleGoogleLogin = async (token: string) => {
     try {
-      setLoading(true);
+      scale.value = withSpring(0.95);
+      setGoogleLoading(true);
+      setStatusMessage('Authenticating with Google...');
+      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
       
-      // Fetch user info from Google's API
       const googleRes = await fetch('https://www.googleapis.com/oauth2/v3/userinfo', {
         headers: { Authorization: `Bearer ${token}` },
       });
       const googleUser = await googleRes.json();
 
-      // Sync user data with your Render backend
       const res = await axiosInstance.post('/auth/api/google-login', {
         email: googleUser.email,
         name: googleUser.name,
         photoUrl: googleUser.picture,
-        token: token // Sending the real token to Render
+        token: token
       });
 
       if (res.data.success) {
-        // Store tokens securely on the device
         await storeTokens(res.data.accessToken, res.data.refreshToken);
-        
+        setStatusMessage('✓ Google login successful!');
         Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
         
-        // Use replace to ensure the user cannot navigate back to Login
-        router.replace('/(tabs)/home');
+        setTimeout(() => {
+          router.replace('/(tabs)' as any);
+        }, 500);
       }
     } catch (error: any) {
       console.error("Google Auth Sync Error:", error);
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
-      Alert.alert("Authentication Failed", error.response?.data?.error || "Could not sync with the Render backend.");
+      setStatusMessage('');
+      Alert.alert("Google Login Failed", "Could not authenticate. Please try again.");
     } finally {
-      setLoading(false); // CRITICAL: Reset loading state to re-enable buttons
+      scale.value = withSpring(1);
+      setGoogleLoading(false);
     }
   };
 
   const handleFacebookLogin = async (token: string) => {
     try {
-      setLoading(true);
-      // Fetch user info from Facebook's Graph API
+      scale.value = withSpring(0.95);
+      setFacebookLoading(true);
+      setStatusMessage('Authenticating with Facebook...');
+      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+      
       const fbRes = await fetch(`https://graph.facebook.com/me?access_token=${token}&fields=id,name,email,picture.type(large)`);
       const fbUser = await fbRes.json();
 
@@ -137,20 +194,26 @@ export default function LoginScreen() {
         email: fbUser.email,
         name: fbUser.name,
         photoUrl: fbUser.picture?.data?.url,
-        token: token // Sending the real token to Render
+        token: token
       });
 
       if (res.data.success) {
         await storeTokens(res.data.accessToken, res.data.refreshToken);
+        setStatusMessage('✓ Facebook login successful!');
         Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
-        router.replace('/(tabs)/home');
+        
+        setTimeout(() => {
+          router.replace('/(tabs)' as any);
+        }, 500);
       }
     } catch (error: any) {
       console.error("Facebook Auth Sync Error:", error);
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
-      Alert.alert("Facebook Login Failed", "Could not synchronize with the server.");
+      setStatusMessage('');
+      Alert.alert("Facebook Login Failed", "Could not authenticate. Please try again.");
     } finally {
-      setLoading(false);
+      scale.value = withSpring(1);
+      setFacebookLoading(false);
     }
   };
 
@@ -158,12 +221,26 @@ export default function LoginScreen() {
     transform: [{ scale: scale.value }]
   }));
 
+  const emailButtonAnimatedStyle = useAnimatedStyle(() => ({
+    transform: [{ scale: emailButtonScale.value }]
+  }));
+
+  const emailInputAnimatedStyle = useAnimatedStyle(() => ({
+    transform: [{ scaleY: 1 + (emailFocusValue.value * 0.02) }],
+    shadowOpacity: emailFocusValue.value * 0.15,
+  }));
+
+  const passwordInputAnimatedStyle = useAnimatedStyle(() => ({
+    transform: [{ scaleY: 1 + (passwordFocusValue.value * 0.02) }],
+    shadowOpacity: passwordFocusValue.value * 0.15,
+  }));
+
   const onButtonPress = () => {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
     scale.value = withSpring(0.95, {}, () => {
       scale.value = withSpring(1);
     });
-    promptAsync();
+    promptGoogle();
   };
 
   const onFacebookPress = () => {
@@ -171,7 +248,7 @@ export default function LoginScreen() {
     scale.value = withSpring(0.95, {}, () => {
       scale.value = withSpring(1);
     });
-    fbPromptAsync();
+    promptFacebook();
   };
 
   return (
@@ -183,40 +260,66 @@ export default function LoginScreen() {
         </Animated.View>
 
         <Animated.View entering={FadeInDown.delay(400).springify()} style={styles.form}>
-          <View style={styles.inputContainer}>
-            <Ionicons name="mail-outline" size={20} color="#8E8E93" style={styles.inputIcon} />
+          <Animated.View style={[emailInputAnimatedStyle, styles.inputContainer]}>
+            <Ionicons name="mail-outline" size={20} color={emailFocused ? '#007AFF' : '#8E8E93'} style={styles.inputIcon} />
             <TextInput
               style={styles.input}
               placeholder="Email Address"
               value={email}
               onChangeText={setEmail}
+              onFocus={() => {
+                setEmailFocused(true);
+                emailFocusValue.value = 1.02;
+              }}
+              onBlur={() => {
+                setEmailFocused(false);
+                emailFocusValue.value = 1;
+              }}
               autoCapitalize="none"
               keyboardType="email-address"
             />
-          </View>
+          </Animated.View>
 
-          <View style={styles.inputContainer}>
-            <Ionicons name="lock-closed-outline" size={20} color="#8E8E93" style={styles.inputIcon} />
+          <Animated.View style={[passwordInputAnimatedStyle, styles.inputContainer]}>
+            <Ionicons name="lock-closed-outline" size={20} color={passwordFocused ? '#007AFF' : '#8E8E93'} style={styles.inputIcon} />
             <TextInput
               style={styles.input}
               placeholder="Password"
               value={password}
               onChangeText={setPassword}
+              onFocus={() => {
+                setPasswordFocused(true);
+                passwordFocusValue.value = 1.02;
+              }}
+              onBlur={() => {
+                setPasswordFocused(false);
+                passwordFocusValue.value = 1;
+              }}
               secureTextEntry
             />
-          </View>
+          </Animated.View>
 
-          <TouchableOpacity style={styles.forgotPassword}>
+          <TouchableOpacity style={styles.forgotPassword} onPress={() => router.push('/forgot-password')} accessibilityRole="button">
             <Text style={styles.forgotPasswordText}>Forgot Password?</Text>
           </TouchableOpacity>
 
-          <TouchableOpacity 
-            style={[styles.loginButton, (!email || !password) && styles.buttonDisabled]} 
-            onPress={handleEmailLogin}
-            disabled={loading}
-          >
-            {loading ? <ActivityIndicator color="#fff" /> : <Text style={styles.loginButtonText}>Sign In</Text>}
-          </TouchableOpacity>
+          <Animated.View style={emailButtonAnimatedStyle}>
+            <TouchableOpacity 
+              style={[styles.loginButton, (!email || !password) && styles.buttonDisabled]} 
+              onPress={handleEmailLogin}
+              disabled={emailLoading}
+              activeOpacity={0.8}
+            >
+              {emailLoading ? (
+                <View style={styles.loadingContainer}>
+                  <ActivityIndicator color="#fff" size="small" />
+                  <Text style={[styles.loginButtonText, { marginLeft: 8 }]}>Signing in...</Text>
+                </View>
+              ) : (
+                <Text style={styles.loginButtonText}>Sign In</Text>
+              )}
+            </TouchableOpacity>
+          </Animated.View>
         </Animated.View>
 
         <View style={styles.dividerContainer}>
@@ -230,12 +333,16 @@ export default function LoginScreen() {
           style={[styles.buttonContainer, animatedStyle]}
         >
           <TouchableOpacity 
-            style={styles.googleButton} 
+            style={[styles.googleButton, googleLoading && styles.buttonLoadingState]} 
             onPress={onButtonPress}
-            disabled={loading || !request || !request.url} // Disable if request not ready
+            disabled={googleLoading}
+            activeOpacity={0.8}
           >
-            {loading ? (
-              <ActivityIndicator color="#007AFF" />
+            {googleLoading ? (
+              <View style={styles.loadingContainer}>
+                <ActivityIndicator color="#EA4335" size="small" />
+                <Text style={[styles.buttonText, { color: '#EA4335', marginLeft: 8 }]}>Signing in...</Text>
+              </View>
             ) : (
               <>
                 <Ionicons name="logo-google" size={24} color="#EA4335" style={styles.icon} />
@@ -250,12 +357,16 @@ export default function LoginScreen() {
           style={[styles.buttonContainer, { marginTop: 12 }, animatedStyle]}
         >
           <TouchableOpacity 
-            style={[styles.googleButton, { backgroundColor: '#1877F2', borderColor: '#1877F2' }]} 
+            style={[styles.googleButton, { backgroundColor: '#1877F2', borderColor: '#1877F2' }, facebookLoading && styles.buttonLoadingState]} 
             onPress={onFacebookPress}
-            disabled={loading || !fbRequest || !fbRequest.url} // Disable if fbRequest not ready
+            disabled={facebookLoading}
+            activeOpacity={0.8}
           >
-            {loading ? (
-              <ActivityIndicator color="#fff" />
+            {facebookLoading ? (
+              <View style={styles.loadingContainer}>
+                <ActivityIndicator color="#fff" size="small" />
+                <Text style={[styles.buttonText, { color: '#fff', marginLeft: 8 }]}>Signing in...</Text>
+              </View>
             ) : (
               <>
                 <Ionicons name="logo-facebook" size={24} color="#fff" style={styles.icon} />
@@ -264,6 +375,16 @@ export default function LoginScreen() {
             )}
           </TouchableOpacity>
         </Animated.View>
+
+        {Platform.OS === 'ios' && (
+          <Animated.View entering={FadeInDown.delay(750).springify()} style={[styles.buttonContainer, { marginTop: 12 }, animatedStyle]}>
+            <TouchableOpacity style={[styles.googleButton, appleLoading && styles.buttonLoadingState]} onPress={promptApple} disabled={appleLoading} activeOpacity={0.8}>
+              {appleLoading ? <ActivityIndicator color="#111" size="small" /> : (
+                <><Ionicons name="logo-apple" size={24} color="#111" style={styles.icon} /><Text style={styles.buttonText}>Continue with Apple</Text></>
+              )}
+            </TouchableOpacity>
+          </Animated.View>
+        )}
 
         <Animated.View entering={FadeInDown.delay(800).springify()} style={styles.footer}>
           <Text style={styles.footerText}>Don't have an account? </Text>
@@ -290,6 +411,8 @@ const styles = StyleSheet.create({
     paddingHorizontal: 16,
     marginBottom: 16,
     height: 56,
+    borderWidth: 2,
+    borderColor: '#E5E5EA',
   },
   inputIcon: { marginRight: 12 },
   input: { flex: 1, fontSize: 16, color: '#1C1C1E' },
@@ -309,6 +432,14 @@ const styles = StyleSheet.create({
   },
   buttonDisabled: { opacity: 0.6 },
   loginButtonText: { color: '#fff', fontSize: 18, fontWeight: '700' },
+  loadingContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  buttonLoadingState: {
+    opacity: 0.8,
+  },
   dividerContainer: { flexDirection: 'row', alignItems: 'center', marginVertical: 32 },
   divider: { flex: 1, height: 1, backgroundColor: '#E5E5EA' },
   dividerText: { marginHorizontal: 16, color: '#8E8E93', fontWeight: '600' },

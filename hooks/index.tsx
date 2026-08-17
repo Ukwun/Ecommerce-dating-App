@@ -4,15 +4,15 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
-import { useAuth } from './AuthContext';
 import axiosInstance from '../utils/axiosinstance';
+import * as WebBrowser from 'expo-web-browser';
 
 const { width } = Dimensions.get('window');
 
 const plans = [
-  { id: '1', duration: '1', unit: 'month', price: '9.99', label: 'Starter' },
-  { id: '2', duration: '6', unit: 'months', price: '4.99', label: 'Most Popular', save: '50%' },
-  { id: '3', duration: '12', unit: 'months', price: '3.99', label: 'Best Value', save: '60%' },
+  { id: 'monthly', duration: '1', unit: 'month', price: '2,500', label: 'Starter' },
+  { id: 'biannual', duration: '6', unit: 'months', price: '12,000', label: 'Most Popular', save: '20%' },
+  { id: 'annual', duration: '12', unit: 'months', price: '20,000', label: 'Best Value', save: '33%' },
 ];
 
 const features = [
@@ -25,27 +25,21 @@ const features = [
 
 export default function PremiumScreen() {
   const router = useRouter();
-  const { updateUser } = useAuth();
   const [selectedPlan, setSelectedPlan] = useState(plans[1]);
   const [loading, setLoading] = useState(false);
 
   const handleSubscribe = async () => {
     setLoading(true);
     try {
-      // Mock payment processing delay
-      await new Promise(resolve => setTimeout(resolve, 1500));
-      
-      // Call backend to update status
-      await axiosInstance.post('/auth/api/subscribe', { planId: selectedPlan.id });
-      
-      // Update local user context
-      await updateUser({ isPremium: true });
-      
-      Alert.alert('Welcome to Premium!', 'You now have access to all premium features.', [
-        { text: 'Awesome', onPress: () => router.back() }
-      ]);
-    } catch (error) {
-      Alert.alert('Error', 'Failed to process subscription');
+      const response = await axiosInstance.post('/marketplace/api/subscriptions/initialize', { planId: selectedPlan.id });
+      const result = await WebBrowser.openAuthSessionAsync(response.data.data.authorization_url, 'marketplace://subscription-complete');
+      if (result.type === 'success') {
+        Alert.alert('Payment received', 'Premium will activate as soon as Paystack confirms your subscription.', [
+          { text: 'Done', onPress: () => router.back() }
+        ]);
+      }
+    } catch (error: any) {
+      Alert.alert('Subscription unavailable', error?.response?.data?.error || error.message);
     } finally {
       setLoading(false);
     }
@@ -69,7 +63,7 @@ export default function PremiumScreen() {
             <View style={styles.iconCircle}>
               <MaterialCommunityIcons name="crown" size={50} color="#FFD700" />
             </View>
-            <Text style={styles.appName}>Tinder Gold</Text>
+            <Text style={styles.appName}>Marketplace Premium</Text>
             <Text style={styles.tagline}>Unlock all features & find matches faster</Text>
           </View>
 

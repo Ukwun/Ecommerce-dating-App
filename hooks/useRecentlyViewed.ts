@@ -48,14 +48,12 @@ export const useRecentlyViewed = () => {
   });
 
   const addProductToRecentlyViewed = useCallback(async (productId: string) => {
-    try {
-      const newIds = [productId, ...viewedIds.filter(id => id !== productId)].slice(0, MAX_RECENTLY_VIEWED);
-      setViewedIds(newIds);
-      await AsyncStorage.setItem(RECENTLY_VIEWED_KEY, JSON.stringify(newIds));
-    } catch (e) {
-      console.error('Failed to save recently viewed product.', e);
-    }
-  }, [viewedIds]);
+    setViewedIds(previous => {
+      const next = [productId, ...previous.filter(id => id !== productId)].slice(0, MAX_RECENTLY_VIEWED);
+      AsyncStorage.setItem(RECENTLY_VIEWED_KEY, JSON.stringify(next)).catch(e => console.error('Failed to save recently viewed product.', e));
+      return next;
+    });
+  }, []);
 
   const clearRecentlyViewed = useCallback(async () => {
     try {

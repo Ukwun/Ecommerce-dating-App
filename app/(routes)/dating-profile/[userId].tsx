@@ -29,7 +29,7 @@ export default function PublicProfileScreen() {
       setLoading(false);
     };
     loadProfile();
-  }, [userId]);
+  }, [fetchUserProfile, userId]);
 
   if (loading) {
     return (

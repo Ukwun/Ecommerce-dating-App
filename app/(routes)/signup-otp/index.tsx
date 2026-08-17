@@ -65,11 +65,11 @@ export default function SignupOtp() {
             Toast.show({ type: 'error', text1: "Missing Information", text2: "Required signup data is missing. Please try again" });
             if (router && typeof router.back === 'function') router.back();
         }
-    }, [name, email, password]);
+    }, [name, email, password, router]);
 
     const verifyOtp = async (data: VerifyOTPData) => {
         try {
-            const BACKEND_URL = process.env.EXPO_PUBLIC_BACKEND_URL || "https://marketplace-backend.railway.app";
+            const BACKEND_URL = process.env.EXPO_PUBLIC_BACKEND_URL || "https://ecommerce-dating-app.onrender.com";
             const response = await axios.post(
                 `${BACKEND_URL}/auth/api/verify-user`,
                 {

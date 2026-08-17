@@ -67,7 +67,8 @@ router.post("/login", async (req, res) => {
       return res.status(500).json({ error: 'JWT_SECRET is not configured' });
     }
     const accessToken = jwt.sign({ id: user._id, email: user.email }, jwtSecret, { expiresIn: '7d' });
-    res.json({ success: true, message: 'Login successful', accessToken, user: { id: user._id, name: user.name, email: user.email } });
+    const refreshToken = jwt.sign({ id: user._id, email: user.email }, jwtSecret, { expiresIn: '30d' });
+    res.json({ success: true, message: 'Login successful', accessToken, refreshToken, user: { id: user._id, name: user.name, email: user.email } });
   } catch (error) {
     console.error("💥 Login error:", error);
     res.status(500).json({ error: "Internal server error" });
@@ -145,6 +146,111 @@ router.put("/profile", async (req, res) => {
       return res.status(401).json({ error: "Invalid or expired token" });
     }
     res.status(500).json({ error: "Internal server error" });
+  }
+});
+
+// ✅ Google OAuth Login
+router.post("/google-login", async (req, res) => {
+  try {
+    console.log('🔐 Google login request:', req.body.email);
+    const { email, name, photoUrl } = req.body;
+
+    if (!email) {
+      return res.status(400).json({ error: "Email is required" });
+    }
+
+    // Find or create user
+    let user = await User.findOne({ email });
+    if (!user) {
+      console.log('👤 Creating new Google user:', email);
+      const userData = {
+        name: name || 'Google User',
+        email,
+        password: await bcrypt.hash(Math.random().toString(36), 10), // Random password for OAuth users
+      };
+      if (photoUrl) userData.avatar = photoUrl;
+      
+      user = await User.create(userData);
+    }
+
+    console.log('✅ Google login successful for:', email);
+    const jwtSecret = process.env.JWT_SECRET;
+    if (!jwtSecret) {
+      return res.status(500).json({ error: 'JWT_SECRET is not configured' });
+    }
+    const accessToken = jwt.sign({ id: user._id, email: user.email }, jwtSecret, { expiresIn: '7d' });
+    const refreshToken = jwt.sign({ id: user._id, email: user.email }, jwtSecret, { expiresIn: '30d' });
+    res.json({ success: true, message: 'Google login successful', accessToken, refreshToken, user: { id: user._id, name: user.name, email: user.email, avatar: user.avatar } });
+  } catch (error) {
+    console.error("💥 Google login error:", error);
+    res.status(500).json({ error: "Internal server error" });
+  }
+});
+
+// ✅ Facebook OAuth Login
+router.post("/facebook-login", async (req, res) => {
+  try {
+    console.log('🔐 Facebook login request:', req.body.email);
+    const { email, name, photoUrl } = req.body;
+
+    if (!email) {
+      return res.status(400).json({ error: "Email is required" });
+    }
+
+    // Find or create user
+    let user = await User.findOne({ email });
+    if (!user) {
+      console.log('👤 Creating new Facebook user:', email);
+      const userData = {
+        name: name || 'Facebook User',
+        email,
+        password: await bcrypt.hash(Math.random().toString(36), 10), // Random password for OAuth users
+      };
+      if (photoUrl) userData.avatar = photoUrl;
+      
+      user = await User.create(userData);
+    }
+
+    console.log('✅ Facebook login successful for:', email);
+    const jwtSecret = process.env.JWT_SECRET;
+    if (!jwtSecret) {
+      return res.status(500).json({ error: 'JWT_SECRET is not configured' });
+    }
+    const accessToken = jwt.sign({ id: user._id, email: user.email }, jwtSecret, { expiresIn: '7d' });
+    const refreshToken = jwt.sign({ id: user._id, email: user.email }, jwtSecret, { expiresIn: '30d' });
+    res.json({ success: true, message: 'Facebook login successful', accessToken, refreshToken, user: { id: user._id, name: user.name, email: user.email, avatar: user.avatar } });
+  } catch (error) {
+    console.error("💥 Facebook login error:", error);
+    res.status(500).json({ error: "Internal server error" });
+  }
+});
+
+// ✅ Refresh Token Route (for token refresh)
+router.post("/refresh-token", async (req, res) => {
+  try {
+    const { refreshToken } = req.body;
+    
+    if (!refreshToken) {
+      return res.status(400).json({ error: "Refresh token is required" });
+    }
+
+    const jwtSecret = process.env.JWT_SECRET;
+    if (!jwtSecret) {
+      return res.status(500).json({ error: 'JWT_SECRET is not configured' });
+    }
+
+    const decoded = jwt.verify(refreshToken, jwtSecret);
+    const user = await User.findById(decoded.id);
+
+    if (!user) {
+      return res.status(404).json({ error: "User not found" });
+    }
+
+    const newAccessToken = jwt.sign({ id: user._id, email: user.email }, jwtSecret, { expiresIn: '7d' });
+    res.json({ success: true, accessToken: newAccessToken });
+  } catch (error) {
+    console.error("Token refresh error:", error);
+    res.status(401).json({ error: "Invalid or expired refresh token" });
   }
 });
 

@@ -21,7 +21,7 @@ type AddressFormData = {
   isDefault: boolean;
 };
 
-const API_BASE_URL = process.env.EXPO_PUBLIC_SERVER_URI || process.env.EXPO_PUBLIC_BACKEND_URL || 'https://marketplace-backend.railway.app';
+const API_BASE_URL = process.env.EXPO_PUBLIC_SERVER_URI || process.env.EXPO_PUBLIC_BACKEND_URL || 'https://ecommerce-dating-app.onrender.com';
 
 const addAddress = async (data: AddressFormData & { latitude?: number; longitude?: number }) => {
   const token = await AsyncStorage.getItem('access_token');

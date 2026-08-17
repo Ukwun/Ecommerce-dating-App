@@ -123,7 +123,7 @@ function EmptyState({ onExplore }: { onExplore: () => void }) {
       setTimeout(pulse, 2000);
     };
     pulse();
-  }, []);
+  }, [heartScale]);
   const heartStyle = useAnimatedStyle(() => ({ transform: [{ scale: heartScale.value }] }));
 
   return (
@@ -185,7 +185,7 @@ function SkeletonCard() {
       setTimeout(animate, 1500);
     };
     animate();
-  }, []);
+  }, [opacity]);
   const aStyle = useAnimatedStyle(() => ({ opacity: opacity.value }));
   return (
     <ReAnimated.View style={[styles.skeletonCard, aStyle]}>
@@ -211,7 +211,7 @@ export default function MatchesScreen() {
   useFocusEffect(
     useCallback(() => {
       fetchMatches();
-    }, [])
+    }, [fetchMatches])
   );
 
   const handleRefresh = async () => {

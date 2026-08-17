@@ -16,7 +16,7 @@ type Address = {
 
 export type PaymentMethod = {
   _id: string;
-  cardType: 'visa' | 'mastercard' | 'verve';
+  cardType: string;
   last4: string;
   isDefault: boolean;
 };

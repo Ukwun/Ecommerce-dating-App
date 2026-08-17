@@ -10,15 +10,15 @@ import {
   FlatList,
   RefreshControl,
 } from 'react-native';
-import { useIsFocused } from '@react-navigation/native';
-import { useTheme } from '@react-navigation/native';
+import { useIsFocused , useTheme } from '@react-navigation/native';
+
 import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
 import { useQuery, useMutation } from '@tanstack/react-query';
 import axios from 'axios';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 
-const API_BASE_URL = process.env.EXPO_PUBLIC_SERVER_URI || 'https://marketplace-backend.railway.app';
+const API_BASE_URL = process.env.EXPO_PUBLIC_SERVER_URI || 'https://ecommerce-dating-app.onrender.com';
 
 export default function SupportChatScreen() {
   const theme = useTheme();

@@ -12,7 +12,7 @@ interface Props {
 
 export const InteractiveAddToCart = ({ onPress, isFavorite, onFavoritePress }: Props) => {
   const scale = useSharedValue(1);
-  const btnRef = React.useRef<TouchableOpacity>(null);
+  const btnRef = React.useRef<React.ElementRef<typeof TouchableOpacity>>(null);
 
   const animatedStyle = useAnimatedStyle(() => ({
     transform: [{ scale: scale.value }]
@@ -26,7 +26,7 @@ export const InteractiveAddToCart = ({ onPress, isFavorite, onFavoritePress }: P
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
     
     // Measure location to tell the "FlyingItem" where to start
-    btnRef.current?.measureInWindow((x, y, width, height) => {
+    btnRef.current?.measureInWindow((x: number, y: number, width: number, height: number) => {
       onPress(x + width / 2, y + height / 2);
     });
   };

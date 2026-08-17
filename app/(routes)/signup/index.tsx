@@ -26,12 +26,13 @@ interface SignupFormData {
   name: string;
   email: string;
   password: string;
+  acceptedTerms: boolean;
 }
 
 const AnimatedView = Animated.createAnimatedComponent(View);
 
 const signupUser = async (data: SignupFormData) => {
-  const BACKEND_URL = process.env.EXPO_PUBLIC_BACKEND_URL || 'https://marketplace-backend.railway.app';
+  const BACKEND_URL = process.env.EXPO_PUBLIC_BACKEND_URL || 'https://ecommerce-dating-app.onrender.com';
   const endpoint = `${BACKEND_URL}/auth/api/user-registration`;
 
   const response = await fetch(endpoint, {
@@ -51,7 +52,8 @@ const signupUser = async (data: SignupFormData) => {
     throw new Error('Invalid server response');
   }
 
-  return { user: body.user, accessToken: body.accessToken };
+  if (!body.refreshToken) throw new Error('Server did not return a refresh token');
+  return { user: body.user, accessToken: body.accessToken, refreshToken: body.refreshToken };
 };
 
 export default function SignupScreen() {
@@ -62,18 +64,21 @@ export default function SignupScreen() {
 
   const signupForm = useForm<SignupFormData>({
     mode: 'onChange',
-    defaultValues: { name: '', email: '', password: '' },
+    defaultValues: { name: '', email: '', password: '', acceptedTerms: false },
   });
 
   const signupMutation = useMutation({
     mutationFn: signupUser,
     onSuccess: async (data: any) => {
-      await login(data.user, data.accessToken);
+      await login(data.user, data.accessToken, data.refreshToken);
       Toast.show({ type: 'success', text1: '✅ Account Created!', text2: 'Welcome to Marketplace' });
       router.push('/(tabs)');
     },
     onError: (error: Error) => {
-      Toast.show({ type: 'error', text1: '❌ Sign Up Failed', text2: error.message });
+      const errorMsg = error.message.includes('Network') 
+        ? 'Network error - Backend not responding. Please try again.'
+        : error.message;
+      Toast.show({ type: 'error', text1: '❌ Sign Up Failed', text2: errorMsg, visibilityTime: 4000 });
     },
   });
 
@@ -158,7 +163,11 @@ export default function SignupScreen() {
             <Controller
               control={signupForm.control}
               name="password"
-              rules={{ required: 'Password is required', minLength: { value: 6, message: 'At least 6 characters' } }}
+              rules={{
+                required: 'Password is required',
+                minLength: { value: 8, message: 'At least 8 characters' },
+                validate: (value) => (/[A-Za-z]/.test(value) && /\d/.test(value)) || 'Include at least one letter and number',
+              }}
               render={({ field: { onChange, onBlur, value } }) => (
                 <View style={[styles.inputContainer, signupForm.formState.errors.password && styles.inputError]}>
                   <Ionicons name="lock-closed-outline" size={24} color="#9CA3AF" />
@@ -187,6 +196,21 @@ export default function SignupScreen() {
               <Text style={styles.errorText}>{signupForm.formState.errors.password.message}</Text>
             )}
           </AnimatedView>
+
+          <Controller
+            control={signupForm.control}
+            name="acceptedTerms"
+            rules={{ validate: (value) => value || 'You must accept the Terms and Privacy Policy' }}
+            render={({ field: { value, onChange } }) => (
+              <TouchableOpacity onPress={() => onChange(!value)} style={{ flexDirection: 'row', alignItems: 'flex-start', marginTop: 22 }} accessibilityRole="checkbox" accessibilityState={{ checked: value }}>
+                <Ionicons name={value ? 'checkbox' : 'square-outline'} size={24} color={value ? '#2563EB' : '#6B7280'} />
+                <Text style={{ flex: 1, marginLeft: 10, color: '#4B5563', lineHeight: 20 }}>
+                  I agree to the Terms of Service and Privacy Policy.
+                </Text>
+              </TouchableOpacity>
+            )}
+          />
+          {signupForm.formState.errors.acceptedTerms && <Text style={styles.errorText}>{signupForm.formState.errors.acceptedTerms.message}</Text>}
 
           {/* Sign Up Button */}
           <AnimatedView entering={ZoomIn.delay(300).springify()} style={{ marginTop: 32 }}>
@@ -265,7 +289,7 @@ export default function SignupScreen() {
                   <ActivityIndicator size="small" color="#1F2937" />
                 ) : (
                   <>
-                    <AntDesign name="apple1" size={20} color="#000" style={{ marginRight: 8 }} />
+                    <AntDesign name="apple" size={20} color="#000" style={{ marginRight: 8 }} />
                     <Text style={styles.oauthText}>Apple</Text>
                   </>
                 )}

@@ -155,8 +155,8 @@ export const ProductCard = ({
               activeOpacity={0.7}
               hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
             >
-              <AntDesign
-                name={inWishlist ? "heart" : "hearto"}
+              <Ionicons
+                name={inWishlist ? "heart" : "heart-outline"}
                 size={18}
                 color={inWishlist ? "#FF6B6B" : "#fff"}
               />

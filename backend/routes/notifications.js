@@ -2,6 +2,7 @@ const express = require('express');
 const router = express.Router();
 const PushNotification = require('../models/PushNotification');
 const { protect } = require('../middleware/auth');
+const AdminUser = require('../models/AdminUser');
 
 /**
  * @route   POST /marketplace/api/notifications/send
@@ -11,6 +12,11 @@ const { protect } = require('../middleware/auth');
 router.post('/send', protect, async (req, res) => {
   try {
     const { userId, title, body, notificationType, relatedId, data } = req.body;
+
+    const admin = await AdminUser.findOne({ userId: req.user.id, isActive: true }).select('_id');
+    if (!admin) {
+      return res.status(403).json({ success: false, message: 'Admin access required' });
+    }
 
     // Validate
     if (!userId || !title || !body || !notificationType) {

@@ -44,20 +44,6 @@ export const ModernSwipeCard: React.FC<ModernSwipeCardProps> = ({
   const [showDetails, setShowDetails] = useState(false);
   const [cardDirection, setCardDirection] = useState<'like' | 'dislike' | null>(null);
 
-  if (!profile) {
-    return (
-      <View className="flex-1 justify-center items-center bg-gradient-to-b from-pink-50 to-white">
-        <ActivityIndicator size="large" color="#FF006E" />
-        <Text className="mt-4 text-gray-600 font-semibold">Loading profiles...</Text>
-      </View>
-    );
-  }
-
-  const photos = profile.photos || [];
-  const currentPhoto = photos[currentPhotoIndex]?.url || profile.profilePhotoUrl;
-  const distance = profile.distance ? Math.round(profile.distance / 1000) : null;
-  const compatibilityScore = profile.compatibilityScore ? Math.round(profile.compatibilityScore) : null;
-
   const panResponder = useRef(
     PanResponder.create({
       onStartShouldSetPanResponder: () => true,
@@ -111,6 +97,20 @@ export const ModernSwipeCard: React.FC<ModernSwipeCardProps> = ({
       }
     })
   ).current;
+
+  if (!profile) {
+    return (
+      <View className="flex-1 justify-center items-center bg-gradient-to-b from-pink-50 to-white">
+        <ActivityIndicator size="large" color="#FF006E" />
+        <Text className="mt-4 text-gray-600 font-semibold">Loading profiles...</Text>
+      </View>
+    );
+  }
+
+  const photos = profile.photos || [];
+  const currentPhoto = photos[currentPhotoIndex]?.url || profile.profilePhotoUrl;
+  const distance = profile.distance ? Math.round(profile.distance / 1000) : null;
+  const compatibilityScore = profile.compatibilityScore ? Math.round(profile.compatibilityScore) : null;
 
   const animateSwipeOut = (direction: 'like' | 'dislike') => {
     const finalX = direction === 'like' ? width * 1.5 : -width * 1.5;

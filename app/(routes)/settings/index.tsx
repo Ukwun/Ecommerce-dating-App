@@ -1,5 +1,5 @@
-import React from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, Switch } from 'react-native';
+import React, { useState, useEffect } from 'react';
+import { Alert, View, Text, StyleSheet, TouchableOpacity, Switch } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { LinearGradient } from 'expo-linear-gradient';
 import { router } from 'expo-router';
@@ -7,14 +7,38 @@ import { Ionicons } from '@expo/vector-icons';
 import { useTheme } from '@/hooks/useTheme';
 import { useCheckout } from '@/hooks/CheckoutContext';
 import { useAuth } from '@/hooks/AuthContext';
-import { useState, useEffect } from 'react';
+
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import axiosInstance from '@/utils/axiosinstance';
 
 export default function SettingsScreen() {
   const { isDark, toggleTheme } = useTheme();
   const { currency, setCurrency, language, setLanguage, deliveryOption, setDeliveryOption } = useCheckout();
   const { user, logout } = useAuth();
   const [notificationsEnabled, setNotificationsEnabled] = useState<boolean>(true);
+  const [deletingAccount, setDeletingAccount] = useState(false);
+
+  const deleteAccount = () => {
+    Alert.alert('Delete account permanently?', 'Your profile and personal identity will be removed. This cannot be undone.', [
+      { text: 'Cancel', style: 'cancel' },
+      {
+        text: 'Delete account',
+        style: 'destructive',
+        onPress: async () => {
+          try {
+            setDeletingAccount(true);
+            await axiosInstance.delete('/auth/api/account', { data: { confirmation: 'DELETE' } });
+            await logout();
+            router.replace('/login');
+          } catch (error: any) {
+            Alert.alert('Deletion failed', error?.response?.data?.error || 'Please try again or contact support.');
+          } finally {
+            setDeletingAccount(false);
+          }
+        },
+      },
+    ]);
+  };
 
   useEffect(() => {
     (async () => {
@@ -135,6 +159,9 @@ export default function SettingsScreen() {
               <Text style={{ color: '#DC2626', fontWeight: '700' }}>Logout</Text>
             </TouchableOpacity>
           </View>
+          <TouchableOpacity disabled={deletingAccount} onPress={deleteAccount} accessibilityRole="button" accessibilityLabel="Permanently delete account" style={{ paddingVertical: 16, alignItems: 'center', opacity: deletingAccount ? 0.5 : 1 }}>
+            <Text style={{ color: '#FCA5A5', fontWeight: '700' }}>{deletingAccount ? 'Deleting account…' : 'Delete account'}</Text>
+          </TouchableOpacity>
         </View>
       </SafeAreaView>
     </LinearGradient>

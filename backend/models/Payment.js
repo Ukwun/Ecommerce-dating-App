@@ -36,7 +36,12 @@ const paymentSchema = new mongoose.Schema({
     reference: String,
     authorizationCode: String,
     cardType: String,
-    last4: String
+    last4: String,
+    signature: String,
+    reusable: Boolean,
+    refundId: String,
+    refundStatus: String,
+    refundedAmount: Number
   },
   description: String,
   metadata: {

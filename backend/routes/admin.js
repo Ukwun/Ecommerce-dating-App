@@ -5,8 +5,10 @@ const SupportTicket = require('../models/SupportTicket');
 const AdminUser = require('../models/AdminUser');
 const Order = require('../models/Order');
 const User = require('../models/User');
+const Payment = require('../models/Payment');
+const axios = require('axios');
 const { protect, adminWithPermission, logSecurityAction } = require('../middleware/admin');
-const nodemailer = require('nodemailer');
+const sendResendEmail = require('../utils/resendEmail');
 
 const router = express.Router();
 
@@ -73,6 +75,9 @@ router.post('/sellers/:sellerId/request-verification', protect, async (req, res)
     if (!seller) {
       return res.status(404).json({ error: 'Seller not found' });
     }
+    if (seller.userId.toString() !== req.user.id) {
+      return res.status(403).json({ error: 'You can only submit verification for your own seller profile' });
+    }
     seller.verificationStatus = 'pending';
     seller.verificationDocuments = documents || [];
     await seller.save();
@@ -98,18 +103,11 @@ router.post('/sellers/:sellerId/approve', protect, adminWithPermission('approve_
     await seller.save();
     // Send notification to seller (email)
     if (seller.userId && seller.userId.email) {
-      const transporter = nodemailer.createTransport({
-        service: 'gmail',
-        auth: {
-          user: process.env.GMAIL_USER,
-          pass: process.env.GMAIL_PASS
-        }
-      });
-      await transporter.sendMail({
-        from: `Marketplace Admin <${process.env.GMAIL_USER}>`,
+      await sendResendEmail({
         to: seller.userId.email,
         subject: 'Your Seller Application is Approved!',
         text: `Hi ${seller.userId.name},\n\nCongratulations! Your seller application has been approved. You can now start listing products and selling on the marketplace.\n\nBest regards,\nMarketplace Team`,
+        idempotencyKey: `seller-approved-${seller._id}-${seller.verificationDate.getTime()}`,
       });
     }
     logSecurityAction(req, null, 'seller_approved', 'success', `Seller ${seller.businessName} approved`);
@@ -139,18 +137,11 @@ router.post('/sellers/:sellerId/reject', protect, adminWithPermission('reject_se
     await seller.save();
     // Send rejection email
     if (seller.userId && seller.userId.email) {
-      const transporter = nodemailer.createTransport({
-        service: 'gmail',
-        auth: {
-          user: process.env.GMAIL_USER,
-          pass: process.env.GMAIL_PASS
-        }
-      });
-      await transporter.sendMail({
-        from: `Marketplace Admin <${process.env.GMAIL_USER}>`,
+      await sendResendEmail({
         to: seller.userId.email,
         subject: 'Your Seller Application was Rejected',
         text: `Hi ${seller.userId.name},\n\nUnfortunately, your seller application was rejected. Reason: ${reason}\n\nBest regards,\nMarketplace Team`,
+        idempotencyKey: `seller-rejected-${seller._id}-${seller.verificationDate.getTime()}`,
       });
     }
     logSecurityAction(req, null, 'seller_rejected', 'success', `Seller ${seller.businessName} rejected`);
@@ -316,18 +307,42 @@ router.post('/returns/:returnId/refund-approve', protect, adminWithPermission('a
       return res.status(404).json({ error: 'Return not found' });
     }
 
-    // Calculate refund amount
+    if (['refund_initiated', 'refund_completed', 'closed'].includes(returnData.status)) {
+      return res.status(409).json({ error: 'This return has already entered the refund process' });
+    }
+    if (!process.env.PAYSTACK_SECRET_KEY) {
+      return res.status(503).json({ error: 'Paystack refunds are not configured' });
+    }
+    const order = await Order.findById(returnData.orderId);
+    const payment = await Payment.findOne({ order: returnData.orderId, status: 'success' });
+    if (!order || !payment?.paystack?.reference) {
+      return res.status(422).json({ error: 'A successful original Paystack payment was not found' });
+    }
+
     const refundAmount = returnData.originalPrice - (returnData.deduction || 0);
+    if (!Number.isFinite(refundAmount) || refundAmount <= 0 || refundAmount > payment.amount) {
+      return res.status(422).json({ error: 'Calculated refund amount is invalid' });
+    }
+    const paystackResponse = await axios.post('https://api.paystack.co/refund', {
+      transaction: payment.paystack.reference,
+      amount: Math.round(refundAmount * 100),
+      currency: payment.currency,
+      customer_note: `Refund for return ${returnData.returnNumber}`,
+      merchant_note: `Approved by admin ${req.admin._id}`,
+    }, {
+      headers: { Authorization: `Bearer ${process.env.PAYSTACK_SECRET_KEY}`, 'Content-Type': 'application/json' },
+      timeout: 15000,
+    });
     
-    returnData.status = 'refund_approved';
-    returnData.refundApprovedAt = new Date();
     returnData.finalRefundAmount = refundAmount;
-    
-    // TODO: Process actual refund via Paystack
     returnData.status = 'refund_initiated';
     returnData.refundInitiatedAt = new Date();
+    returnData.refundTransactionId = String(paystackResponse.data.data.id);
+    payment.paystack.refundId = String(paystackResponse.data.data.id);
+    payment.paystack.refundStatus = paystackResponse.data.data.status || 'pending';
+    payment.paystack.refundedAmount = refundAmount;
 
-    await returnData.save();
+    await Promise.all([returnData.save(), payment.save()]);
 
     res.status(200).json({
       success: true,

@@ -10,50 +10,7 @@ import { Swipeable } from 'react-native-gesture-handler';
 import * as Haptics from 'expo-haptics';
 import * as SecureStore from 'expo-secure-store';
 import { io, Socket } from 'socket.io-client';
-
-// Mock data for conversations (initial seed)
-const initialConversations = [
-  {
-    id: '1',
-    userName: 'Jane Doe',
-    userAvatar: 'https://images.unsplash.com/photo-1494790108377-be9c29b29330?w=150&h=150&fit=crop&crop=faces',
-    lastMessage: 'Sounds good! See you then.',
-    timestamp: '10:42 AM',
-    unreadCount: 2,
-  },
-  {
-    id: '2',
-    userName: 'John Smith',
-    userAvatar: 'https://images.unsplash.com/photo-1500648767791-00dcc994a43e?w=150&h=150&fit=crop&crop=faces',
-    lastMessage: 'Can you send me the address?',
-    timestamp: '9:30 AM',
-    unreadCount: 0,
-  },
-  {
-    id: '3',
-    userName: 'GadgetGod',
-    userAvatar: 'https://images.unsplash.com/photo-1552374196-c4e7ffc6e126?w=150&h=150&fit=crop&crop=faces',
-    lastMessage: 'You: Is this still available?',
-    timestamp: 'Yesterday',
-    unreadCount: 0,
-  },
-  {
-    id: '4',
-    userName: 'Fashionista',
-    userAvatar: 'https://images.unsplash.com/photo-1580489944761-15a19d654956?w=150&h=150&fit=crop&crop=faces',
-    lastMessage: 'Yes, I can do ₦15,000.',
-    timestamp: 'Yesterday',
-    unreadCount: 1,
-  },
-  {
-    id: '5',
-    userName: 'Bookworm',
-    userAvatar: 'https://images.unsplash.com/photo-1544005313-94ddf0286df2?w=150&h=150&fit=crop&crop=faces',
-    lastMessage: 'Perfect, thank you!',
-    timestamp: 'Oct 28',
-    unreadCount: 0,
-  },
-];
+import axiosInstance from '@/utils/axiosinstance';
 
 type Conversation = {
   id: string;
@@ -63,11 +20,6 @@ type Conversation = {
   timestamp: string;
   unreadCount: number;
   justUpdated?: boolean;
-};
-
-type WSMessage = {
-  type: 'message' | 'typing' | 'presence';
-  payload: any;
 };
 
 const ConversationItem = ({ item, onDelete, onAnimationComplete }: { item: Conversation; onDelete: (id: string) => void; onAnimationComplete: (id: string) => void; }) => {
@@ -146,7 +98,7 @@ export default function MessagesScreen() {
     }
   };
 
-  const [conversations, setConversations] = useState<Conversation[]>(initialConversations);
+  const [conversations, setConversations] = useState<Conversation[]>([]);
   const [searchQuery, setSearchQuery] = useState('');
 
   // WebSocket reference and reconnection state
@@ -154,6 +106,19 @@ export default function MessagesScreen() {
   const reconnectAttempt = useRef(0);
   const reconnectTimeout = useRef<number | null>(null);
   const [connectionState, setConnectionState] = useState<'connecting' | 'open' | 'closed' | 'error' | 'disabled'>(() => isValidWsUrl(WS_URL) ? 'connecting' : 'disabled');
+
+  useEffect(() => {
+    axiosInstance.get('/marketplace/api/conversations').then(({ data }) => {
+      setConversations((data?.data ?? []).map((conversation: any) => ({
+        id: String(conversation.user?._id || conversation._id),
+        userName: conversation.user?.name || 'User',
+        userAvatar: conversation.user?.avatar?.url || conversation.user?.avatar || '',
+        lastMessage: conversation.lastMessage || '',
+        timestamp: new Date(conversation.lastMessageTime).toLocaleString([], { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' }),
+        unreadCount: conversation.unreadCount || 0,
+      })));
+    }).catch((error) => console.warn('Unable to load conversations:', error.message));
+  }, []);
 
   const connect = async () => {
     // Do not attempt to connect if WS_URL is missing or a placeholder
@@ -185,10 +150,11 @@ export default function MessagesScreen() {
         console.log('Socket.IO connected');
       });
 
-      socket.on('message:received', (data: any) => {
+      socket.on('new_message', ({ message }: any) => {
         // Handle incoming message
         // Expected payload: { conversationId, content, senderName, senderAvatar, timestamp }
-        const convId = data.conversationId;
+        const data = { conversationId: message.sender?._id || message.sender, senderName: message.sender?.name, senderAvatar: message.sender?.avatar, content: message.content, timestamp: message.createdAt };
+        const convId = String(data.conversationId);
         
         setConversations(prev => {
           const idx = prev.findIndex(c => c.id === convId);

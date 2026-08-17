@@ -128,7 +128,7 @@ export default function ShippingScreen() {
     queryFn: fetchAddresses,
   });
 
-  useFocusEffect(useCallback(() => { refetch(); }, []));
+  useFocusEffect(useCallback(() => { refetch(); }, [refetch]));
 
   const deleteMutation = useMutation({
     mutationFn: deleteAddress,

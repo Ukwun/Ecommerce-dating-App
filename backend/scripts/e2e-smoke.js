@@ -29,6 +29,7 @@ async function run() {
     name: `Smoke ${RUN_ID}`,
     email,
     password,
+    acceptedTerms: true,
   });
   assert(register.status === 201 || register.status === 200, 'Registration failed');
 
