@@ -118,7 +118,7 @@ test('checkout prices from the database and creates isolated multi-seller fulfil
     shippingAddress: { name: 'Buyer', addressLine1: '1 Test Road', city: 'Lagos', state: 'Lagos', country: 'NG' },
     shippingCost: 1000,
   });
-  assert.equal(checkout.status, 201);
+  assert.equal(checkout.status, 201, JSON.stringify(checkout.body));
   assert.equal(checkout.body.data.subtotal, 120000);
   assert.equal(checkout.body.data.fulfillments.length, 2);
   const fulfillmentUpdate = await request(app).put(`/marketplace/api/orders/${checkout.body.data._id}/fulfillments/status`).set(auth(accessToken(sellerOne))).send({ status: 'processing' });
