@@ -9,6 +9,7 @@ const Payment = require('../models/Payment');
 const axios = require('axios');
 const { protect, adminWithPermission, logSecurityAction } = require('../middleware/admin');
 const sendResendEmail = require('../utils/resendEmail');
+const { enqueueEmail } = require('../jobs/queue');
 
 const router = express.Router();
 
@@ -103,12 +104,17 @@ router.post('/sellers/:sellerId/approve', protect, adminWithPermission('approve_
     await seller.save();
     // Send notification to seller (email)
     if (seller.userId && seller.userId.email) {
-      await sendResendEmail({
+      const email = {
         to: seller.userId.email,
         subject: 'Your Seller Application is Approved!',
         text: `Hi ${seller.userId.name},\n\nCongratulations! Your seller application has been approved. You can now start listing products and selling on the marketplace.\n\nBest regards,\nMarketplace Team`,
         idempotencyKey: `seller-approved-${seller._id}-${seller.verificationDate.getTime()}`,
-      });
+      };
+      try {
+        if (!(await enqueueEmail(email))) await sendResendEmail(email);
+      } catch (emailError) {
+        console.error('Seller approval email failed:', emailError.code || emailError.message);
+      }
     }
     logSecurityAction(req, null, 'seller_approved', 'success', `Seller ${seller.businessName} approved`);
     res.status(200).json({
@@ -137,12 +143,17 @@ router.post('/sellers/:sellerId/reject', protect, adminWithPermission('reject_se
     await seller.save();
     // Send rejection email
     if (seller.userId && seller.userId.email) {
-      await sendResendEmail({
+      const email = {
         to: seller.userId.email,
         subject: 'Your Seller Application was Rejected',
         text: `Hi ${seller.userId.name},\n\nUnfortunately, your seller application was rejected. Reason: ${reason}\n\nBest regards,\nMarketplace Team`,
         idempotencyKey: `seller-rejected-${seller._id}-${seller.verificationDate.getTime()}`,
-      });
+      };
+      try {
+        if (!(await enqueueEmail(email))) await sendResendEmail(email);
+      } catch (emailError) {
+        console.error('Seller rejection email failed:', emailError.code || emailError.message);
+      }
     }
     logSecurityAction(req, null, 'seller_rejected', 'success', `Seller ${seller.businessName} rejected`);
     res.status(200).json({
