@@ -4,7 +4,8 @@ const orderSchema = new mongoose.Schema({
   orderNumber: {
     type: String,
     unique: true,
-    required: true
+    required: true,
+    default: () => `ORD-${Date.now()}-${new mongoose.Types.ObjectId().toString().slice(-8)}`
   },
   user: {
     type: mongoose.Schema.Types.ObjectId,
@@ -136,15 +137,6 @@ const orderSchema = new mongoose.Schema({
     default: Date.now
   }
 }, { timestamps: true });
-
-// Generate unique order number
-orderSchema.pre('save', async function(next) {
-  if (!this.orderNumber) {
-    const count = await this.constructor.countDocuments();
-    this.orderNumber = `ORD-${Date.now()}-${count + 1}`;
-  }
-  next();
-});
 
 // Indexes
 orderSchema.index({ user: 1, createdAt: -1 });

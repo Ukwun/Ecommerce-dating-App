@@ -35,7 +35,7 @@ router.get('/sellers', protect, adminWithPermission('view_seller_details'), asyn
 
     const total = await SellerProfile.countDocuments(query);
 
-    logSecurityAction(req, null, 'view_seller_details', 'success');
+    logSecurityAction(req, 'admin_action', 'success');
 
     res.status(200).json({
       success: true,
@@ -46,7 +46,7 @@ router.get('/sellers', protect, adminWithPermission('view_seller_details'), asyn
       data: sellers
     });
   } catch (error) {
-    logSecurityAction(req, null, 'admin_action', 'failed', error.message);
+    logSecurityAction(req, 'admin_action', 'failed', error.message);
     res.status(500).json({ error: error.message });
   }
 });
@@ -116,14 +116,14 @@ router.post('/sellers/:sellerId/approve', protect, adminWithPermission('approve_
         console.error('Seller approval email failed:', emailError.code || emailError.message);
       }
     }
-    logSecurityAction(req, null, 'seller_approved', 'success', `Seller ${seller.businessName} approved`);
+    logSecurityAction(req, 'seller_approved', 'success');
     res.status(200).json({
       success: true,
       message: 'Seller approved successfully',
       data: seller
     });
   } catch (error) {
-    logSecurityAction(req, null, 'admin_action', 'failed', error.message);
+    logSecurityAction(req, 'admin_action', 'failed', error.message);
     res.status(500).json({ error: error.message });
   }
 });
@@ -155,14 +155,14 @@ router.post('/sellers/:sellerId/reject', protect, adminWithPermission('reject_se
         console.error('Seller rejection email failed:', emailError.code || emailError.message);
       }
     }
-    logSecurityAction(req, null, 'seller_rejected', 'success', `Seller ${seller.businessName} rejected`);
+    logSecurityAction(req, 'seller_rejected', 'success');
     res.status(200).json({
       success: true,
       message: 'Seller application rejected',
       data: seller
     });
   } catch (error) {
-    logSecurityAction(req, null, 'admin_action', 'failed', error.message);
+    logSecurityAction(req, 'admin_action', 'failed', error.message);
     res.status(500).json({ error: error.message });
   }
 });
@@ -188,7 +188,7 @@ router.post('/sellers/:sellerId/suspend', protect, adminWithPermission('suspend_
     }
     await seller.save();
 
-    logSecurityAction(req, null, 'admin_action', 'success', `Seller ${seller.businessName} suspended`);
+    logSecurityAction(req, 'admin_action', 'success');
 
     res.status(200).json({
       success: true,

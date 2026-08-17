@@ -30,6 +30,7 @@ const securityLogSchema = new mongoose.Schema({
       'seller_approved',
       'seller_rejected',
       'unauthorized_access_attempt',
+      'api_request',
       'api_key_generated',
       'api_key_deleted',
       'two_factor_enabled',
