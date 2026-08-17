@@ -3,6 +3,11 @@ services:
     name: marketplace-backend
     env: node
     plan: starter
+    scaling:
+      minInstances: 2
+      maxInstances: 10
+      targetCPUPercent: 70
+      targetMemoryPercent: 75
     buildCommand: cd backend && npm install
     startCommand: cd backend && npm start
     healthCheckPath: /health
@@ -11,6 +16,16 @@ services:
         value: production
       - key: REQUIRE_REDIS
         value: "true"
+      - key: MONGO_MAX_POOL_SIZE
+        value: "30"
+      - key: MONGO_MIN_POOL_SIZE
+        value: "2"
+      - key: MONGO_MAX_CONNECTING
+        value: "4"
+      - key: GENERAL_RATE_LIMIT_PER_MINUTE
+        value: "600"
+      - key: INSTANCE_MEMORY_BYTES
+        value: "536870912"
       - key: REDIS_URL
         fromService:
           type: keyvalue
@@ -28,6 +43,8 @@ services:
         sync: false
       - key: RESEND_FROM_EMAIL
         sync: false
+      - key: ALERT_WEBHOOK_URL
+        sync: false
     # Environment variables must be set in Render dashboard:
     # MONGO_URI, JWT_SECRET, NODE_ENV=production, PORT=8082
     # EMAIL_SERVICE, EMAIL_USERNAME, EMAIL_PASSWORD, EMAIL_FROM
@@ -36,6 +53,11 @@ services:
     name: marketplace-worker
     env: node
     plan: starter
+    scaling:
+      minInstances: 1
+      maxInstances: 5
+      targetCPUPercent: 70
+      targetMemoryPercent: 75
     buildCommand: cd backend && npm ci --omit=dev
     startCommand: cd backend && npm run worker
     envVars:
@@ -48,6 +70,10 @@ services:
           property: connectionString
       - key: MONGO_URI
         sync: false
+      - key: MONGO_MAX_POOL_SIZE
+        value: "20"
+      - key: MONGO_MIN_POOL_SIZE
+        value: "1"
       - key: RESEND_API_KEY
         sync: false
       - key: RESEND_FROM_EMAIL

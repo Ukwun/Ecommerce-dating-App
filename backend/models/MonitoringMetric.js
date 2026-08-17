@@ -29,11 +29,11 @@ const monitoringMetricSchema = new mongoose.Schema({
   createdAt: {
     type: Date,
     default: Date.now,
-    index: true,
   },
 });
 
 monitoringMetricSchema.index({ source: 1, metricType: 1, createdAt: -1 });
+monitoringMetricSchema.index({ createdAt: 1 }, { expireAfterSeconds: 30 * 24 * 60 * 60 });
 
 monitoringMetricSchema.post('save', function onSave(doc) {
   if (doc.status !== 'critical' && doc.status !== 'warning') return;

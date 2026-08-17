@@ -7,6 +7,7 @@
     "dev": "nodemon",
     "test:e2e": "node scripts/e2e-smoke.js",
     "test:integration": "node --test --test-concurrency=1 test/critical-flows.test.js",
+    "load:test": "node scripts/load-test.js",
     "worker": "node worker.js",
     "build": "babel server.js worker.js config constants controllers jobs middleware models routes socket utils --out-dir dist --extensions \".js\" --copy-files && node scripts/write-dist-package.js",
     "serve": "npm run build && node dist/server.js"
@@ -27,6 +28,7 @@
     "mongodb": "^6.7.0",
     "mongoose": "^8.4.1",
     "node-fetch": "^2.7.0",
+    "rate-limit-redis": "^4.2.1",
     "redis": "^6.2.1",
     "socket.io": "^4.8.3",
     "uuid": "^11.1.1"
@@ -36,6 +38,7 @@
     "@babel/core": "^7.24.7",
     "@babel/node": "^7.24.7",
     "@babel/preset-env": "^7.24.7",
+    "autocannon": "^8.0.0",
     "nodemon": "^3.1.10",
     "socket.io-client": "^4.8.3",
     "supertest": "^7.2.2"

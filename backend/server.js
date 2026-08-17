@@ -40,8 +40,10 @@ const { generalLimiter, authLimiter, createProductLimiter, paymentLimiter, suppo
 const { startAnalyticsAggregationJob } = require('./jobs/analyticsAggregationJob');
 const { attachRedisAdapter } = require('./config/redis');
 const { scheduleAnalyticsAggregation } = require('./jobs/queue');
+const { startRuntimeMonitoring } = require('./jobs/runtimeMonitor');
 
 const app = express();
+app.set('trust proxy', 1);
 const server = http.createServer(app);
 
 // WebSocket Setup
@@ -88,8 +90,9 @@ app.use(generalLimiter);
 
 // Database Connection
 mongoose.connect(process.env.MONGO_URI, {
-  maxPoolSize: Number(process.env.MONGO_MAX_POOL_SIZE || 50),
-  minPoolSize: Number(process.env.MONGO_MIN_POOL_SIZE || 5),
+  maxPoolSize: Number(process.env.MONGO_MAX_POOL_SIZE || 30),
+  minPoolSize: Number(process.env.MONGO_MIN_POOL_SIZE || 2),
+  maxConnecting: Number(process.env.MONGO_MAX_CONNECTING || 4),
   serverSelectionTimeoutMS: 10000,
   maxIdleTimeMS: 60000,
 })
@@ -151,6 +154,7 @@ server.listen(PORT, '0.0.0.0', () => {
     console.error('Analytics queue scheduling failed:', error.message);
     if (process.env.REQUIRE_REDIS !== 'true') startAnalyticsAggregationJob();
   });
+  startRuntimeMonitoring();
 });
 
 attachRedisAdapter(io).catch(error => {
