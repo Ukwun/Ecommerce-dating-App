@@ -2,6 +2,7 @@ const express = require('express');
 const router = express.Router();
 const Product = require('../models/Product');
 const { protect } = require('../middleware/auth');
+const { getJson, setJson, getProductCacheVersion, invalidateProductCache } = require('../config/cache');
 const { seller } = require('../middleware/admin');
 const Review = require('../models/Review');
 
@@ -22,6 +23,7 @@ router.post('/products', protect, seller, async (req, res) => {
       colors,
       images
     });
+    await invalidateProductCache();
 
     res.status(201).json({
       success: true,
@@ -44,12 +46,7 @@ router.get('/products', async (req, res) => {
     if (seller) query.seller = seller;
 
     // Search filter
-    if (search) {
-      query.$or = [
-        { name: { $regex: search, $options: 'i' } },
-        { description: { $regex: search, $options: 'i' } }
-      ];
-    }
+    if (search) query.$text = { $search: String(search).slice(0, 100) };
 
     // Other filters
     if (category) query.category = category;
@@ -69,18 +66,27 @@ router.get('/products', async (req, res) => {
       else if (sort === 'rating-desc') sortOption = { ratings: -1 };
     }
 
-    const skip = (parseInt(page) - 1) * parseInt(limit);
+    const safePage = Math.max(1, Number.parseInt(page) || 1);
+    const safeLimit = Math.min(50, Math.max(1, Number.parseInt(limit) || 20));
+    const skip = (safePage - 1) * safeLimit;
+    const cacheVersion = await getProductCacheVersion();
+    const cacheKey = `cache:products:${cacheVersion}:${JSON.stringify({ seller, safePage, safeLimit, sort, search, category, minPrice, maxPrice, color, size })}`;
+    const cached = await getJson(cacheKey);
+    if (cached) return res.status(200).json(cached);
 
     const products = await Product.find(query)
       .sort(sortOption)
       .skip(skip)
-      .limit(parseInt(limit));
+      .limit(safeLimit)
+      .lean();
 
-    res.status(200).json({
+    const payload = {
       success: true,
       count: products.length,
       data: products
-    });
+    };
+    await setJson(cacheKey, payload, Number(process.env.PRODUCT_CACHE_TTL_SECONDS || 20));
+    res.status(200).json(payload);
   } catch (error) {
     console.error(error);
     res.status(500).json({
@@ -151,6 +157,7 @@ router.put('/products/:id', protect, async (req, res) => {
       new: true,
       runValidators: true
     });
+    await invalidateProductCache();
 
     res.status(200).json({
       success: true,
@@ -177,6 +184,7 @@ router.delete('/products/:id', protect, async (req, res) => {
     }
 
     await product.deleteOne();
+    await invalidateProductCache();
 
     res.status(200).json({
       success: true,
@@ -218,6 +226,7 @@ router.post('/products/:id/reviews', protect, async (req, res) => {
     product.ratings = Math.round(avgRating * 10) / 10;
     product.numOfReviews = reviews.length;
     await product.save();
+    await invalidateProductCache();
 
     const populated = await Review.findById(review._id).populate('user', 'name avatar');
     res.status(201).json({ success: true, data: populated });

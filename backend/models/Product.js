@@ -70,4 +70,10 @@ const productSchema = new mongoose.Schema({
   }
 });
 
+productSchema.index({ createdAt: -1 });
+productSchema.index({ seller: 1, createdAt: -1 });
+productSchema.index({ category: 1, createdAt: -1 });
+productSchema.index({ category: 1, price: 1 });
+productSchema.index({ name: 'text', description: 'text' });
+
 module.exports = mongoose.model('Product', productSchema);
