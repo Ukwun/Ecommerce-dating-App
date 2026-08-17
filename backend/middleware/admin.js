@@ -2,10 +2,11 @@ const jwt = require('jsonwebtoken');
 const AdminUser = require('../models/AdminUser');
 const SellerProfile = require('../models/SellerProfile');
 const SecurityLog = require('../models/SecurityLog');
+const User = require('../models/User');
 const { evaluateAbuseRisk } = require('../utils/fraudMonitor');
 
 // Protect route - requires authentication
-const protect = (req, res, next) => {
+const protect = async (req, res, next) => {
   try {
     if (!process.env.JWT_SECRET) {
       return res.status(500).json({ message: 'JWT_SECRET is not configured' });
@@ -20,6 +21,10 @@ const protect = (req, res, next) => {
     const decoded = jwt.verify(token, process.env.JWT_SECRET);
     if (decoded.tokenType !== 'access') {
       return res.status(401).json({ message: 'Invalid token type' });
+    }
+    const user = await User.findOne({ _id: decoded.id, accountStatus: { $ne: 'deleted' } }).select('+authVersion');
+    if (!user || (decoded.authVersion ?? 0) !== user.authVersion) {
+      return res.status(401).json({ message: 'Account or session is unavailable' });
     }
     req.user = decoded;
     
