@@ -89,7 +89,8 @@
       },
       "privacyPolicyUrl": "https://ecommerce-dating-app.onrender.com/privacy",
       "termsOfServiceUrl": "https://ecommerce-dating-app.onrender.com/terms",
-      "accountDeletionUrl": "https://ecommerce-dating-app.onrender.com/account-deletion"
+      "accountDeletionUrl": "https://ecommerce-dating-app.onrender.com/account-deletion",
+      "childSafetyStandardsUrl": "https://ecommerce-dating-app.onrender.com/child-safety"
     },
     "owner": "ukwun1",
     "runtimeVersion": {
