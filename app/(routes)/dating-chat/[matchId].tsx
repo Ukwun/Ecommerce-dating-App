@@ -14,12 +14,13 @@ import {
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useLocalSearchParams, useRouter } from 'expo-router';
-import AsyncStorage from '@react-native-async-storage/async-storage';
-import axios from 'axios';
+import * as SecureStore from 'expo-secure-store';
 import { io, Socket } from 'socket.io-client';
 import * as ImagePicker from 'expo-image-picker';
+import axiosInstance from '@/utils/axiosinstance';
+import { useAuth } from '@/hooks/AuthContext';
 
-const API_BASE = 'http://10.0.2.2:8082';
+const WS_URL = process.env.EXPO_PUBLIC_CHATTING_WEBSOCKET_URI || process.env.EXPO_PUBLIC_BACKEND_URL;
 
 interface Message {
   senderId: string;
@@ -33,6 +34,7 @@ interface Message {
 export default function DatingChatScreen() {
   const { matchId, userId, userName } = useLocalSearchParams();
   const router = useRouter();
+  const { user } = useAuth();
 
   const [messages, setMessages] = useState<Message[]>([]);
   const [newMessage, setNewMessage] = useState('');
@@ -63,13 +65,7 @@ export default function DatingChatScreen() {
 
   useEffect(() => {
     const setupSocket = async () => {
-      const token = await AsyncStorage.getItem('userToken');
-      const envWs = typeof process !== 'undefined' ? (process.env as any)?.EXPO_PUBLIC_CHATTING_WEBSOCKET_URI : undefined;
-      const normalizeDevHost = (raw?: string) => {
-        if (!raw) return raw;
-        return raw.replace(/^ws:\/\/10\.0\.2\.2(:|\/|$)/, 'ws://10.0.2.2$1');
-      };
-      const WS_URL = normalizeDevHost(envWs) || (__DEV__ ? 'ws://10.0.2.2:8082' : undefined);
+      const token = await SecureStore.getItemAsync('access_token');
 
       if (!WS_URL) return;
 
@@ -102,23 +98,12 @@ export default function DatingChatScreen() {
 
   useEffect(() => {
     const init = async () => {
-      const token = await AsyncStorage.getItem('userToken');
-      const user = await AsyncStorage.getItem('userData');
-      
-      if (user) {
-        const userData = JSON.parse(user);
-        setCurrentUserId(userData._id);
-      }
+      setCurrentUserId(user?.id || '');
 
       // Fetch messages
       if (matchId) {
         try {
-          const response = await axios.get(
-            `${API_BASE}/dating/api/chat/${matchId}`,
-            {
-              headers: { Authorization: `Bearer ${token}` }
-            }
-          );
+          const response = await axiosInstance.get(`/dating/api/chat/${matchId}`);
           setMessages(response.data.messages || []);
         } catch (err) {
           Alert.alert('Error', 'Failed to load messages');
@@ -129,7 +114,7 @@ export default function DatingChatScreen() {
     };
 
     init();
-  }, [matchId]);
+  }, [matchId, user?.id]);
 
   const handleTyping = (text: string) => {
     setNewMessage(text);
@@ -158,12 +143,7 @@ export default function DatingChatScreen() {
           style: 'destructive',
           onPress: async () => {
             try {
-              const token = await AsyncStorage.getItem('userToken');
-              await axios.post(
-                `${API_BASE}/dating/api/matches/${matchId}/block`,
-                { reason: 'Blocked from chat' },
-                { headers: { Authorization: `Bearer ${token}` } }
-              );
+              await axiosInstance.post(`/dating/api/matches/${matchId}/block`, { reason: 'Blocked from chat' });
               Alert.alert('Blocked', 'User has been blocked.');
               router.replace('/matches' as any);
             } catch (error) {
@@ -175,8 +155,31 @@ export default function DatingChatScreen() {
     );
   };
 
+  const handleReportUser = () => {
+    Alert.alert('Report User', 'Choose the issue you want our safety team to review.', [
+      { text: 'Cancel', style: 'cancel' },
+      ...['Harassment or threats', 'Scam or impersonation', 'Inappropriate content'].map((reason) => ({
+        text: reason,
+        onPress: async () => {
+          try {
+            await axiosInstance.post('/support/api/tickets', {
+              subject: 'Dating safety report',
+              description: `${reason}. Match: ${String(matchId)}. Reported user: ${String(userId || 'unknown')}.`,
+              category: 'account_issue',
+              priority: reason === 'Harassment or threats' ? 'urgent' : 'high',
+            });
+            Alert.alert('Report received', 'Our safety team will review this report. You can also block the user now.');
+          } catch {
+            Alert.alert('Error', 'The report could not be submitted. Please try again.');
+          }
+        },
+      })),
+    ]);
+  };
+
   const showOptions = () => {
     Alert.alert('Options', 'Select an action', [
+      { text: 'Report User', onPress: handleReportUser },
       { text: 'Block User', onPress: handleBlockUser, style: 'destructive' },
       { text: 'Cancel', style: 'cancel' }
     ]);
@@ -217,12 +220,7 @@ export default function DatingChatScreen() {
         try {
           const uploadedUrl = await uploadImageToCloudinary(result.assets[0].uri);
           
-          const token = await AsyncStorage.getItem('userToken');
-          const response = await axios.post(
-            `${API_BASE}/dating/api/chat/send/${matchId}`,
-            { imageUrl: uploadedUrl },
-            { headers: { Authorization: `Bearer ${token}` } }
-          );
+          const response = await axiosInstance.post(`/dating/api/chat/send/${matchId}`, { imageUrl: uploadedUrl });
           setMessages((prev) => [...prev, response.data.messageData]);
         } finally {
           setSending(false);
@@ -238,15 +236,7 @@ export default function DatingChatScreen() {
 
     try {
       setSending(true);
-      const token = await AsyncStorage.getItem('userToken');
-
-      const response = await axios.post(
-        `${API_BASE}/dating/api/chat/send/${matchId}`,
-        { content: newMessage.trim() },
-        {
-          headers: { Authorization: `Bearer ${token}` }
-        }
-      );
+      const response = await axiosInstance.post(`/dating/api/chat/send/${matchId}`, { content: newMessage.trim() });
 
       setMessages([...messages, response.data.messageData]);
       setNewMessage('');
