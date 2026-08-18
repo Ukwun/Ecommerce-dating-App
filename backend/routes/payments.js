@@ -362,6 +362,8 @@ router.post('/payments/verify', protect, async (req, res) => {
       }).catch(() => {});
 
       const risk = await evaluateAbuseRisk({ userId: req.user.id, ipAddress: getClientIp(req) });
+      const { enqueueFraudReview } = require('../jobs/queue');
+      await enqueueFraudReview({ userId: req.user.id, ipAddress: getClientIp(req) }, `fraud-payment-${reference}`).catch(() => false);
       if (risk.riskLevel === 'high') {
         await SecurityLog.create({
           userId: req.user.id,
@@ -476,6 +478,11 @@ router.post('/payments/webhook/paystack', async (req, res) => {
 
     const { event, data } = req.body;
 
+    if (['transfer.success', 'transfer.failed', 'transfer.reversed'].includes(event)) {
+      const { reconcileTransfer } = require('../services/sellerSettlement');
+      await reconcileTransfer(event, data);
+    }
+
     if (event === 'charge.success') {
       const reference = data.reference;
 
@@ -519,6 +526,8 @@ router.post('/payments/webhook/paystack', async (req, res) => {
           returnData.refundCompletedAt = new Date();
           await returnData.save();
           await Order.findByIdAndUpdate(payment.order, { status: 'refunded', 'payment.status': 'refunded' });
+          const { recordOrderRefund } = require('../services/sellerSettlement');
+          await recordOrderRefund(payment.order, payment.paystack.refundedAmount || payment.amount);
         }
       }
     }

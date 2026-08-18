@@ -6,6 +6,11 @@ const Product = require('../models/Product');
 const Return = require('../models/Return');
 const SellerFollow = require('../models/SellerFollow');
 const { protect, seller } = require('../middleware/admin');
+const axios = require('axios');
+const SellerLedgerEntry = require('../models/SellerLedgerEntry');
+const SellerPayout = require('../models/SellerPayout');
+const { releaseMaturedEntries, createPayout } = require('../services/sellerSettlement');
+const { enqueuePayout, getBackgroundQueue } = require('../jobs/queue');
 
 const router = express.Router();
 
@@ -130,29 +135,63 @@ router.put('/bank-details', protect, seller, async (req, res) => {
   try {
     const { bankName, accountNumber, accountName, bankCode } = req.body;
 
-    if (!bankName || !accountNumber || !accountName) {
+    if (!bankName || !bankCode || !/^\d{10}$/.test(String(accountNumber || ''))) {
       return res.status(400).json({ error: 'All bank details are required' });
     }
+
+    const secret = process.env.PAYSTACK_SECRET_KEY || process.env.PAYSTACK_SECRET;
+    if (!secret) return res.status(503).json({ error: 'Bank verification is not configured' });
+    const verification = await axios.get('https://api.paystack.co/bank/resolve', { params: { account_number: accountNumber, bank_code: bankCode }, headers: { Authorization: `Bearer ${secret}` }, timeout: 15000 });
+    const resolvedName = verification.data?.data?.account_name;
+    if (!resolvedName) return res.status(422).json({ error: 'The bank account could not be verified' });
 
     const updated = await SellerProfile.findByIdAndUpdate(
       req.seller._id,
       {
         bankName,
         accountNumber,
-        accountName,
+        accountName: resolvedName,
         bankCode,
-        bankVerified: false // Reset verification
+        bankVerified: true,
+        paystackRecipientCode: undefined,
+        paystackRecipientAccountFingerprint: undefined,
       },
       { new: true }
     );
 
     res.status(200).json({
       success: true,
-      message: 'Bank details updated. Will be verified before first payout.',
+      message: 'Bank details verified and saved.',
       data: updated
     });
   } catch (error) {
     res.status(500).json({ error: error.message });
+  }
+});
+
+router.get('/ledger', protect, seller, async (req, res) => {
+  await releaseMaturedEntries(req.user.id);
+  const entries = await SellerLedgerEntry.find({ seller: req.user.id }).sort({ createdAt: -1 }).limit(200);
+  const balance = entries.filter(row => row.status === 'available').reduce((sum, row) => sum + (row.direction === 'credit' ? row.amount : -row.amount), 0);
+  res.json({ success: true, data: entries, availableBalance: Math.round(balance * 100) / 100 });
+});
+
+router.get('/payouts', protect, seller, async (req, res) => {
+  const payouts = await SellerPayout.find({ seller: req.user.id }).sort({ createdAt: -1 }).limit(100);
+  res.json({ success: true, data: payouts });
+});
+
+router.post('/payouts', protect, seller, async (req, res) => {
+  try {
+    if (!getBackgroundQueue()) return res.status(503).json({ error: 'Payout queue is unavailable; no transfer was submitted' });
+    const active = await SellerPayout.exists({ seller: req.user.id, status: { $in: ['queued', 'processing'] } });
+    if (active) return res.status(409).json({ error: 'A payout is already in progress' });
+    const payout = await createPayout(req.user.id);
+    const queued = await enqueuePayout(payout._id.toString());
+    if (!queued) return res.status(503).json({ error: 'Payout queue is unavailable; no transfer was submitted' });
+    res.status(202).json({ success: true, data: payout });
+  } catch (error) {
+    res.status(422).json({ error: error.response?.data?.message || error.message });
   }
 });
 

@@ -46,6 +46,14 @@ const uploadImageToImageKit = async (uri: string) => {
     folder: '/products',
   });
   if (!res.data?.url) throw new Error('Upload failed');
+  for (let attempt = 0; attempt < 30; attempt += 1) {
+    const status = await axiosInstance.get(`/upload/api/imagekit/${encodeURIComponent(res.data.fileId)}/status`);
+    if (status.data?.data?.moderationStatus === 'approved') break;
+    if (status.data?.data?.moderationStatus === 'rejected') throw new Error('An image was rejected by the safety review. Please choose another image.');
+    if (status.data?.data?.moderationStatus === 'failed') throw new Error('Image safety review is unavailable. Please try again later.');
+    if (attempt === 29) throw new Error('Image review is taking longer than expected. Please try again shortly.');
+    await new Promise(resolve => setTimeout(resolve, 2000));
+  }
   return { url: res.data.url, fileId: res.data.fileId };
 };
 

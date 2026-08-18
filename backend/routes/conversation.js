@@ -3,9 +3,7 @@ const router = express.Router();
 const Conversation = require('../models/Conversation');
 const DatingProfile = require('../models/DatingProfile');
 const { protect } = require('../middleware/auth');
-const { Expo } = require('expo-server-sdk');
-
-const expo = new Expo();
+const { enqueuePush } = require('../jobs/queue');
 
 // GET /dating/api/chat/:conversationId
 // Fetch message history
@@ -115,8 +113,8 @@ router.post('/chat/send/:conversationId', protect, async (req, res) => {
       const recipientId = conversation.participants.find(p => p.toString() !== senderId);
       if (recipientId) {
         const recipientProfile = await DatingProfile.findOne({ userId: recipientId });
-        if (recipientProfile && recipientProfile.pushToken && Expo.isExpoPushToken(recipientProfile.pushToken)) {
-          await expo.sendPushNotificationsAsync([{
+        if (recipientProfile?.pushToken) {
+          await enqueuePush({ message: {
             to: recipientProfile.pushToken,
             sound: 'chat_sound.wav', // For iOS
             title: 'New Message',
@@ -124,7 +122,7 @@ router.post('/chat/send/:conversationId', protect, async (req, res) => {
             data: { conversationId, url: `/dating-chat/${conversationId}` },
             channelId: 'chat_messages', // For Android
             threadId: conversationId, // Group notifications by conversation
-          }]);
+          } }, `dating-message-${conversationId}-${newMessage.timestamp.getTime()}`);
         }
       }
     } catch (pushErr) {

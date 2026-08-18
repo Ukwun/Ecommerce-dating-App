@@ -280,6 +280,10 @@ router.put('/orders/:id/fulfillments/status', protect, async (req, res) => {
     else if (statuses.every(value => value === 'cancelled')) order.status = 'cancelled';
     else if (statuses.some(value => value === 'confirmed')) order.status = 'confirmed';
     await order.save();
+    if (status === 'delivered') {
+      const { enqueueSettlement } = require('../jobs/queue');
+      await enqueueSettlement({ orderId: order._id.toString(), sellerId: req.user.id }, `settlement-${order._id}-${req.user.id}`);
+    }
     res.json({ success: true, data: fulfillment, orderStatus: order.status });
   } catch (error) {
     await releaseReservations().catch(() => {});

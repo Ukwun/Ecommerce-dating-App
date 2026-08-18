@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useCallback, useEffect, useState } from 'react';
 import { 
   View, 
   Text, 
@@ -6,7 +6,7 @@ import {
   Image, 
   StyleSheet, 
   ActivityIndicator, 
-  Dimensions 
+  useWindowDimensions
 } from 'react-native';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
@@ -20,23 +20,18 @@ import { InteractiveAddToCart } from '../backend/routes/InteractiveAddToCart';
 import { FlyingItem } from '../backend/routes/FlyingItem';
 export { AnimatedCheckbox } from './AnimatedCheckbox';
 
-const { width } = Dimensions.get('window');
-
 export default function ProductDetailsScreen() {
   const { id } = useLocalSearchParams();
   const router = useRouter();
   const [product, setProduct] = useState<any>(null);
   const [loading, setLoading] = useState(true);
   const [flyingItem, setFlyingItem] = useState<{ start: { x: number, y: number }, image: string } | null>(null);
+  const { width } = useWindowDimensions();
 
   // Coordinate for the cart icon in the header (Top Right)
   const cartPos = { x: width - 40, y: 40 }; 
 
-  useEffect(() => {
-    if (id) fetchProductDetails();
-  }, [id]);
-
-  const fetchProductDetails = async () => {
+  const fetchProductDetails = useCallback(async () => {
     try {
       setLoading(true);
       // Fetching enriched data (Seller + Similar Products + Reviews)
@@ -57,7 +52,11 @@ export default function ProductDetailsScreen() {
     } finally {
       setLoading(false);
     }
-  };
+  }, [id]);
+
+  useEffect(() => {
+    if (id) fetchProductDetails();
+  }, [fetchProductDetails, id]);
 
   const handleAddToCart = (x: number, y: number) => {
     setFlyingItem({ 

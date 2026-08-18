@@ -16,6 +16,19 @@ const enqueueEmail = async payload => {
   return true;
 };
 
+const enqueue = async (name, payload, options = {}) => {
+  const queue = getBackgroundQueue();
+  if (!queue) return false;
+  await queue.add(name, payload, { attempts: 5, backoff: { type: 'exponential', delay: 5000 }, removeOnComplete: 1000, removeOnFail: 5000, ...options });
+  return true;
+};
+
+const enqueuePush = (payload, idempotencyKey) => enqueue('send-push', payload, idempotencyKey ? { jobId: idempotencyKey } : {});
+const enqueueFraudReview = (payload, idempotencyKey) => enqueue('fraud-review', payload, idempotencyKey ? { jobId: idempotencyKey } : {});
+const enqueueImageModeration = (payload, idempotencyKey) => enqueue('moderate-image', payload, idempotencyKey ? { jobId: idempotencyKey } : {});
+const enqueueSettlement = (payload, idempotencyKey) => enqueue('create-settlement', payload, { delay: 1000, ...(idempotencyKey ? { jobId: idempotencyKey } : {}) });
+const enqueuePayout = (payoutId) => enqueue('submit-payout', { payoutId }, { jobId: `payout-${payoutId}` });
+
 const scheduleAnalyticsAggregation = async () => {
   const queue = getBackgroundQueue();
   if (!queue) return false;
@@ -24,4 +37,4 @@ const scheduleAnalyticsAggregation = async () => {
   return true;
 };
 
-module.exports = { enqueueEmail, getBackgroundQueue, scheduleAnalyticsAggregation };
+module.exports = { enqueueEmail, enqueuePush, enqueueFraudReview, enqueueImageModeration, enqueueSettlement, enqueuePayout, getBackgroundQueue, scheduleAnalyticsAggregation };

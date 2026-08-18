@@ -43,6 +43,12 @@ services:
         sync: false
       - key: RESEND_FROM_EMAIL
         sync: false
+      - key: AWS_REGION
+        sync: false
+      - key: AWS_ACCESS_KEY_ID
+        sync: false
+      - key: AWS_SECRET_ACCESS_KEY
+        sync: false
       - key: ALERT_WEBHOOK_URL
         sync: false
     # Environment variables must be set in Render dashboard:
@@ -77,6 +83,14 @@ services:
       - key: RESEND_API_KEY
         sync: false
       - key: RESEND_FROM_EMAIL
+        sync: false
+      - key: PAYSTACK_SECRET_KEY
+        sync: false
+      - key: AWS_REGION
+        sync: false
+      - key: AWS_ACCESS_KEY_ID
+        sync: false
+      - key: AWS_SECRET_ACCESS_KEY
         sync: false
   - type: keyvalue
     name: marketplace-redis

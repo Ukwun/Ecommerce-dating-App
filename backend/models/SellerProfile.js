@@ -45,6 +45,8 @@ const sellerProfileSchema = new mongoose.Schema({
   accountName: String,
   bankCode: String,
   bankVerified: { type: Boolean, default: false },
+  paystackRecipientCode: String,
+  paystackRecipientAccountFingerprint: String,
   
   // Profile Stats
   totalSales: { type: Number, default: 0 },
@@ -58,6 +60,7 @@ const sellerProfileSchema = new mongoose.Schema({
   
   // Commission
   commissionRate: { type: Number, default: 5 }, // percentage taken by platform
+  payoutReserveRate: { type: Number, default: 10, min: 0, max: 100 },
   
   // Contact Info
   contactEmail: String,
@@ -80,7 +83,6 @@ const sellerProfileSchema = new mongoose.Schema({
 }, { timestamps: true });
 
 // Index for faster queries
-sellerProfileSchema.index({ userId: 1 });
 sellerProfileSchema.index({ verificationStatus: 1 });
 sellerProfileSchema.index({ businessCategory: 1 });
 

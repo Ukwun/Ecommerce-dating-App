@@ -5,11 +5,16 @@ const { protect } = require('../middleware/auth');
 const { getJson, setJson, getProductCacheVersion, invalidateProductCache } = require('../config/cache');
 const { seller } = require('../middleware/admin');
 const Review = require('../models/Review');
+const UploadedAsset = require('../models/UploadedAsset');
 
 // Create new product
 router.post('/products', protect, seller, async (req, res) => {
   try {
     const { name, description, price, oldPrice, category, stock, sizes, colors, images } = req.body;
+    if (!Array.isArray(images) || images.length === 0) return res.status(422).json({ success: false, message: 'At least one approved product image is required' });
+    const fileIds = images.map(image => image.fileId).filter(Boolean);
+    const approvedCount = await UploadedAsset.countDocuments({ owner: req.user.id, fileId: { $in: fileIds }, moderationStatus: 'approved' });
+    if (approvedCount !== fileIds.length) return res.status(422).json({ success: false, message: 'Every product image must pass safety review before listing' });
 
     const product = await Product.create({
       seller: req.user.id,

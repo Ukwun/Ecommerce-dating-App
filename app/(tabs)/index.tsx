@@ -29,13 +29,6 @@ const categories = [
   { id: 'Sports', name: 'Sports', icon: 'activity' },
 ];
 
-const fallbackProducts = [
-  { _id: '1', name: 'Wireless Headphones', price: 45000, image: 'https://images.unsplash.com/photo-1505740420928-5e560c06d30e?w=500', rating: 4.5, description: 'High quality sound', category: 'Tech', stock: 5 },
-  { _id: '2', name: 'Smart Watch Series 5', price: 85000, image: 'https://images.unsplash.com/photo-1523275335684-37898b6baf30?w=500', rating: 4.2, description: 'Stay connected', category: 'Tech', stock: 12 },
-  { _id: '3', name: 'Running Sneakers', price: 32000, image: 'https://images.unsplash.com/photo-1542291026-7eec264c27ff?w=500', rating: 4.8, description: 'Comfortable for running', category: 'Fashion', stock: 3 },
-  { _id: '4', name: 'Leather Backpack', price: 28000, image: 'https://images.unsplash.com/photo-1553062407-98eeb64c6a62?w=500', rating: 4.3, description: 'Stylish and durable', category: 'Fashion', stock: 20 },
-];
-
 function PressableIcon({ onPress, children, style }: any) {
   const scale = useSharedValue(1);
   const aStyle = useAnimatedStyle(() => ({ transform: [{ scale: scale.value }] }));
