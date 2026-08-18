@@ -15,10 +15,6 @@
     ],
     "ios": {
       "supportsTablet": true,
-      "associatedDomains": [
-        "applinks:marketplace-app.com",
-        "applinks:www.marketplace-app.com"
-      ],
       "bundleIdentifier": "com.marketplace.app",
       "buildNumber": "1",
       "usesAppleSignIn": true
@@ -26,28 +22,6 @@
     "android": {
       "package": "com.marketplace.app",
       "versionCode": 1,
-      "intentFilters": [
-        {
-          "action": "VIEW",
-          "autoVerify": true,
-          "data": [
-            {
-              "scheme": "https",
-              "host": "marketplace-app.com",
-              "pathPrefix": "/dating-profile"
-            },
-            {
-              "scheme": "https",
-              "host": "www.marketplace-app.com",
-              "pathPrefix": "/dating-profile"
-            }
-          ],
-          "category": [
-            "BROWSABLE",
-            "DEFAULT"
-          ]
-        }
-      ],
       "adaptiveIcon": {
         "backgroundColor": "#E6F4FE",
         "foregroundImage": "./assets/images/android-icon-foreground.png",
@@ -113,8 +87,9 @@
       "eas": {
         "projectId": "543f74ae-39ce-4609-a1a1-8ef032c3c7a7"
       },
-      "privacyPolicyUrl": "https://marketplace-app.com/privacy",
-      "termsOfServiceUrl": "https://marketplace-app.com/terms"
+      "privacyPolicyUrl": "https://ecommerce-dating-app.onrender.com/privacy",
+      "termsOfServiceUrl": "https://ecommerce-dating-app.onrender.com/terms",
+      "accountDeletionUrl": "https://ecommerce-dating-app.onrender.com/account-deletion"
     },
     "owner": "ukwun1",
     "runtimeVersion": {

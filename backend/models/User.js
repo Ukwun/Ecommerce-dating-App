@@ -30,6 +30,11 @@ const userSchema = new mongoose.Schema({
     }
   },
   pushToken: { type: String },
+  preferences: {
+    currency: { type: String, enum: ['NGN', 'USD', 'EUR', 'GBP'], default: 'NGN' },
+    language: { type: String, enum: ['en', 'fr'], default: 'en' },
+    deliveryOption: { type: String, enum: ['home', 'station'], default: 'home' },
+  },
   accountStatus: { type: String, enum: ['active', 'deleted'], default: 'active', index: true },
   deletedAt: Date,
 }, { timestamps: true });

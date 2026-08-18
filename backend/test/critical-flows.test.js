@@ -56,6 +56,9 @@ test('buyer registration, login, and refresh preserve authenticated identity', a
   const refresh = await request(app).post('/auth/api/refresh-token').send({ refreshToken: login.body.refreshToken });
   assert.equal(refresh.status, 200);
   assert.ok(refresh.body.accessToken);
+  const preferences = await request(app).patch('/auth/api/preferences').set(auth(login.body.accessToken)).send({ currency: 'EUR', language: 'fr', deliveryOption: 'station' });
+  assert.equal(preferences.status, 200);
+  assert.deepEqual(preferences.body.preferences, { currency: 'EUR', language: 'fr', deliveryOption: 'station' });
 });
 
 test('password reset tokens expire and can be consumed only once', async () => {

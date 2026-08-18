@@ -38,6 +38,7 @@ interface CheckoutContextProps {
 const CheckoutContext = createContext<CheckoutContextProps | undefined>(undefined);
 
 export const CheckoutProvider = ({ children }: { children: ReactNode }) => {
+  const { user } = useAuth();
   const [selectedAddress, setSelectedAddress] = useState<Address | null>(null);
   const [selectedPaymentMethod, setSelectedPaymentMethod] = useState<PaymentMethod | null>(null);
   // Preferences persisted to AsyncStorage
@@ -67,12 +68,6 @@ export const CheckoutProvider = ({ children }: { children: ReactNode }) => {
   // persist prefs when they change
   useEffect(() => {
     AsyncStorage.setItem('@prefs_currency', currency).catch(() => {});
-    // persist to backend when logged in
-    (async () => {
-      try {
-        const auth = (null as any) as any; // placeholder
-      } catch (e) {}
-    })();
   }, [currency]);
   useEffect(() => {
     AsyncStorage.setItem('@prefs_language', language).catch(() => {});
@@ -81,42 +76,14 @@ export const CheckoutProvider = ({ children }: { children: ReactNode }) => {
     AsyncStorage.setItem('@prefs_delivery', deliveryOption).catch(() => {});
   }, [deliveryOption]);
 
-  // Persist preferences to backend when the user is available
-  const auth = (() => {
-    try {
-      return require('@/hooks/AuthContext') as any;
-    } catch (e) {
-      return null;
-    }
-  })();
-
   useEffect(() => {
-    (async () => {
-      try {
-        // only attempt if user is available via require to avoid circular hook calls here
-        // We avoid calling hooks directly inside provider; instead we try to read user from AuthContext via require.
-        const mod = require('@/hooks/AuthContext') as any;
-        const { useAuth: _useAuth } = mod;
-        const ctx = _useAuth?.();
-        const user = ctx?.user;
-        if (user && user.id) {
-          try {
-            await axiosInstance.post('/auth/api/update-preferences', { currency, language, deliveryOption });
-          } catch (err) {
-            // report to a server-side log for debugging failed persistence attempts
-            try {
-              await axiosInstance.post('/logs/client-errors', { message: 'Failed to persist preferences', error: (err as any)?.message ?? String(err), payload: { currency, language, deliveryOption }, userId: user.id });
-            } catch (logErr) {
-              // swallow
-            }
-          }
-        }
-      } catch (e) {
-        // ignore network failures
-        // console.warn('Failed to persist prefs', e);
-      }
-    })();
-  }, [currency, language, deliveryOption]);
+    if (!user?.id) return;
+    const timer = setTimeout(() => {
+      axiosInstance.patch('/auth/api/preferences', { currency, language, deliveryOption })
+        .catch((error) => console.warn('Failed to sync checkout preferences', error?.message));
+    }, 400);
+    return () => clearTimeout(timer);
+  }, [currency, language, deliveryOption, user?.id]);
 
   return (
     <CheckoutContext.Provider

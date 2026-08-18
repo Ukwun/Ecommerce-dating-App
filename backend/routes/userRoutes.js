@@ -231,6 +231,24 @@ router.post('/refresh-token', async (req, res) => {
   }
 });
 
+router.patch('/preferences', authProtect, async (req, res) => {
+  const allowed = {
+    currency: ['NGN', 'USD', 'EUR', 'GBP'],
+    language: ['en', 'fr'],
+    deliveryOption: ['home', 'station'],
+  };
+  const updates = {};
+  for (const [key, values] of Object.entries(allowed)) {
+    if (req.body[key] !== undefined) {
+      if (!values.includes(req.body[key])) return res.status(400).json({ success: false, error: `Unsupported ${key}` });
+      updates[`preferences.${key}`] = req.body[key];
+    }
+  }
+  const user = await User.findByIdAndUpdate(req.user.id, { $set: updates }, { new: true, runValidators: true }).select('preferences');
+  if (!user) return res.status(404).json({ success: false, error: 'User not found' });
+  return res.json({ success: true, preferences: user.preferences });
+});
+
 // ✅ Forgot Password
 router.post('/forgot-password', async (req, res) => {
   const genericResponse = { success: true, message: 'If an active account exists, a reset link has been sent.' };

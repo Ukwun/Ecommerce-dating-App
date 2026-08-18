@@ -157,6 +157,14 @@ server.listen(PORT, '0.0.0.0', () => {
   startRuntimeMonitoring();
 });
 
+app.get('/terms', (_req, res) => {
+  res.send(`<!DOCTYPE html><html lang="en"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Terms of Service - BizMingle</title><style>body{font-family:system-ui,sans-serif;max-width:800px;margin:0 auto;padding:40px 24px;color:#111;line-height:1.7}h1{color:#FF8C00}h2{margin-top:32px;color:#374151}</style></head><body><h1>BizMingle Terms of Service</h1><p><strong>Last updated:</strong> August 18, 2026</p><h2>Marketplace</h2><p>Users must provide accurate listings, lawful goods, honest pricing, and fulfil confirmed orders. Fraud, counterfeit goods, harassment, and deceptive activity are prohibited.</p><h2>Payments and disputes</h2><p>Payments are processed by our payment provider. Refunds and returns follow the status and evidence shown in the app. Chargebacks or abuse may result in account restriction.</p><h2>Seller responsibilities</h2><p>Sellers remain responsible for listing accuracy, stock, delivery, customer support, and applicable taxes and laws. Seller access requires approval and may be suspended for policy violations.</p><h2>Dating and safety</h2><p>Dating features are for adults aged 18 or older. Users must respect consent and may report or block unsafe behavior. BizMingle does not guarantee compatibility or identity beyond the verification explicitly shown.</p><h2>Contact</h2><p>Questions may be sent to <a href="mailto:support@marketplace.app">support@marketplace.app</a>.</p></body></html>`);
+});
+
+app.get('/account-deletion', (_req, res) => {
+  res.send(`<!DOCTYPE html><html lang="en"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Delete your BizMingle account</title><style>body{font-family:system-ui,sans-serif;max-width:800px;margin:0 auto;padding:40px 24px;color:#111;line-height:1.7}h1{color:#FF8C00}h2{margin-top:32px;color:#374151}</style></head><body><h1>Delete your BizMingle account</h1><p>In the BizMingle app, sign in and open <strong>Profile → Settings → Delete Account</strong>. Confirm the warning to permanently delete the account.</p><h2>What is deleted</h2><p>Your profile, credentials, addresses, payment-method metadata, wishlists, dating data, conversations, support records, and seller data are removed or anonymized as applicable.</p><h2>What may be retained</h2><p>Transaction and fraud-prevention records may be retained only where required for legal, tax, dispute, or security obligations.</p><p>If you cannot access the app, email <a href="mailto:support@marketplace.app">support@marketplace.app</a> from your registered email address.</p></body></html>`);
+});
+
 attachRedisAdapter(io).catch(error => {
   console.error('Redis adapter startup failed:', error.message);
   if (process.env.REQUIRE_REDIS === 'true') process.exit(1);
