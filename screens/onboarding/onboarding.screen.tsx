@@ -1,180 +1,97 @@
-import React, { useRef, useState } from 'react';
-import {
-  Dimensions, StyleSheet, Text, View, Image,
-  TouchableOpacity, FlatList, StatusBar,
-} from 'react-native';
+import React, { useCallback, useRef, useState } from 'react';
+import { ActivityIndicator, FlatList, Pressable, StatusBar, StyleSheet, Text, useWindowDimensions, View, ViewToken } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { router } from 'expo-router';
-import Animated, {
-  useSharedValue, useAnimatedStyle, withSpring,
-  withTiming, interpolate, Extrapolation, FadeInDown,
-  FadeIn,
-} from 'react-native-reanimated';
+import { Ionicons } from '@expo/vector-icons';
+import Animated, { FadeInDown, FadeInUp, useAnimatedStyle, useSharedValue, withSpring } from 'react-native-reanimated';
 import * as Haptics from 'expo-haptics';
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import { SafeAreaView } from 'react-native-safe-area-context';
 
-const { width, height } = Dimensions.get('window');
+type IconName = React.ComponentProps<typeof Ionicons>['name'];
+type Slide = { id: string; eyebrow: string; title: string; subtitle: string; icon: IconName; accent: string; tint: string; points: { icon: IconName; label: string }[] };
 
-const SLIDES = [
-  {
-    id: '1',
-    title: 'Buy & Sell Anything',
-    subtitle: 'Discover thousands of products from verified sellers across Nigeria. Best prices, guaranteed.',
-    gradient: ['#FF8C00', '#FF5F6D'] as [string, string],
-    emoji: '🛍️',
-  },
-  {
-    id: '2',
-    title: 'Meet Your Match',
-    subtitle: 'Find meaningful connections with people who share your interests, all in one app.',
-    gradient: ['#FF006E', '#9B27AF'] as [string, string],
-    emoji: '💖',
-  },
-  {
-    id: '3',
-    title: 'Secure & Fast',
-    subtitle: 'Pay securely with Paystack. Real-time delivery tracking. 24/7 customer support.',
-    gradient: ['#0EA5E9', '#0D4B7C'] as [string, string],
-    emoji: '⚡',
-  },
+const SLIDES: Slide[] = [
+  { id: 'marketplace', eyebrow: 'A marketplace that feels local', title: 'Find it. Love it.\nMake it yours.', subtitle: 'Shop real listings from approved sellers, save favourites, chat, and keep every order in one place.', icon: 'storefront-outline', accent: '#F97316', tint: '#FFF3E8', points: [{ icon: 'shield-checkmark-outline', label: 'Approved sellers' }, { icon: 'sparkles-outline', label: 'Personal discovery' }] },
+  { id: 'connection', eyebrow: 'More than shopping', title: 'Meet people who\nmatch your energy.', subtitle: 'Opt into meaningful connections with privacy controls, reporting, and blocking always close at hand.', icon: 'people-outline', accent: '#DB2777', tint: '#FDF2F8', points: [{ icon: 'heart-outline', label: 'Shared interests' }, { icon: 'lock-closed-outline', label: 'Safety controls' }] },
+  { id: 'confidence', eyebrow: 'Built for real transactions', title: 'Shop, sell and connect\nwith confidence.', subtitle: 'Secure Paystack checkout, seller-specific fulfilment, real order updates, and support when you need it.', icon: 'checkmark-done-circle-outline', accent: '#2563EB', tint: '#EFF6FF', points: [{ icon: 'card-outline', label: 'Secure payments' }, { icon: 'chatbubble-ellipses-outline', label: 'Real support' }] },
 ];
 
-function Dot({ index, activeIndex }: { index: number; activeIndex: number }) {
-  const aStyle = useAnimatedStyle(() => ({
-    width: withSpring(activeIndex === index ? 28 : 8),
-    opacity: withTiming(activeIndex === index ? 1 : 0.4),
-    backgroundColor: '#fff',
-  }));
-  return <Animated.View style={[styles.dot, aStyle]} />;
-}
+const AnimatedPressable = Animated.createAnimatedComponent(Pressable);
 
 export default function OnboardingScreen() {
+  const { width } = useWindowDimensions();
+  const listRef = useRef<FlatList<Slide>>(null);
   const [activeIndex, setActiveIndex] = useState(0);
-  const flatRef = useRef<FlatList>(null);
-  const btnScale = useSharedValue(1);
-  const btnStyle = useAnimatedStyle(() => ({ transform: [{ scale: btnScale.value }] }));
+  const [finishing, setFinishing] = useState(false);
+  const buttonScale = useSharedValue(1);
+  const buttonStyle = useAnimatedStyle(() => ({ transform: [{ scale: buttonScale.value }] }));
 
-  const handleSkip = async () => {
-    await AsyncStorage.setItem('@onboarding_done', '1');
-    router.replace('/(routes)/login' as any);
+  const finishOnboarding = useCallback(async () => {
+    if (finishing) return;
+    setFinishing(true);
+    try { await AsyncStorage.setItem('@onboarding_done', '1'); } catch { /* Navigation must still work if storage fails. */ }
+    router.replace('/login');
+  }, [finishing]);
+
+  const next = () => {
+    void Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+    buttonScale.value = withSpring(0.96, {}, () => { buttonScale.value = withSpring(1); });
+    if (activeIndex === SLIDES.length - 1) return void finishOnboarding();
+    listRef.current?.scrollToIndex({ index: activeIndex + 1, animated: true });
   };
 
-  const handleNext = () => {
-    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-    btnScale.value = withSpring(0.93, {}, () => { btnScale.value = withSpring(1); });
-    if (activeIndex < SLIDES.length - 1) {
-      const next = activeIndex + 1;
-      flatRef.current?.scrollToIndex({ index: next, animated: true });
-      setActiveIndex(next);
-    } else {
-      handleSkip();
-    }
-  };
-
-  const onScroll = (e: any) => {
-    const idx = Math.round(e.nativeEvent.contentOffset.x / width);
-    setActiveIndex(idx);
-  };
+  const onViewableItemsChanged = useRef(({ viewableItems }: { viewableItems: ViewToken<Slide>[] }) => {
+    if (typeof viewableItems[0]?.index === 'number') setActiveIndex(viewableItems[0].index);
+  }).current;
 
   return (
-    <View style={styles.container}>
-      <StatusBar translucent backgroundColor="transparent" barStyle="light-content" />
+    <SafeAreaView style={styles.safe} edges={['top', 'bottom']}>
+      <StatusBar barStyle="dark-content" backgroundColor="#FAFAF8" />
+      <View style={styles.header}>
+        <View style={styles.brandRow}><View style={styles.brandMark}><Text style={styles.brandLetter}>B</Text></View><Text style={styles.brand}>BizMingle</Text></View>
+        <Pressable accessibilityRole="button" accessibilityLabel="Skip onboarding" hitSlop={12} onPress={() => void finishOnboarding()} disabled={finishing} style={styles.skipButton}>
+          <Text style={styles.skipText}>Skip</Text><Ionicons name="arrow-forward" size={16} color="#374151" />
+        </Pressable>
+      </View>
 
       <FlatList
-        ref={flatRef}
-        data={SLIDES}
-        horizontal
-        pagingEnabled
-        showsHorizontalScrollIndicator={false}
-        keyExtractor={(s) => s.id}
-        onMomentumScrollEnd={onScroll}
-        renderItem={({ item, index }) => (
-          <LinearGradient colors={item.gradient} style={styles.slide}>
-            {/* Background decoration */}
-            <View style={styles.bgCircle1} />
-            <View style={styles.bgCircle2} />
-
-            {/* Skip */}
-            {index < SLIDES.length - 1 && (
-              <Animated.View entering={FadeIn.delay(300)} style={styles.skipRow}>
-                <TouchableOpacity onPress={handleSkip} style={styles.skipBtn}>
-                  <Text style={styles.skipText}>Skip</Text>
-                </TouchableOpacity>
-              </Animated.View>
-            )}
-
-            {/* Content */}
-            <View style={styles.slideContent}>
-              <Animated.View entering={FadeInDown.delay(200).springify()} style={styles.emojiBox}>
-                <Text style={styles.emoji}>{item.emoji}</Text>
-              </Animated.View>
-              <Animated.Text entering={FadeInDown.delay(300).springify()} style={styles.title}>
-                {item.title}
-              </Animated.Text>
-              <Animated.Text entering={FadeInDown.delay(400).springify()} style={styles.subtitle}>
-                {item.subtitle}
-              </Animated.Text>
-            </View>
-
-            {/* Bottom image */}
-            <Animated.View entering={FadeInDown.delay(500).springify()} style={styles.imageBox}>
-              <Image
-                source={require('../../assets/onboarding/onboarding.jpg')}
-                style={styles.slideImage}
-                resizeMode="cover"
-              />
-              <LinearGradient
-                colors={['transparent', item.gradient[1]]}
-                style={styles.imageOverlay}
-              />
+        ref={listRef} data={SLIDES} horizontal pagingEnabled bounces={false} showsHorizontalScrollIndicator={false}
+        keyExtractor={item => item.id} viewabilityConfig={{ itemVisiblePercentThreshold: 60 }} onViewableItemsChanged={onViewableItemsChanged}
+        renderItem={({ item }) => (
+          <View style={[styles.slide, { width }]}>
+            <Animated.View entering={FadeInUp.duration(450)} style={[styles.visual, { backgroundColor: item.tint }]}>
+              <View style={[styles.orbit, styles.orbitLarge, { borderColor: `${item.accent}24` }]} /><View style={[styles.orbit, styles.orbitSmall, { borderColor: `${item.accent}35` }]} />
+              <LinearGradient colors={[item.accent, `${item.accent}CC`]} style={styles.iconCard}><Ionicons name={item.icon} size={72} color="#FFFFFF" /></LinearGradient>
+              <View style={[styles.floatBadge, styles.floatBadgeLeft]}><Ionicons name={item.points[0].icon} size={18} color={item.accent} /><Text style={styles.floatText}>{item.points[0].label}</Text></View>
+              <View style={[styles.floatBadge, styles.floatBadgeRight]}><Ionicons name={item.points[1].icon} size={18} color={item.accent} /><Text style={styles.floatText}>{item.points[1].label}</Text></View>
             </Animated.View>
-          </LinearGradient>
+            <Animated.View entering={FadeInDown.delay(120).duration(450)} style={styles.copy}>
+              <Text style={[styles.eyebrow, { color: item.accent }]}>{item.eyebrow.toUpperCase()}</Text><Text style={styles.title}>{item.title}</Text><Text style={styles.subtitle}>{item.subtitle}</Text>
+            </Animated.View>
+          </View>
         )}
       />
 
-      {/* Footer */}
-      <View style={[styles.footer, { backgroundColor: SLIDES[activeIndex].gradient[1] }]}>
-        <View style={styles.dots}>
-          {SLIDES.map((_, i) => <Dot key={i} index={i} activeIndex={activeIndex} />)}
-        </View>
-
-        <Animated.View style={btnStyle}>
-          <TouchableOpacity style={styles.nextBtn} onPress={handleNext} activeOpacity={1}>
-            <LinearGradient
-              colors={['rgba(255,255,255,0.3)', 'rgba(255,255,255,0.15)']}
-              style={styles.nextBtnGradient}
-            >
-              <Text style={styles.nextBtnText}>
-                {activeIndex === SLIDES.length - 1 ? "Let's Go 🚀" : 'Next'}
-              </Text>
-            </LinearGradient>
-          </TouchableOpacity>
-        </Animated.View>
+      <View style={styles.footer}>
+        <View style={styles.dots}>{SLIDES.map((slide, index) => <View key={slide.id} style={[styles.dot, index === activeIndex && { width: 28, backgroundColor: SLIDES[activeIndex].accent }]} />)}</View>
+        <AnimatedPressable accessibilityRole="button" accessibilityLabel={activeIndex === SLIDES.length - 1 ? 'Go to sign in' : 'Next onboarding page'} onPress={next} disabled={finishing} style={[styles.primaryButton, buttonStyle, { backgroundColor: SLIDES[activeIndex].accent }]}>
+          {finishing ? <ActivityIndicator color="#FFFFFF" /> : <><Text style={styles.primaryText}>{activeIndex === SLIDES.length - 1 ? "Let's go" : 'Continue'}</Text><Ionicons name="arrow-forward" size={20} color="#FFFFFF" /></>}
+        </AnimatedPressable>
       </View>
-    </View>
+    </SafeAreaView>
   );
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1 },
-  slide: { width, flex: 1, position: 'relative' },
-  bgCircle1: { position: 'absolute', width: 300, height: 300, borderRadius: 150, backgroundColor: 'rgba(255,255,255,0.08)', top: -80, right: -80 },
-  bgCircle2: { position: 'absolute', width: 200, height: 200, borderRadius: 100, backgroundColor: 'rgba(255,255,255,0.06)', bottom: 120, left: -60 },
-  skipRow: { position: 'absolute', top: 56, right: 24, zIndex: 10 },
-  skipBtn: { paddingHorizontal: 16, paddingVertical: 8, backgroundColor: 'rgba(255,255,255,0.2)', borderRadius: 20 },
-  skipText: { color: '#fff', fontWeight: '600', fontSize: 14 },
-  slideContent: { flex: 1, justifyContent: 'center', alignItems: 'center', paddingHorizontal: 32, paddingTop: 80, zIndex: 2 },
-  emojiBox: { width: 100, height: 100, borderRadius: 50, backgroundColor: 'rgba(255,255,255,0.2)', justifyContent: 'center', alignItems: 'center', marginBottom: 28 },
-  emoji: { fontSize: 48 },
-  title: { fontSize: 32, fontWeight: '900', color: '#fff', textAlign: 'center', marginBottom: 16, lineHeight: 40 },
-  subtitle: { fontSize: 16, color: 'rgba(255,255,255,0.85)', textAlign: 'center', lineHeight: 24 },
-  imageBox: { position: 'absolute', bottom: 80, left: 0, right: 0, height: height * 0.28, overflow: 'hidden' },
-  slideImage: { width: '100%', height: '100%' },
-  imageOverlay: { position: 'absolute', bottom: 0, left: 0, right: 0, height: '60%' },
-  footer: { paddingHorizontal: 28, paddingBottom: 48, paddingTop: 20, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
-  dots: { flexDirection: 'row', alignItems: 'center', gap: 6 },
-  dot: { height: 8, borderRadius: 4 },
-  nextBtn: { borderRadius: 50, overflow: 'hidden' },
-  nextBtnGradient: { paddingHorizontal: 28, paddingVertical: 14, borderRadius: 50, borderWidth: 1.5, borderColor: 'rgba(255,255,255,0.4)' },
-  nextBtnText: { color: '#fff', fontWeight: '800', fontSize: 16 },
+  safe: { flex: 1, backgroundColor: '#FAFAF8' }, header: { height: 68, paddingHorizontal: 22, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
+  brandRow: { flexDirection: 'row', alignItems: 'center', gap: 10 }, brandMark: { width: 32, height: 32, borderRadius: 11, alignItems: 'center', justifyContent: 'center', backgroundColor: '#111827' }, brandLetter: { color: '#FFFFFF', fontWeight: '900', fontSize: 18 }, brand: { color: '#111827', fontSize: 18, fontWeight: '800', letterSpacing: -0.4 },
+  skipButton: { minHeight: 44, flexDirection: 'row', alignItems: 'center', gap: 5, paddingHorizontal: 8 }, skipText: { color: '#374151', fontSize: 15, fontWeight: '700' },
+  slide: { flex: 1, paddingHorizontal: 22, paddingTop: 12 }, visual: { flex: 1.12, maxHeight: 410, minHeight: 280, borderRadius: 32, overflow: 'hidden', alignItems: 'center', justifyContent: 'center' },
+  orbit: { position: 'absolute', borderWidth: 1.5, borderRadius: 999 }, orbitLarge: { width: 330, height: 330 }, orbitSmall: { width: 230, height: 230 },
+  iconCard: { width: 142, height: 142, borderRadius: 44, alignItems: 'center', justifyContent: 'center', transform: [{ rotate: '-5deg' }], shadowColor: '#111827', shadowOpacity: 0.18, shadowRadius: 22, shadowOffset: { width: 0, height: 12 }, elevation: 10 },
+  floatBadge: { position: 'absolute', backgroundColor: '#FFFFFF', borderRadius: 16, paddingHorizontal: 12, paddingVertical: 10, flexDirection: 'row', alignItems: 'center', gap: 7, shadowColor: '#111827', shadowOpacity: 0.1, shadowRadius: 12, shadowOffset: { width: 0, height: 5 }, elevation: 5 }, floatBadgeLeft: { left: 20, top: 34 }, floatBadgeRight: { right: 16, bottom: 32 }, floatText: { color: '#1F2937', fontWeight: '700', fontSize: 12 },
+  copy: { paddingTop: 28, paddingHorizontal: 4 }, eyebrow: { fontSize: 12, fontWeight: '900', letterSpacing: 1.3, marginBottom: 12 }, title: { color: '#111827', fontSize: 34, lineHeight: 40, fontWeight: '900', letterSpacing: -1.4 }, subtitle: { color: '#667085', fontSize: 15.5, lineHeight: 23, marginTop: 14, maxWidth: 520 },
+  footer: { paddingHorizontal: 22, paddingTop: 14, paddingBottom: 10, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: 16 }, dots: { flexDirection: 'row', alignItems: 'center', gap: 7 }, dot: { width: 8, height: 8, borderRadius: 4, backgroundColor: '#D1D5DB' },
+  primaryButton: { minWidth: 146, minHeight: 54, borderRadius: 18, paddingHorizontal: 22, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 9, shadowColor: '#111827', shadowOpacity: 0.16, shadowRadius: 12, shadowOffset: { width: 0, height: 7 }, elevation: 7 }, primaryText: { color: '#FFFFFF', fontSize: 16, fontWeight: '800' },
 });
