@@ -23,7 +23,7 @@ export default function Index() {
   if (!introComplete || isLoading || onboardingComplete === null) return <BrandIntro onDone={completeIntro} />;
   if (user) return <Redirect href="/(tabs)" />;
   if (onboardingComplete) return <Redirect href="/login" />;
-  return <OnboardingScreen />;
+  return <OnboardingScreen onComplete={() => setOnboardingComplete(true)} />;
 }
 
 const styles = StyleSheet.create({ intro: { flex: 1, backgroundColor: '#FAFAF8', alignItems: 'center', justifyContent: 'center' }, glow: { position: 'absolute', width: 260, height: 260, borderRadius: 130, backgroundColor: '#FFF0DF', opacity: 0.9 }, logoShell: { width: 112, height: 112, borderRadius: 34, overflow: 'hidden', backgroundColor: '#FFFFFF', shadowColor: '#F97316', shadowOpacity: 0.25, shadowRadius: 24, shadowOffset: { width: 0, height: 12 }, elevation: 12 }, logo: { width: '100%', height: '100%' }, wordmark: { alignItems: 'center', marginTop: 24 }, name: { color: '#111827', fontSize: 30, fontWeight: '900', letterSpacing: -1.1 }, tagline: { color: '#6B7280', fontSize: 13, fontWeight: '600', letterSpacing: 0.7, marginTop: 7 } });

@@ -1,7 +1,6 @@
 import React, { useCallback, useRef, useState } from 'react';
 import { ActivityIndicator, FlatList, Pressable, StatusBar, StyleSheet, Text, useWindowDimensions, View, ViewToken } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
-import { router } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import Animated, { FadeInDown, FadeInUp, useAnimatedStyle, useSharedValue, withSpring } from 'react-native-reanimated';
 import * as Haptics from 'expo-haptics';
@@ -19,7 +18,7 @@ const SLIDES: Slide[] = [
 
 const AnimatedPressable = Animated.createAnimatedComponent(Pressable);
 
-export default function OnboardingScreen() {
+export default function OnboardingScreen({ onComplete }: { onComplete: () => void }) {
   const { width } = useWindowDimensions();
   const listRef = useRef<FlatList<Slide>>(null);
   const [activeIndex, setActiveIndex] = useState(0);
@@ -27,17 +26,17 @@ export default function OnboardingScreen() {
   const buttonScale = useSharedValue(1);
   const buttonStyle = useAnimatedStyle(() => ({ transform: [{ scale: buttonScale.value }] }));
 
-  const finishOnboarding = useCallback(async () => {
+  const finishOnboarding = useCallback(() => {
     if (finishing) return;
     setFinishing(true);
-    try { await AsyncStorage.setItem('@onboarding_done', '1'); } catch { /* Navigation must still work if storage fails. */ }
-    router.replace('/login');
-  }, [finishing]);
+    onComplete();
+    void AsyncStorage.setItem('@onboarding_done', '1').catch(() => undefined);
+  }, [finishing, onComplete]);
 
   const next = () => {
     void Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
     buttonScale.value = withSpring(0.96, {}, () => { buttonScale.value = withSpring(1); });
-    if (activeIndex === SLIDES.length - 1) return void finishOnboarding();
+    if (activeIndex === SLIDES.length - 1) return finishOnboarding();
     listRef.current?.scrollToIndex({ index: activeIndex + 1, animated: true });
   };
 
@@ -50,7 +49,7 @@ export default function OnboardingScreen() {
       <StatusBar barStyle="dark-content" backgroundColor="#FAFAF8" />
       <View style={styles.header}>
         <View style={styles.brandRow}><View style={styles.brandMark}><Text style={styles.brandLetter}>B</Text></View><Text style={styles.brand}>BizMingle</Text></View>
-        <Pressable accessibilityRole="button" accessibilityLabel="Skip onboarding" hitSlop={12} onPress={() => void finishOnboarding()} disabled={finishing} style={styles.skipButton}>
+        <Pressable accessibilityRole="button" accessibilityLabel="Skip onboarding" hitSlop={12} onPress={finishOnboarding} disabled={finishing} style={styles.skipButton}>
           <Text style={styles.skipText}>Skip</Text><Ionicons name="arrow-forward" size={16} color="#374151" />
         </Pressable>
       </View>
