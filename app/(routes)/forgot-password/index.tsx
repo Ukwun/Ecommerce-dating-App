@@ -6,7 +6,7 @@ import { Ionicons } from '@expo/vector-icons';
 import axiosInstance from '@/utils/axiosinstance';
 
 
-export default function ForgotPasswordScreen() {
+export default function ForgotPasswordScreen({ onBack }: { onBack?: () => void } = {}) {
   const router = useRouter();
   const [email, setEmail] = useState('');
   const [loading, setLoading] = useState(false);
@@ -57,7 +57,7 @@ export default function ForgotPasswordScreen() {
       <Stack.Screen options={{ headerShown: false }} />
       
       <View style={styles.header}>
-        <TouchableOpacity onPress={() => router.back()} style={styles.backButton}>
+        <TouchableOpacity onPress={onBack || (() => router.back())} style={styles.backButton}>
           <Ionicons name="arrow-back" size={24} color="#111827" />
         </TouchableOpacity>
       </View>
@@ -101,7 +101,7 @@ export default function ForgotPasswordScreen() {
             )}
           </TouchableOpacity>
 
-          <TouchableOpacity style={styles.backLink} onPress={() => router.back()}>
+          <TouchableOpacity style={styles.backLink} onPress={onBack || (() => router.back())}>
             <Text style={styles.backLinkText}>Back to Login</Text>
           </TouchableOpacity>
         </View>

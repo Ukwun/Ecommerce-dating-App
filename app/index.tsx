@@ -6,6 +6,8 @@ import Animated, { Easing, FadeIn, FadeOut, useAnimatedStyle, useSharedValue, wi
 import { useAuth } from '@/hooks/AuthContext';
 import OnboardingScreen from '../screens/onboarding/onboarding.screen';
 import LoginScreen from './(routes)/login';
+import SignupScreen from './(routes)/signup';
+import ForgotPasswordScreen from './(routes)/forgot-password';
 
 function BrandIntro({ onDone }: { onDone: () => void }) {
   const scale = useSharedValue(0.72); const opacity = useSharedValue(0); const lift = useSharedValue(12);
@@ -19,11 +21,16 @@ function BrandIntro({ onDone }: { onDone: () => void }) {
 
 export default function Index() {
   const { user, isLoading } = useAuth(); const [introComplete, setIntroComplete] = useState(false); const [onboardingComplete, setOnboardingComplete] = useState<boolean | null>(null);
+  const [authPage, setAuthPage] = useState<'login' | 'signup' | 'forgot'>('login');
   const completeIntro = useCallback(() => setIntroComplete(true), []);
   useEffect(() => { AsyncStorage.getItem('@onboarding_done').then(value => setOnboardingComplete(value === '1')).catch(() => setOnboardingComplete(false)); }, []);
   if (!introComplete || isLoading || onboardingComplete === null) return <BrandIntro onDone={completeIntro} />;
   if (user) return <Redirect href="/(tabs)" />;
-  if (onboardingComplete) return <LoginScreen />;
+  if (onboardingComplete) {
+    if (authPage === 'signup') return <SignupScreen onSignIn={() => setAuthPage('login')} />;
+    if (authPage === 'forgot') return <ForgotPasswordScreen onBack={() => setAuthPage('login')} />;
+    return <LoginScreen onSignUp={() => setAuthPage('signup')} onForgotPassword={() => setAuthPage('forgot')} />;
+  }
   return <OnboardingScreen onComplete={() => setOnboardingComplete(true)} />;
 }
 

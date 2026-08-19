@@ -44,7 +44,7 @@ if (typeof global !== 'undefined' && !(global as any).__errorHandlerAttached) {
   (global as any).__errorHandlerAttached = true;
 }
 
-export default function LoginScreen() {
+export default function LoginScreen({ onSignUp, onForgotPassword }: { onSignUp?: () => void; onForgotPassword?: () => void } = {}) {
   const router = useRouter();
   const { login } = useAuth();
   const { promptGoogle, promptFacebook, promptApple, isGoogleLoading: googleLoading, isFacebookLoading: facebookLoading, isAppleLoading: appleLoading, availability } = useSocialAuth();
@@ -299,7 +299,7 @@ export default function LoginScreen() {
             />
           </Animated.View>
 
-          <TouchableOpacity style={styles.forgotPassword} onPress={() => router.push('/forgot-password')} accessibilityRole="button">
+          <TouchableOpacity style={styles.forgotPassword} onPress={onForgotPassword || (() => router.push('/forgot-password'))} accessibilityRole="button">
             <Text style={styles.forgotPasswordText}>Forgot Password?</Text>
           </TouchableOpacity>
 
@@ -388,7 +388,7 @@ export default function LoginScreen() {
 
         <Animated.View entering={FadeInDown.delay(800).springify()} style={styles.footer}>
           <Text style={styles.footerText}>Don't have an account? </Text>
-          <TouchableOpacity onPress={() => router.push('/(routes)/signup')}>
+          <TouchableOpacity onPress={onSignUp || (() => router.push('/signup'))} accessibilityRole="button">
             <Text style={styles.signUpText}>Sign Up</Text>
           </TouchableOpacity>
         </Animated.View>

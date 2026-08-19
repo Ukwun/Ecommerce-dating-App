@@ -8,7 +8,6 @@ import {
   Platform,
   TouchableOpacity,
   StyleSheet,
-  Image,
   ActivityIndicator,
 } from 'react-native';
 import Toast from 'react-native-toast-message';
@@ -56,11 +55,11 @@ const signupUser = async (data: SignupFormData) => {
   return { user: body.user, accessToken: body.accessToken, refreshToken: body.refreshToken };
 };
 
-export default function SignupScreen() {
+export default function SignupScreen({ onSignIn }: { onSignIn?: () => void } = {}) {
   const [showPassword, setShowPassword] = useState(false);
   const router = useRouter();
   const { login } = useAuth();
-  const { promptGoogle, promptFacebook, promptApple, isGoogleLoading, isFacebookLoading, isAppleLoading, isPending } = useSocialAuth();
+  const { promptGoogle, promptFacebook, promptApple, isGoogleLoading, isFacebookLoading, isAppleLoading, isPending, availability } = useSocialAuth();
 
   const signupForm = useForm<SignupFormData>({
     mode: 'onChange',
@@ -247,15 +246,15 @@ export default function SignupScreen() {
             <AnimatedButton
               onPress={promptGoogle}
               style={[styles.oauthButton, { marginBottom: 12 }]}
-              disabled={isGoogleLoading || isPending}
+              disabled={isGoogleLoading || isPending || !availability.google}
               haptic="light"
             >
               {isGoogleLoading ? (
                 <ActivityIndicator size="small" color="#1F2937" />
               ) : (
                 <>
-                  <Image source={{ uri: 'https://www.gstatic.com/firebaseapp/v8.2.0/images/firebaselogo.png' }} style={styles.oauthIcon} />
-                  <Text style={styles.oauthText}>Google</Text>
+                  <Ionicons name="logo-google" size={20} color="#EA4335" />
+                  <Text style={styles.oauthText}>{availability.google ? 'Google' : 'Google unavailable'}</Text>
                 </>
               )}
             </AnimatedButton>
@@ -264,7 +263,7 @@ export default function SignupScreen() {
             <AnimatedButton
               onPress={promptFacebook}
               style={[styles.oauthButton, { marginBottom: 12 }]}
-              disabled={isFacebookLoading || isPending}
+              disabled={isFacebookLoading || isPending || !availability.facebook}
               haptic="light"
             >
               {isFacebookLoading ? (
@@ -272,7 +271,7 @@ export default function SignupScreen() {
               ) : (
                 <>
                   <Ionicons name="logo-facebook" size={20} color="#1877F2" style={{ marginRight: 8 }} />
-                  <Text style={styles.oauthText}>Facebook</Text>
+                  <Text style={styles.oauthText}>{availability.facebook ? 'Facebook' : 'Facebook unavailable'}</Text>
                 </>
               )}
             </AnimatedButton>
@@ -282,7 +281,7 @@ export default function SignupScreen() {
               <AnimatedButton
                 onPress={promptApple}
                 style={styles.oauthButton}
-                disabled={isAppleLoading || isPending}
+                disabled={isAppleLoading || isPending || !availability.apple}
                 haptic="light"
               >
                 {isAppleLoading ? (
@@ -300,7 +299,7 @@ export default function SignupScreen() {
           {/* Sign In Link */}
           <AnimatedView entering={FadeInDown.delay(450).springify()} style={styles.signinContainer}>
             <Text style={styles.signinText}>Already have an account? </Text>
-            <TouchableOpacity onPress={() => router.push('/(routes)/login' as any)} disabled={isLoading}>
+            <TouchableOpacity onPress={onSignIn || (() => router.replace('/login'))} disabled={isLoading} accessibilityRole="button">
               <Text style={styles.signinLink}>Sign In</Text>
             </TouchableOpacity>
           </AnimatedView>
@@ -344,7 +343,6 @@ const styles = StyleSheet.create({
     borderColor: '#E5E7EB',
     gap: 8,
   },
-  oauthIcon: { width: 20, height: 20 },
   oauthText: { color: '#1F2937', fontSize: 16, fontWeight: '600' },
   signinContainer: { flexDirection: 'row', justifyContent: 'center', marginVertical: 32, marginBottom: 48 },
   signinText: { color: '#6B7280', fontSize: 15 },
