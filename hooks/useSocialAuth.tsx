@@ -3,7 +3,7 @@ import * as AuthSession from 'expo-auth-session';
 import * as Crypto from 'expo-crypto';
 import * as WebBrowser from 'expo-web-browser';
 import { Platform } from 'react-native';
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import Toast from 'react-native-toast-message';
 import axiosInstance from '@/utils/axiosinstance';
 import { useAuth } from './AuthContext';
@@ -27,6 +27,17 @@ export default function useSocialAuth() {
   const [isFacebookLoading, setFacebookLoading] = useState(false);
   const [isAppleLoading, setAppleLoading] = useState(false);
   const isPending = isGoogleLoading || isFacebookLoading || isAppleLoading;
+  const [serverProviders, setServerProviders] = useState({ google: false, facebook: false, apple: false });
+  useEffect(() => {
+    axiosInstance.get('/auth/api/auth-capabilities')
+      .then(response => setServerProviders(response.data?.providers || { google: false, facebook: false, apple: false }))
+      .catch(() => setServerProviders({ google: false, facebook: false, apple: false }));
+  }, []);
+  const availability = {
+    google: Boolean(GOOGLE_CLIENT_ID) && serverProviders.google,
+    facebook: Boolean(FACEBOOK_APP_ID) && serverProviders.facebook,
+    apple: Platform.OS === 'ios' && serverProviders.apple,
+  };
 
   const finish = async (response: any) => {
     const { user, accessToken, refreshToken } = response.data || {};
@@ -101,5 +112,5 @@ export default function useSocialAuth() {
     }
   };
 
-  return { promptGoogle, promptFacebook, promptApple, isGoogleLoading, isFacebookLoading, isAppleLoading, isPending };
+  return { promptGoogle, promptFacebook, promptApple, isGoogleLoading, isFacebookLoading, isAppleLoading, isPending, availability };
 }

@@ -20,6 +20,7 @@ expo-env.d.ts
 *.apk
 *.aab
 .expo-production-check/
+.expo-auth-check*/
 
 # Metro
 .metro-health-check*

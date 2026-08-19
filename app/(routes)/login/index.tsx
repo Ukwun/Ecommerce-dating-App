@@ -47,7 +47,7 @@ if (typeof global !== 'undefined' && !(global as any).__errorHandlerAttached) {
 export default function LoginScreen() {
   const router = useRouter();
   const { login } = useAuth();
-  const { promptGoogle, promptFacebook, promptApple, isGoogleLoading: googleLoading, isFacebookLoading: facebookLoading, isAppleLoading: appleLoading } = useSocialAuth();
+  const { promptGoogle, promptFacebook, promptApple, isGoogleLoading: googleLoading, isFacebookLoading: facebookLoading, isAppleLoading: appleLoading, availability } = useSocialAuth();
   // Legacy handler setters remain no-ops while older callbacks are phased out.
   const setGoogleLoading = (_loading: boolean) => undefined;
   const setFacebookLoading = (_loading: boolean) => undefined;
@@ -333,9 +333,9 @@ export default function LoginScreen() {
           style={[styles.buttonContainer, animatedStyle]}
         >
           <TouchableOpacity 
-            style={[styles.googleButton, googleLoading && styles.buttonLoadingState]} 
+            style={[styles.googleButton, (!availability.google || googleLoading) && styles.buttonLoadingState]} 
             onPress={onButtonPress}
-            disabled={googleLoading}
+            disabled={googleLoading || !availability.google}
             activeOpacity={0.8}
           >
             {googleLoading ? (
@@ -346,7 +346,7 @@ export default function LoginScreen() {
             ) : (
               <>
                 <Ionicons name="logo-google" size={24} color="#EA4335" style={styles.icon} />
-                <Text style={styles.buttonText}>Continue with Google</Text>
+                <Text style={styles.buttonText}>{availability.google ? 'Continue with Google' : 'Google sign-in unavailable'}</Text>
               </>
             )}
           </TouchableOpacity>
@@ -357,9 +357,9 @@ export default function LoginScreen() {
           style={[styles.buttonContainer, { marginTop: 12 }, animatedStyle]}
         >
           <TouchableOpacity 
-            style={[styles.googleButton, { backgroundColor: '#1877F2', borderColor: '#1877F2' }, facebookLoading && styles.buttonLoadingState]} 
+            style={[styles.googleButton, { backgroundColor: '#1877F2', borderColor: '#1877F2' }, (!availability.facebook || facebookLoading) && styles.buttonLoadingState]} 
             onPress={onFacebookPress}
-            disabled={facebookLoading}
+            disabled={facebookLoading || !availability.facebook}
             activeOpacity={0.8}
           >
             {facebookLoading ? (
@@ -370,7 +370,7 @@ export default function LoginScreen() {
             ) : (
               <>
                 <Ionicons name="logo-facebook" size={24} color="#fff" style={styles.icon} />
-                <Text style={[styles.buttonText, { color: '#fff' }]}>Continue with Facebook</Text>
+                <Text style={[styles.buttonText, { color: '#fff' }]}>{availability.facebook ? 'Continue with Facebook' : 'Facebook sign-in unavailable'}</Text>
               </>
             )}
           </TouchableOpacity>

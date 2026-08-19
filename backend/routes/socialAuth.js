@@ -70,6 +70,18 @@ const finishLogin = async (provider, identity) => {
   };
 };
 
+router.get('/auth-capabilities', (_req, res) => {
+  res.json({
+    success: true,
+    providers: {
+      google: Boolean(process.env.GOOGLE_CLIENT_ID || process.env.GOOGLE_ANDROID_CLIENT_ID || process.env.GOOGLE_IOS_CLIENT_ID),
+      facebook: Boolean(process.env.FACEBOOK_APP_ID && process.env.FACEBOOK_APP_SECRET),
+      apple: Boolean(process.env.APPLE_CLIENT_ID),
+    },
+    passwordRecovery: true,
+  });
+});
+
 router.get('/me', protect, async (req, res) => {
   const user = await User.findById(req.user.id);
   if (!user) return res.status(404).json({ error: 'User not found' });

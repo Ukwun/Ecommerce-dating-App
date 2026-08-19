@@ -265,7 +265,7 @@ router.post('/forgot-password', async (req, res) => {
     await user.save();
 
     const deepLink = `marketplace://reset-password/${rawToken}`;
-    const webBase = process.env.PUBLIC_APP_URL?.replace(/\/$/, '');
+    const webBase = process.env.PASSWORD_RESET_BASE_URL?.replace(/\/$/, '');
     const resetLink = webBase ? `${webBase}/reset-password/${rawToken}` : deepLink;
     try {
       const emailPayload = {
