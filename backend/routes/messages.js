@@ -179,14 +179,16 @@ router.get('/conversations', protect, async (req, res) => {
 // ✅ Mark message as read
 router.put('/messages/:messageId/read', protect, async (req, res) => {
   try {
-    const message = await Message.findByIdAndUpdate(
-      req.params.messageId,
+    const message = await Message.findOneAndUpdate(
+      { _id: req.params.messageId, recipient: req.user.id },
       {
         read: true,
         readAt: Date.now()
       },
       { new: true }
     );
+
+    if (!message) return res.status(404).json({ error: 'Message not found' });
 
     res.json({
       success: true,

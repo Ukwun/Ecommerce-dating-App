@@ -306,6 +306,10 @@ router.post('/matches/:matchId/block', protect, async (req, res) => {
       return res.status(404).json({ message: 'Match not found' });
     }
 
+    if (!match.users.some((user) => user.toString() === req.user._id.toString())) {
+      return res.status(403).json({ message: 'Unauthorized' });
+    }
+
     match.isActive = false;
     match.blockedBy = req.user._id;
     match.blockReason = reason || 'No reason provided';

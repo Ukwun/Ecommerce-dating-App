@@ -1,373 +1,103 @@
-import React, { useState, useCallback, useMemo, useEffect } from 'react';
-import {
-  View,
-  Text,
-  SafeAreaView,
-  FlatList,
-  Image,
-  TouchableOpacity,
-  ActivityIndicator,
-  StatusBar,
-  RefreshControl,
-  TextInput,
-} from 'react-native';
-import { Ionicons, MaterialCommunityIcons, Feather } from '@expo/vector-icons';
+import React, { useCallback, useEffect, useMemo, useState } from 'react';
+import { ActivityIndicator, FlatList, Image, RefreshControl, StatusBar, StyleSheet, Text, TextInput, TouchableOpacity, useWindowDimensions, View } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
+import { Feather, Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
+import { LinearGradient } from 'expo-linear-gradient';
+import Animated, { FadeInDown, FadeInUp } from 'react-native-reanimated';
 import { useFocusEffect, useRouter } from 'expo-router';
+import Toast from 'react-native-toast-message';
 import { useMarketplaceDiscovery } from '../../hooks/useMarketplaceDiscovery';
 import { useDatingProfile } from '../../hooks/useDating';
 import { useWishlist } from '@/hooks/useWishlist';
-import { LinearGradient } from 'expo-linear-gradient';
-import Toast from 'react-native-toast-message';
+
+const ORANGE = '#F97316';
+const INK = '#111827';
+const getImage = (value: any) => typeof value === 'string' && value.trim() ? value : typeof value?.url === 'string' && value.url.trim() ? value.url : null;
 
 export default function DiscoverScreen() {
   const router = useRouter();
-  const {
-    products,
-    loading,
-    refetch,
-    trendingProducts,
-    searchResults,
-    searchProducts,
-    isSearching,
-    addToWishlist,
-    removeFromWishlist,
-    logProductView,
-    logProductSearch,
-    logAddToFavorite,
-    logAppOpen,
-    logSessionStart,
-    logRetentionHeartbeat,
-  } = useMarketplaceDiscovery();
-
+  const { width } = useWindowDimensions();
+  const columns = width >= 900 ? 4 : width >= 620 ? 3 : 2;
+  const discovery = useMarketplaceDiscovery();
   const { wishlistIds } = useWishlist();
+  const { profile: datingProfile, loading: datingLoading } = useDatingProfile();
   const [refreshing, setRefreshing] = useState(false);
-  const [searchQuery, setSearchQuery] = useState('');
-  const [activeTab, setActiveTab] = useState<'personalized' | 'trending'>('personalized');
-  const [favoriteIds, setFavoriteIds] = useState<Set<string>>(new Set());
+  const [query, setQuery] = useState('');
+  const [tab, setTab] = useState<'personalized' | 'trending'>('personalized');
+  const [favorites, setFavorites] = useState<Set<string>>(new Set());
 
-  useFocusEffect(
-    useCallback(() => {
-      logSessionStart('discover_tab');
-      refetch();
-    }, [logSessionStart, refetch])
-  );
+  useFocusEffect(useCallback(() => { discovery.logSessionStart('discover_tab'); discovery.refetch(); }, [discovery.logSessionStart, discovery.refetch]));
+  useEffect(() => { discovery.logAppOpen(); }, [discovery.logAppOpen]);
+  useEffect(() => { setFavorites(new Set(wishlistIds)); }, [wishlistIds]);
+  useEffect(() => { discovery.logRetentionHeartbeat('discover_tab'); }, [discovery.logRetentionHeartbeat, tab]);
 
-  useEffect(() => {
-    logAppOpen();
-  }, [logAppOpen]);
+  const items = useMemo(() => {
+    if (query.trim().length > 2) return discovery.searchResults || [];
+    return tab === 'personalized' ? discovery.products || [] : discovery.trendingProducts || [];
+  }, [discovery.products, discovery.searchResults, discovery.trendingProducts, query, tab]);
+  const busy = (query.trim().length > 2 && discovery.isSearching) || (tab === 'personalized' && discovery.loading);
 
-  useEffect(() => {
-    setFavoriteIds(new Set(wishlistIds));
-  }, [wishlistIds]);
-
-  useEffect(() => {
-    logRetentionHeartbeat('discover_tab');
-  }, [activeTab, logRetentionHeartbeat]);
-
-  const handleRefresh = async () => {
-    setRefreshing(true);
-    await refetch();
-    setRefreshing(false);
+  const search = (text: string) => {
+    setQuery(text);
+    if (text.trim().length > 2) {
+      discovery.logProductSearch(text.trim(), 0);
+      discovery.searchProducts({ query: text.trim() }).catch(() => undefined);
+    }
   };
-
-  const handleProductPress = (product: any) => {
-    // Log product view
-    logProductView(product._id, product.category, 0);
-    
-    // Navigate to product detail
-    router.push({
-      pathname: '/(routes)/product/[id]',
-      params: { id: product._id }
-    });
-  };
-
-  const handleAddToFavorite = async (product: any) => {
+  const refresh = async () => { setRefreshing(true); try { await discovery.refetch(); } finally { setRefreshing(false); } };
+  const toggleFavorite = async (item: any) => {
+    const id = item?._id;
+    if (!id) return;
+    const removing = favorites.has(id);
+    setFavorites(current => { const next = new Set(current); removing ? next.delete(id) : next.add(id); return next; });
     try {
-      const isFavorite = favoriteIds.has(product._id);
-
-      if (isFavorite) {
-        await removeFromWishlist(product._id);
-        const next = new Set(favoriteIds);
-        next.delete(product._id);
-        setFavoriteIds(next);
-        Toast.show({
-          type: 'success',
-          text1: 'Removed from Favorites',
-          text2: `${product.name} removed from your wishlist`
-        });
-      } else {
-        await addToWishlist(product._id);
-        const next = new Set(favoriteIds);
-        next.add(product._id);
-        setFavoriteIds(next);
-        logAddToFavorite(product._id, product.category);
-        Toast.show({
-          type: 'success',
-          text1: 'Added to Favorites',
-          text2: `${product.name} saved to your wishlist`
-        });
-      }
+      if (removing) await discovery.removeFromWishlist(id);
+      else { await discovery.addToWishlist(id); discovery.logAddToFavorite(id, item.category); }
+      Toast.show({ type: 'success', text1: removing ? 'Removed from saved items' : 'Saved for later' });
     } catch (error: any) {
-      const message = error?.response?.data?.error || 'Failed to update wishlist';
-      Toast.show({
-        type: 'error',
-        text1: 'Wishlist Error',
-        text2: message,
-      });
+      setFavorites(current => { const next = new Set(current); removing ? next.add(id) : next.delete(id); return next; });
+      Toast.show({ type: 'error', text1: 'Could not update saved items', text2: error?.response?.data?.error || 'Please try again.' });
     }
   };
 
-  const handleSearch = (query: string) => {
-    setSearchQuery(query);
-    if (query.length > 2) {
-      logProductSearch(query, 0);
-      searchProducts({ query }).catch(() => {});
-    }
-  };
-
-  const clearSearch = () => {
-    setSearchQuery('');
-  };
-
-  const renderProductCard = ({ item }: { item: any }) => (
-    <View className="px-3 mb-4">
-      <TouchableOpacity
-        onPress={() => handleProductPress(item)}
-        activeOpacity={0.75}
-        className="bg-white rounded-xl overflow-hidden border border-gray-100 shadow-sm"
-      >
-        {/* Product Image */}
-        <View className="bg-gray-100 h-48 w-full relative">
-          {item.images && item.images.length > 0 ? (
-            <Image
-              source={{ uri: item.images[0].url }}
-              className="w-full h-full"
-              resizeMode="cover"
-            />
-          ) : (
-            <View className="flex-1 justify-center items-center">
-              <MaterialCommunityIcons name="image-off" size={40} color="#D1D5DB" />
-            </View>
-          )}
-
-          {/* Category Badge */}
-          <View className="absolute top-3 left-3 bg-black/70 rounded-full px-3 py-1">
-            <Text className="text-white text-xs font-semibold">{item.category}</Text>
-          </View>
-
-          {/* Discount Badge */}
-          {item.oldPrice && item.oldPrice > item.price && (
-            <View className="absolute top-3 right-3 bg-red-500 rounded-full px-2 py-1">
-              <Text className="text-white text-xs font-bold">
-                {Math.round(((item.oldPrice - item.price) / item.oldPrice) * 100)}% OFF
-              </Text>
-            </View>
-          )}
-
-          {/* Favorite Button */}
-          <TouchableOpacity
-            onPress={() => handleAddToFavorite(item)}
-            className="absolute bottom-3 right-3 bg-white rounded-full p-2 shadow-lg"
-          >
-            <Feather
-              name="heart"
-              size={16}
-              color={favoriteIds.has(item._id) ? '#FF006E' : '#6B7280'}
-            />
-          </TouchableOpacity>
+  const renderProduct = ({ item, index }: { item: any; index: number }) => {
+    const image = getImage(item?.images?.[0]) || getImage(item?.thumbnail) || getImage(item?.image);
+    const sellerImage = getImage(item?.seller?.avatar);
+    const saved = favorites.has(item?._id);
+    return <Animated.View entering={FadeInUp.delay(Math.min(index, 8) * 45).duration(350)} style={styles.cardWrap}>
+      <TouchableOpacity activeOpacity={0.9} style={styles.card} onPress={() => {
+        discovery.logProductView(item._id, item.category, 0);
+        router.push({ pathname: '/(routes)/product/[id]', params: { id: item._id } });
+      }}>
+        <View style={styles.imageShell}>
+          {image ? <Image source={{ uri: image }} style={styles.productImage} /> : <View style={styles.imageFallback}><MaterialCommunityIcons name="image-outline" size={34} color="#A8B0BD" /></View>}
+          <TouchableOpacity accessibilityLabel={saved ? 'Remove saved item' : 'Save item'} onPress={() => toggleFavorite(item)} style={styles.heart}><Ionicons name={saved ? 'heart' : 'heart-outline'} size={19} color={saved ? '#EF4444' : INK} /></TouchableOpacity>
+          {item?.category ? <View style={styles.category}><Text style={styles.categoryText} numberOfLines={1}>{item.category}</Text></View> : null}
         </View>
-
-        {/* Product Info */}
-        <View className="p-3">
-          {/* Product Name */}
-          <Text
-            className="text-sm font-semibold text-gray-900 line-clamp-2"
-            numberOfLines={2}
-          >
-            {item.name}
-          </Text>
-
-          {/* Seller Info */}
-          <View className="flex-row items-center mt-2 gap-1">
-            <Image
-              source={{ uri: item.seller?.avatar || 'https://via.placeholder.com/24' }}
-              className="w-5 h-5 rounded-full bg-gray-200"
-            />
-            <Text className="text-xs text-gray-600 truncate">{item.seller?.name || 'Verified Seller'}</Text>
-          </View>
-
-          {/* Rating */}
-          <View className="flex-row items-center mt-2 gap-1">
-            <View className="flex-row">
-              {[...Array(5)].map((_, i) => (
-                <Ionicons
-                  key={i}
-                  name={i < Math.floor(item.ratings || 0) ? 'star' : 'star-outline'}
-                  size={14}
-                  color="#FCD34D"
-                />
-              ))}
-            </View>
-            <Text className="text-xs text-gray-500">
-              ({item.numOfReviews || 0} reviews)
-            </Text>
-          </View>
-
-          {/* Price */}
-          <View className="flex-row items-baseline gap-2 mt-3">
-            <Text className="text-lg font-bold text-gray-900">
-              ₦{item.price?.toLocaleString() || 'N/A'}
-            </Text>
-            {item.oldPrice && item.oldPrice > item.price && (
-              <Text className="text-xs text-gray-400 line-through">
-                ₦{item.oldPrice?.toLocaleString()}
-              </Text>
-            )}
-          </View>
-
-          {/* Stock Status */}
-          <Text
-            className={`text-xs font-semibold mt-2 ${
-              item.stock > 10 ? 'text-green-600' : item.stock > 0 ? 'text-orange-600' : 'text-red-600'
-            }`}
-          >
-            {item.stock > 10 ? 'In Stock' : item.stock > 0 ? `Only ${item.stock} left` : 'Out of Stock'}
-          </Text>
+        <View style={styles.cardBody}>
+          <Text style={styles.productTitle} numberOfLines={2}>{item?.name || item?.title || 'Untitled product'}</Text>
+          <Text style={styles.price}>₦{Number(item?.price || 0).toLocaleString()}</Text>
+          <View style={styles.sellerRow}><View style={styles.sellerAvatar}>{sellerImage ? <Image source={{ uri: sellerImage }} style={styles.sellerImage} /> : <Feather name="shopping-bag" size={12} color="#667085" />}</View><Text style={styles.sellerName} numberOfLines={1}>{item?.seller?.businessName || item?.seller?.name || 'Marketplace seller'}</Text></View>
+          <View style={styles.rating}><Ionicons name="star" size={13} color="#F59E0B" /><Text style={styles.ratingText}>{Number(item?.ratings || 0).toFixed(1)}</Text><Text style={styles.reviews}>({item?.numOfReviews || 0})</Text></View>
         </View>
       </TouchableOpacity>
-    </View>
-  );
+    </Animated.View>;
+  };
 
-  const displayedProducts = useMemo(() => {
-    if (searchQuery.trim().length > 2) return searchResults || [];
-    return activeTab === 'personalized' ? products : trendingProducts;
-  }, [searchQuery, searchResults, activeTab, products, trendingProducts]);
+  const header = <>
+    <Animated.View entering={FadeInDown.duration(400)} style={styles.hero}>
+      <View style={styles.heroTop}><View><Text style={styles.eyebrow}>CURATED MARKETPLACE</Text><Text style={styles.heading}>Discover</Text></View><TouchableOpacity style={styles.filter} onPress={() => router.push('/(routes)/products/filter-modal' as any)}><Feather name="sliders" size={20} color={INK} /></TouchableOpacity></View>
+      <Text style={styles.subtitle}>Fresh finds selected from real sellers for you.</Text>
+      <View style={styles.search}><Feather name="search" size={20} color="#667085" /><TextInput value={query} onChangeText={search} placeholder="Search products, brands or categories" placeholderTextColor="#98A2B3" style={styles.searchInput} returnKeyType="search" />{query ? <TouchableOpacity onPress={() => setQuery('')}><Ionicons name="close-circle" size={20} color="#98A2B3" /></TouchableOpacity> : null}</View>
+    </Animated.View>
+    <View style={styles.segment}>{(['personalized', 'trending'] as const).map(value => <TouchableOpacity key={value} onPress={() => setTab(value)} style={[styles.segmentButton, tab === value && styles.segmentActive]}><Text style={[styles.segmentText, tab === value && styles.segmentTextActive]}>{value === 'personalized' ? 'For you' : 'Trending'}</Text></TouchableOpacity>)}</View>
+    {!datingLoading && !datingProfile ? <TouchableOpacity style={styles.bannerShell} activeOpacity={0.9} onPress={() => router.push('/(routes)/dating-profile-setup' as any)}><LinearGradient colors={['#7C3AED', '#DB2777']} style={styles.banner}><View style={styles.bannerIcon}><Ionicons name="people" size={22} color="#FFF" /></View><View style={styles.bannerCopy}><Text style={styles.bannerTitle}>Meet people who share your interests</Text><Text style={styles.bannerText}>Create your optional social profile when you’re ready.</Text></View><Ionicons name="arrow-forward" size={20} color="#FFF" /></LinearGradient></TouchableOpacity> : null}
+    <View style={styles.sectionHead}><Text style={styles.sectionTitle}>{query.trim().length > 2 ? 'Search results' : tab === 'trending' ? 'Trending now' : 'Picked for you'}</Text><Text style={styles.count}>{items.length} items</Text></View>
+  </>;
 
-  const displayLoading = (searchQuery.trim().length > 2 && isSearching) || (activeTab === 'personalized' ? loading : false);
-
-  const { profile: datingProfile, loading: datingLoading } = useDatingProfile();
-
-  // Non-blocking: show a banner to set up dating profile, don't block the whole screen
-  const showDatingBanner = !datingLoading && !datingProfile;
-
-  return (
-    <SafeAreaView className="flex-1 bg-white">
-      <StatusBar barStyle="dark-content" backgroundColor="#FFFFFF" />
-
-      {/* Header */}
-      <View className="px-4 py-3 border-b border-gray-100">
-        <Text className="text-3xl font-bold text-gray-900 mb-3">Discover</Text>
-
-        {/* Search Bar */}
-        <View className="flex-row items-center bg-gray-100 rounded-lg px-3 py-2.5 gap-2">
-          <Ionicons name="search" size={18} color="#6B7280" />
-          <TextInput
-            placeholder="Search products..."
-            value={searchQuery}
-            onChangeText={handleSearch}
-            className="flex-1 text-gray-900 font-medium"
-            placeholderTextColor="#9CA3AF"
-          />
-          {searchQuery.length > 0 && (
-            <TouchableOpacity onPress={clearSearch}>
-              <Ionicons name="close-circle" size={18} color="#D1D5DB" />
-            </TouchableOpacity>
-          )}
-        </View>
-      </View>
-
-      {/* Tab Navigation */}
-      <View className="flex-row gap-2 px-4 py-3 border-b border-gray-100">
-        <TouchableOpacity
-          onPress={() => setActiveTab('personalized')}
-          className={`flex-1 py-2 px-4 rounded-lg border ${
-            activeTab === 'personalized'
-              ? 'bg-blue-500 border-blue-500'
-              : 'border-gray-200 bg-gray-50'
-          }`}
-        >
-          <Text
-            className={`text-center font-semibold ${
-              activeTab === 'personalized' ? 'text-white' : 'text-gray-700'
-            }`}
-          >
-            For You
-          </Text>
-        </TouchableOpacity>
-
-        <TouchableOpacity
-          onPress={() => setActiveTab('trending')}
-          className={`flex-1 py-2 px-4 rounded-lg border ${
-            activeTab === 'trending'
-              ? 'bg-blue-500 border-blue-500'
-              : 'border-gray-200 bg-gray-50'
-          }`}
-        >
-          <Text
-            className={`text-center font-semibold ${
-              activeTab === 'trending' ? 'text-white' : 'text-gray-700'
-            }`}
-          >
-            Trending
-          </Text>
-        </TouchableOpacity>
-      </View>
-
-      {/* Dating Profile Banner */}
-      {showDatingBanner && (
-        <TouchableOpacity
-          onPress={() => router.push('/(routes)/dating-profile-setup' as any)}
-          activeOpacity={0.85}
-          style={{ margin: 12, borderRadius: 14, overflow: 'hidden' }}
-        >
-          <LinearGradient
-            colors={['#FF006E', '#9B27AF']}
-            start={{ x: 0, y: 0 }}
-            end={{ x: 1, y: 0 }}
-            style={{ flexDirection: 'row', alignItems: 'center', padding: 14, gap: 10 }}
-          >
-            <Text style={{ fontSize: 28 }}>💘</Text>
-            <View style={{ flex: 1 }}>
-              <Text style={{ color: '#fff', fontWeight: '800', fontSize: 14 }}>Set up your dating profile</Text>
-              <Text style={{ color: 'rgba(255,255,255,0.8)', fontSize: 12 }}>Find matches near you</Text>
-            </View>
-            <Ionicons name="chevron-forward" size={20} color="#fff" />
-          </LinearGradient>
-        </TouchableOpacity>
-      )}
-
-      {/* Products List */}
-      <FlatList
-        data={displayedProducts}
-        renderItem={renderProductCard}
-        keyExtractor={(item) => item._id}
-        contentContainerStyle={{ paddingTop: 8 }}
-        refreshControl={
-          <RefreshControl refreshing={refreshing} onRefresh={handleRefresh} />
-        }
-        ListEmptyComponent={
-          displayLoading ? (
-            <View className="flex-1 justify-center items-center py-20">
-              <ActivityIndicator size="large" color="#3B82F6" />
-              <Text className="mt-4 text-gray-600 font-medium">Loading products...</Text>
-            </View>
-          ) : (
-            <View className="flex-1 justify-center items-center py-20 px-6">
-              <View className="w-20 h-20 rounded-full bg-gray-100 justify-center items-center mb-4">
-                <MaterialCommunityIcons name="package-variant-closed" size={32} color="#D1D5DB" />
-              </View>
-              <Text className="text-xl font-bold text-gray-900 text-center mb-2">
-                No Products Found
-              </Text>
-              <Text className="text-gray-600 text-center leading-5">
-                Try searching for something or check back later for new products
-              </Text>
-            </View>
-          )
-        }
-        scrollEnabled={true}
-        numColumns={1}
-      />
-    </SafeAreaView>
-  );
+  return <SafeAreaView edges={['top']} style={styles.screen}><StatusBar barStyle="dark-content" backgroundColor="#FBFAF8" /><FlatList key={`discover-${columns}`} data={items} renderItem={renderProduct} keyExtractor={(item, index) => item?._id || String(index)} numColumns={columns} ListHeaderComponent={header} contentContainerStyle={styles.content} columnWrapperStyle={styles.row} refreshControl={<RefreshControl refreshing={refreshing} onRefresh={refresh} colors={[ORANGE]} tintColor={ORANGE} />} ListEmptyComponent={busy ? <View style={styles.empty}><ActivityIndicator size="large" color={ORANGE} /><Text style={styles.emptyTitle}>Finding great products</Text><Text style={styles.emptyText}>Personalizing your marketplace feed…</Text></View> : <View style={styles.empty}><View style={styles.emptyIcon}><Feather name={discovery.error ? 'wifi-off' : 'package'} size={28} color={ORANGE} /></View><Text style={styles.emptyTitle}>{discovery.error ? 'We couldn’t load Discover' : 'Nothing matched yet'}</Text><Text style={styles.emptyText}>{discovery.error ? 'Check your connection and try again.' : 'Try another search or refresh for new listings.'}</Text><TouchableOpacity style={styles.retry} onPress={() => discovery.refetch()}><Text style={styles.retryText}>Try again</Text></TouchableOpacity></View>} /></SafeAreaView>;
 }
+
+const styles = StyleSheet.create({
+  screen:{flex:1,backgroundColor:'#FBFAF8'},content:{paddingBottom:120},hero:{paddingHorizontal:18,paddingTop:12,paddingBottom:14},heroTop:{flexDirection:'row',alignItems:'center',justifyContent:'space-between'},eyebrow:{color:ORANGE,fontSize:11,fontWeight:'800',letterSpacing:1.4,marginBottom:3},heading:{color:INK,fontSize:34,fontWeight:'900',letterSpacing:-1.2},subtitle:{color:'#667085',fontSize:14,marginTop:4,marginBottom:18},filter:{width:44,height:44,borderRadius:15,backgroundColor:'#FFF',alignItems:'center',justifyContent:'center',borderWidth:1,borderColor:'#EAECF0'},search:{height:52,flexDirection:'row',alignItems:'center',paddingHorizontal:15,borderRadius:17,backgroundColor:'#FFF',borderWidth:1,borderColor:'#EAECF0',gap:10,elevation:2},searchInput:{flex:1,color:INK,fontSize:14,paddingVertical:0},segment:{flexDirection:'row',marginHorizontal:18,padding:4,backgroundColor:'#F0EEE9',borderRadius:14},segmentButton:{flex:1,paddingVertical:10,alignItems:'center',borderRadius:11},segmentActive:{backgroundColor:'#FFF',elevation:2},segmentText:{color:'#667085',fontWeight:'700',fontSize:13},segmentTextActive:{color:INK},bannerShell:{marginHorizontal:18,marginTop:15,borderRadius:18,overflow:'hidden'},banner:{flexDirection:'row',alignItems:'center',padding:15,gap:12},bannerIcon:{width:42,height:42,borderRadius:14,backgroundColor:'rgba(255,255,255,.18)',alignItems:'center',justifyContent:'center'},bannerCopy:{flex:1},bannerTitle:{color:'#FFF',fontSize:14,fontWeight:'800'},bannerText:{color:'rgba(255,255,255,.82)',fontSize:11,marginTop:3,lineHeight:16},sectionHead:{flexDirection:'row',justifyContent:'space-between',alignItems:'center',paddingHorizontal:18,marginTop:22,marginBottom:12},sectionTitle:{color:INK,fontSize:20,fontWeight:'800'},count:{color:'#98A2B3',fontSize:12,fontWeight:'600'},row:{paddingHorizontal:12},cardWrap:{flex:1,paddingHorizontal:6,marginBottom:12},card:{flex:1,overflow:'hidden',borderRadius:18,backgroundColor:'#FFF',borderWidth:1,borderColor:'#F0F1F3',elevation:2},imageShell:{height:156,backgroundColor:'#F2F4F7',position:'relative'},productImage:{width:'100%',height:'100%'},imageFallback:{flex:1,alignItems:'center',justifyContent:'center'},heart:{position:'absolute',top:9,right:9,width:34,height:34,borderRadius:17,backgroundColor:'rgba(255,255,255,.94)',alignItems:'center',justifyContent:'center'},category:{position:'absolute',left:9,bottom:9,maxWidth:'75%',backgroundColor:'rgba(17,24,39,.76)',paddingHorizontal:8,paddingVertical:4,borderRadius:9},categoryText:{color:'#FFF',fontSize:9,fontWeight:'800',textTransform:'uppercase'},cardBody:{padding:11},productTitle:{color:INK,fontSize:13,fontWeight:'700',lineHeight:18,minHeight:36},price:{color:ORANGE,fontSize:17,fontWeight:'900',marginTop:7},sellerRow:{flexDirection:'row',alignItems:'center',marginTop:9},sellerAvatar:{width:23,height:23,borderRadius:12,backgroundColor:'#F2F4F7',alignItems:'center',justifyContent:'center',overflow:'hidden'},sellerImage:{width:'100%',height:'100%'},sellerName:{flex:1,color:'#667085',fontSize:10,marginLeft:6},rating:{flexDirection:'row',alignItems:'center',marginTop:8,gap:3},ratingText:{color:'#344054',fontSize:11,fontWeight:'700'},reviews:{color:'#98A2B3',fontSize:10},empty:{alignItems:'center',paddingHorizontal:30,paddingVertical:55},emptyIcon:{width:64,height:64,borderRadius:22,backgroundColor:'#FFF1E7',alignItems:'center',justifyContent:'center',marginBottom:16},emptyTitle:{color:INK,fontSize:18,fontWeight:'800',marginTop:14},emptyText:{color:'#667085',fontSize:13,textAlign:'center',lineHeight:19,marginTop:5},retry:{marginTop:18,backgroundColor:INK,paddingHorizontal:22,paddingVertical:12,borderRadius:13},retryText:{color:'#FFF',fontWeight:'800',fontSize:13}
+});

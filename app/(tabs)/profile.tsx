@@ -32,6 +32,13 @@ export default function ProfileScreen() {
   const { stats } = useUserMarketplaceStats();
   const { uploadImage, uploading: imageUploading } = useImageUpload();
   const [uploading, setUploading] = useState(false);
+  const avatarUri = typeof user?.avatar === 'string' ? user.avatar : user?.avatar?.url;
+  const initials = (user?.name || 'User')
+    .trim()
+    .split(/\s+/)
+    .slice(0, 2)
+    .map(part => part.charAt(0).toUpperCase())
+    .join('') || 'U';
 
   const handleLogout = () => {
     Alert.alert(
@@ -72,7 +79,7 @@ export default function ProfileScreen() {
         await axiosInstance.put('/auth/api/update-details', { avatar: url });
         
         // Update local state
-        if (user) await updateUser({ avatar: { url } as any });
+        if (user) await updateUser({ avatar: url });
         
         Toast.show({ type: 'success', text1: 'Profile Updated!', text2: 'Your picture has been changed' });
       }
@@ -93,6 +100,22 @@ export default function ProfileScreen() {
   };
 
   const menuItems = [
+    ...(user?.roles?.admin ? [{
+      icon: 'shield',
+      label: 'Admin Control Panel',
+      description: 'Moderation, sellers and operations',
+      route: '/(admin)/admin-dashboard',
+      color: '#DC2626',
+      iconLib: Feather
+    }] : []),
+    ...(user?.roles?.seller?.status === 'approved' ? [{
+      icon: 'briefcase',
+      label: 'Seller Dashboard',
+      description: 'Orders, listings and earnings',
+      route: '/(seller)/seller-dashboard',
+      color: '#0F766E',
+      iconLib: Feather
+    }] : []),
     {
       icon: 'plus-square',
       label: 'Sell on Marketplace',
@@ -101,14 +124,14 @@ export default function ProfileScreen() {
       color: '#10B981',
       iconLib: Feather
     },
-    {
+    ...(user?.isPremium ? [{
       icon: 'zap',
       label: 'Boost Profile',
       description: 'Get more visibility',
       action: handleBoostProfile,
       color: '#FFD700',
       iconLib: Feather
-    },
+    }] : []),
     {
       icon: 'list',
       label: 'My Listings',
@@ -193,10 +216,13 @@ export default function ProfileScreen() {
         <Animated.View entering={SlideInUp.springify()} style={styles.cardContainer}>
           <View style={styles.profileCard}>
             <Animated.View entering={ZoomIn.springify()} style={styles.avatarContainer}>
-              <Image 
-                source={{ uri: user?.avatar?.url || 'https://i.pravatar.cc/300' }} 
-                style={styles.avatar}
-              />
+              {avatarUri ? (
+                <Image source={{ uri: avatarUri }} style={styles.avatar} />
+              ) : (
+                <LinearGradient colors={['#FFF1E7', '#FFE2D0']} style={[styles.avatar, styles.avatarFallback]}>
+                  <Text style={styles.avatarInitials}>{initials}</Text>
+                </LinearGradient>
+              )}
               <AnimatedButton 
                 onPress={handleUpdateProfilePicture}
                 style={styles.cameraButton}
@@ -360,6 +386,16 @@ const styles = StyleSheet.create({
     backgroundColor: '#E5E7EB',
     borderWidth: 5,
     borderColor: 'white',
+  },
+  avatarFallback: {
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  avatarInitials: {
+    color: '#C2410C',
+    fontSize: 42,
+    fontWeight: '900',
+    letterSpacing: -1,
   },
   cameraButton: {
     position: 'absolute',

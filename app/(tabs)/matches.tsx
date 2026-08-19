@@ -36,7 +36,8 @@ function ActionButton({ onPress, style, children, delay = 0 }: any) {
 function NewMatchBubble({ match, index, onChat }: any) {
   const scale = useSharedValue(1);
   const aStyle = useAnimatedStyle(() => ({ transform: [{ scale: scale.value }] }));
-  const photoUrl = match.profile?.profilePhotoUrl || `https://i.pravatar.cc/150?u=${match._id}`;
+  const photoUrl = match.profile?.profilePhotoUrl || match.profile?.photos?.[0]?.url;
+  const initial = (match.otherUser?.name || 'U').charAt(0).toUpperCase();
   return (
     <ReAnimated.View entering={SlideInRight.delay(index * 70).springify()}>
       <ReAnimated.View style={aStyle}>
@@ -47,7 +48,7 @@ function NewMatchBubble({ match, index, onChat }: any) {
           onPress={() => onChat(match)}
           style={styles.newMatchBubble}
         >
-          <Image source={{ uri: photoUrl }} style={styles.newMatchAvatar} />
+          {photoUrl ? <Image source={{ uri: photoUrl }} style={styles.newMatchAvatar} /> : <View style={[styles.newMatchAvatar, styles.avatarFallback]}><Text style={styles.avatarInitial}>{initial}</Text></View>}
           {match.unreadCount > 0 && (
             <ReAnimated.View entering={ZoomIn.springify()} style={styles.bubbleUnread}>
               <Text style={{ color: '#fff', fontSize: 9, fontWeight: 'bold' }}>{match.unreadCount}</Text>
@@ -66,7 +67,7 @@ function NewMatchBubble({ match, index, onChat }: any) {
 function MatchListItem({ match, index, onPress, onChat }: any) {
   const scale = useSharedValue(1);
   const aStyle = useAnimatedStyle(() => ({ transform: [{ scale: scale.value }] }));
-  const photoUrl = match.profile?.profilePhotoUrl || `https://i.pravatar.cc/150?u=${match._id}`;
+  const photoUrl = match.profile?.profilePhotoUrl || match.profile?.photos?.[0]?.url;
   const name = match.otherUser?.name || 'Unknown';
   const isOnline = match.match?.isOnline;
   const unread = match.unreadCount || 0;
@@ -83,7 +84,7 @@ function MatchListItem({ match, index, onPress, onChat }: any) {
           style={styles.matchItem}
         >
           <View style={styles.avatarWrapper}>
-            <Image source={{ uri: photoUrl }} style={styles.matchAvatar} />
+            {photoUrl ? <Image source={{ uri: photoUrl }} style={styles.matchAvatar} /> : <View style={[styles.matchAvatar, styles.avatarFallback]}><Text style={styles.avatarInitial}>{name.charAt(0).toUpperCase()}</Text></View>}
             {isOnline && <View style={styles.onlineDot} />}
           </View>
           <View style={styles.matchInfo}>
@@ -279,7 +280,7 @@ export default function MatchesScreen() {
           )}
         </View>
         <ActionButton
-          onPress={() => router.push('/(tabs)/discover' as any)}
+          onPress={() => router.push('/(routes)/dating-discover' as any)}
           style={styles.discoverBtn}
         >
           <LinearGradient colors={['#FF1493', '#FF69B4']} start={{ x: 0, y: 0 }} end={{ x: 1, y: 0 }} style={styles.discoverGradient}>
@@ -309,7 +310,7 @@ export default function MatchesScreen() {
       {loading && matches.length === 0 ? (
         <SkeletonCard />
       ) : matches.length === 0 ? (
-        <EmptyState onExplore={() => router.push('/(tabs)/discover' as any)} />
+        <EmptyState onExplore={() => router.push('/(routes)/dating-discover' as any)} />
       ) : (
         <>
           <ReAnimated.Text entering={FadeInDown.delay(150).springify()} style={styles.sectionLabel}>
@@ -372,6 +373,8 @@ const styles = StyleSheet.create({
   },
   avatarWrapper: { position: 'relative', marginRight: 14 },
   matchAvatar: { width: 56, height: 56, borderRadius: 28 },
+  avatarFallback: { backgroundColor: '#FFE4F0', alignItems: 'center', justifyContent: 'center' },
+  avatarInitial: { color: '#BE185D', fontSize: 22, fontWeight: '900' },
   onlineDot: {
     position: 'absolute', bottom: 1, right: 1,
     width: 13, height: 13, borderRadius: 7, backgroundColor: '#10B981', borderWidth: 2, borderColor: '#fff',

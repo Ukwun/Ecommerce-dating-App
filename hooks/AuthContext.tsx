@@ -8,11 +8,11 @@ interface User {
     id: string;
     name: string;
     email: string;
-    avatar?: {
+    avatar?: string | {
         id: string;
         file_id: string;
         url: string;
-    }
+    } | null;
     isPremium?: boolean;
     emailVerified?: boolean;
     roles?: {
