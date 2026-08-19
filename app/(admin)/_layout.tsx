@@ -12,7 +12,7 @@ export default function AdminLayout() {
 
   return (
     <Stack screenOptions={{ headerShown: true, headerStyle: { backgroundColor: theme.colors.primary }, headerTintColor: '#fff', headerTitleStyle: { fontWeight: 'bold' }, contentStyle: { backgroundColor: theme.colors.background } }}>
-      <Stack.Screen name="dashboard" options={{ title: 'Admin Control Panel', headerRight: () => <TouchableOpacity onPress={logout} style={{ marginRight: 15 }}><Text style={{ color: '#fff', fontWeight: '600' }}>Logout</Text></TouchableOpacity> }} />
+      <Stack.Screen name="admin-dashboard" options={{ title: 'Admin Control Panel', headerRight: () => <TouchableOpacity onPress={logout} style={{ marginRight: 15 }}><Text style={{ color: '#fff', fontWeight: '600' }}>Logout</Text></TouchableOpacity> }} />
       <Stack.Screen name="seller-approval" options={{ title: 'Approve Sellers', headerBackTitle: 'Back' }} />
       <Stack.Screen name="returns-management" options={{ title: 'Manage Returns', headerBackTitle: 'Back' }} />
       <Stack.Screen name="support-queue" options={{ title: 'Support Tickets', headerBackTitle: 'Back' }} />

@@ -71,7 +71,7 @@ export default function SignupScreen({ onSignIn }: { onSignIn?: () => void } = {
     onSuccess: async (data: any) => {
       await login(data.user, data.accessToken, data.refreshToken);
       Toast.show({ type: 'success', text1: '✅ Account Created!', text2: 'Welcome to Marketplace' });
-      router.push('/(tabs)');
+      router.replace('/(tabs)/home' as any);
     },
     onError: (error: Error) => {
       const errorMsg = error.message.includes('Network') 

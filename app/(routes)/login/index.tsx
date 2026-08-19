@@ -103,7 +103,7 @@ export default function LoginScreen({ onSignUp, onForgotPassword }: { onSignUp?:
         
         setTimeout(() => {
           console.log('🟢 [LOGIN] Navigating to home');
-          router.replace('/(tabs)' as any);
+          router.replace('/(tabs)/home' as any);
         }, 500);
       } else {
         console.log('❌ [LOGIN] Response marked as not successful');
@@ -166,7 +166,7 @@ export default function LoginScreen({ onSignUp, onForgotPassword }: { onSignUp?:
         Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
         
         setTimeout(() => {
-          router.replace('/(tabs)' as any);
+          router.replace('/(tabs)/home' as any);
         }, 500);
       }
     } catch (error: any) {
@@ -203,7 +203,7 @@ export default function LoginScreen({ onSignUp, onForgotPassword }: { onSignUp?:
         Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
         
         setTimeout(() => {
-          router.replace('/(tabs)' as any);
+          router.replace('/(tabs)/home' as any);
         }, 500);
       }
     } catch (error: any) {

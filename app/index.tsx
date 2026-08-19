@@ -25,7 +25,7 @@ export default function Index() {
   const completeIntro = useCallback(() => setIntroComplete(true), []);
   useEffect(() => { AsyncStorage.getItem('@onboarding_done').then(value => setOnboardingComplete(value === '1')).catch(() => setOnboardingComplete(false)); }, []);
   if (!introComplete || isLoading || onboardingComplete === null) return <BrandIntro onDone={completeIntro} />;
-  if (user) return <Redirect href="/(tabs)" />;
+  if (user) return <Redirect href={'/(tabs)/home' as any} />;
   if (onboardingComplete) {
     if (authPage === 'signup') return <SignupScreen onSignIn={() => setAuthPage('login')} />;
     if (authPage === 'forgot') return <ForgotPasswordScreen onBack={() => setAuthPage('login')} />;

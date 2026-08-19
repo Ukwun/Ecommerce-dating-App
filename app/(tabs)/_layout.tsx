@@ -47,7 +47,7 @@ export default function TabLayout() {
       }}
     >
       <Tabs.Screen
-        name="index"
+        name="home"
         options={{
           title: 'Home',
           tabBarIcon: ({ color, size }) => <Feather name="home" size={size} color={color} />,

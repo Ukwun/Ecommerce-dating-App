@@ -149,7 +149,7 @@ export default function MyOrdersScreen() {
             <MaterialCommunityIcons name="shopping-outline" size={72} color="rgba(255,255,255,0.5)" />
             <Text style={styles.emptyTitle}>No orders yet</Text>
             <Text style={styles.emptySubtitle}>Your orders will appear here once you start shopping</Text>
-            <TouchableOpacity style={styles.shopNowBtn} onPress={() => router.push('/(tabs)' as any)}>
+            <TouchableOpacity style={styles.shopNowBtn} onPress={() => router.push('/(tabs)/home' as any)}>
               <Text style={styles.shopNowText}>Start Shopping</Text>
             </TouchableOpacity>
           </Animated.View>

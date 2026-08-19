@@ -125,11 +125,11 @@ export default function SellerDashboard() {
         />
         <ActionButton
           label="👤 Update Profile"
-          onPress={() => router.push('/(seller)/profile')}
+          onPress={() => router.push('/(seller)/seller-profile' as any)}
         />
         <ActionButton
           label="💳 Manage Bank Details"
-          onPress={() => router.push('/(seller)/profile')}
+          onPress={() => router.push('/(seller)/seller-profile' as any)}
         />
       </View>
 
