@@ -5,6 +5,7 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import Animated, { Easing, FadeIn, FadeOut, useAnimatedStyle, useSharedValue, withDelay, withSequence, withSpring, withTiming } from 'react-native-reanimated';
 import { useAuth } from '@/hooks/AuthContext';
 import OnboardingScreen from '../screens/onboarding/onboarding.screen';
+import LoginScreen from './(routes)/login';
 
 function BrandIntro({ onDone }: { onDone: () => void }) {
   const scale = useSharedValue(0.72); const opacity = useSharedValue(0); const lift = useSharedValue(12);
@@ -22,7 +23,7 @@ export default function Index() {
   useEffect(() => { AsyncStorage.getItem('@onboarding_done').then(value => setOnboardingComplete(value === '1')).catch(() => setOnboardingComplete(false)); }, []);
   if (!introComplete || isLoading || onboardingComplete === null) return <BrandIntro onDone={completeIntro} />;
   if (user) return <Redirect href="/(tabs)" />;
-  if (onboardingComplete) return <Redirect href="/login" />;
+  if (onboardingComplete) return <LoginScreen />;
   return <OnboardingScreen onComplete={() => setOnboardingComplete(true)} />;
 }
 
