@@ -333,7 +333,7 @@ export default function LoginScreen() {
           style={[styles.buttonContainer, animatedStyle]}
         >
           <TouchableOpacity 
-            style={[styles.googleButton, (!availability.google || googleLoading) && styles.buttonLoadingState]} 
+            style={[styles.googleButton, (!availability.google || googleLoading) && styles.buttonLoadingState]}
             onPress={onButtonPress}
             disabled={googleLoading || !availability.google}
             activeOpacity={0.8}
@@ -357,7 +357,7 @@ export default function LoginScreen() {
           style={[styles.buttonContainer, { marginTop: 12 }, animatedStyle]}
         >
           <TouchableOpacity 
-            style={[styles.googleButton, { backgroundColor: '#1877F2', borderColor: '#1877F2' }, (!availability.facebook || facebookLoading) && styles.buttonLoadingState]} 
+            style={[styles.googleButton, { backgroundColor: '#1877F2', borderColor: '#1877F2' }, (!availability.facebook || facebookLoading) && styles.buttonLoadingState]}
             onPress={onFacebookPress}
             disabled={facebookLoading || !availability.facebook}
             activeOpacity={0.8}

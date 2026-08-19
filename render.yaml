@@ -51,6 +51,20 @@ services:
         sync: false
       - key: ALERT_WEBHOOK_URL
         sync: false
+      - key: GOOGLE_CLIENT_ID
+        sync: false
+      - key: GOOGLE_ANDROID_CLIENT_ID
+        sync: false
+      - key: GOOGLE_IOS_CLIENT_ID
+        sync: false
+      - key: FACEBOOK_APP_ID
+        sync: false
+      - key: FACEBOOK_APP_SECRET
+        sync: false
+      - key: APPLE_CLIENT_ID
+        sync: false
+      - key: PASSWORD_RESET_BASE_URL
+        sync: false
     # Environment variables must be set in Render dashboard:
     # MONGO_URI, JWT_SECRET, NODE_ENV=production, PORT=8082
     # EMAIL_SERVICE, EMAIL_USERNAME, EMAIL_PASSWORD, EMAIL_FROM
