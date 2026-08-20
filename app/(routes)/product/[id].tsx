@@ -22,14 +22,9 @@ import Animated, {
 import { LinearGradient } from 'expo-linear-gradient';
 import * as Haptics from 'expo-haptics';
 
-// Paystack
 let PaystackWebView: any = null;
-try {
-  const mod = require('react-native-paystack-webview');
-  PaystackWebView = mod.Paystack || mod.default;
-} catch (_) {}
+const PAYSTACK_KEY = '';
 
-const PAYSTACK_KEY = process.env.EXPO_PUBLIC_PAYSTACK_PUBLIC_KEY || '';
 const { width } = Dimensions.get('window');
 const IMAGE_HEIGHT = 380;
 
@@ -87,10 +82,10 @@ export default function ProductDetail() {
       .then(res => {
         if (!mounted) return;
         const p = res.data?.data || res.data;
-        p.images = p.images?.length > 0 ? p.images : [{ url: p.image || 'https://via.placeholder.com/400' }];
+        p.images = p.images?.length > 0 ? p.images : (p.image ? [{ url: p.image }] : []);
         p.colors = p.colors || [];
         p.sizes = p.sizes || [];
-        p.reviews = p.reviews || [];
+        p.reviews = p.latestReviews || p.reviews || [];
         setProduct(p);
         setSelectedColor(p.colors[0] || '');
         setSelectedSize(p.sizes[0] || '');
@@ -133,6 +128,7 @@ export default function ProductDetail() {
   });
 
   const handleAddToCart = () => {
+    if (product?.inStock === false || product.stock <= 0) return Toast.show({ type: 'error', text1: 'Out of stock', text2: 'This product cannot be added right now.' });
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
     cartBtnScale.value = withSpring(1.2, {}, () => { cartBtnScale.value = withSpring(1); });
     addToCart({ ...product, selectedColor, selectedSize });
@@ -157,12 +153,9 @@ export default function ProductDetail() {
   };
 
   const handleBuyNow = () => {
-    if (PAYSTACK_KEY && PaystackWebView) {
-      setShowPaystack(true);
-    } else {
-      addToCart({ ...product, selectedColor, selectedSize });
-      router.push('/_hidden/checkout');
-    }
+    if (product?.inStock === false || product.stock <= 0) return Toast.show({ type: 'error', text1: 'Out of stock', text2: 'This product cannot be ordered right now.' });
+    addToCart({ ...product, selectedColor, selectedSize });
+    router.push('/_hidden/checkout');
   };
 
   const imageUrls: string[] = product?.images?.map((img: any) => img.url || img) || [];
@@ -282,10 +275,13 @@ export default function ProductDetail() {
                 style={styles.sellerInfo}
                 onPress={() => router.push({ pathname: '/(routes)/seller/[sellerId]', params: { sellerId: product.seller._id, name: product.seller.name } } as any)}
               >
-                <Image
-                  source={{ uri: product.seller.avatar?.url || product.seller.avatar || 'https://i.pravatar.cc/60?u=' + product.seller._id }}
-                  style={styles.sellerAvatar}
-                />
+                {(product.seller.avatar?.url || product.seller.avatar) ? (
+                  <Image source={{ uri: product.seller.avatar?.url || product.seller.avatar }} style={styles.sellerAvatar} />
+                ) : (
+                  <View style={[styles.sellerAvatar, styles.sellerAvatarFallback]}>
+                    <Text style={styles.sellerInitial}>{(product.seller.name || 'S').charAt(0).toUpperCase()}</Text>
+                  </View>
+                )}
                 <View style={{ flex: 1 }}>
                   <Text style={styles.sellerName}>{product.seller.name || 'Marketplace Seller'}</Text>
                   <Text style={styles.sellerSub}>View seller profile →</Text>
@@ -395,12 +391,13 @@ export default function ProductDetail() {
           onPressIn={() => { cartBtnScale.value = withSpring(0.9); }}
           onPressOut={() => { cartBtnScale.value = withSpring(1); }}
           onPress={handleAddToCart}
+          disabled={product.inStock === false || product.stock <= 0}
           activeOpacity={1}
         >
           <Ionicons name={addedToCart ? 'checkmark' : 'cart-outline'} size={24} color={addedToCart ? '#10B981' : '#FF8C00'} />
         </AnimatedTouchable>
 
-        <TouchableOpacity style={styles.buyNowBtn} onPress={handleBuyNow}>
+        <TouchableOpacity style={[styles.buyNowBtn, (product.inStock === false || product.stock <= 0) && { opacity: 0.5 }]} onPress={handleBuyNow} disabled={product.inStock === false || product.stock <= 0}>
           <LinearGradient colors={['#FF8C00', '#FF5F6D']} start={{ x: 0, y: 0 }} end={{ x: 1, y: 0 }} style={styles.buyNowGradient}>
             <Ionicons name="flash" size={20} color="#fff" />
             <Text style={styles.buyNowText}>Buy Now · ₦{Number(product.price).toLocaleString()}</Text>
@@ -444,6 +441,8 @@ const styles = StyleSheet.create({
   sellerCard: { flexDirection: 'row', alignItems: 'center', backgroundColor: '#F9FAFB', borderRadius: 16, padding: 14, marginBottom: 20, gap: 12 },
   sellerInfo: { flexDirection: 'row', alignItems: 'center', flex: 1, gap: 12 },
   sellerAvatar: { width: 44, height: 44, borderRadius: 22, backgroundColor: '#E5E7EB' },
+  sellerAvatarFallback: { alignItems: 'center', justifyContent: 'center' },
+  sellerInitial: { color: '#6B7280', fontWeight: '900', fontSize: 18 },
   sellerName: { fontSize: 15, fontWeight: '700', color: '#111827' },
   sellerSub: { fontSize: 12, color: '#6B7280', marginTop: 2 },
   chatSellerBtn: { flexDirection: 'row', alignItems: 'center', backgroundColor: '#FF8C00', paddingHorizontal: 14, paddingVertical: 9, borderRadius: 20, gap: 6 },

@@ -6,6 +6,7 @@ const { protect } = require('../middleware/auth');
 const AdminUser = require('../models/AdminUser');
 const { EVENT_TYPES } = require('../constants/eventTaxonomy');
 const { trackUserEvent } = require('../utils/eventLogger');
+const { enqueueReservationRelease } = require('../jobs/queue');
 
 const router = express.Router();
 
@@ -47,7 +48,7 @@ router.post('/orders', protect, async (req, res) => {
     for (const item of products) {
       const product = await Product.findById(item.product);
       
-      if (!product || !product.inStock) {
+      if (!product || product.inStock === false || Number(product.stock) <= 0) {
         await releaseReservations();
         return res.status(400).json({ error: `Product ${item.product} not found` });
       }
@@ -280,6 +281,7 @@ router.put('/orders/:id/fulfillments/status', protect, async (req, res) => {
     else if (statuses.every(value => value === 'cancelled')) order.status = 'cancelled';
     else if (statuses.some(value => value === 'confirmed')) order.status = 'confirmed';
     await order.save();
+    await enqueueReservationRelease(String(order._id), Math.max(0, order.inventoryReservationExpiresAt.getTime() - Date.now())).catch(() => false);
     if (status === 'delivered') {
       const { enqueueSettlement } = require('../jobs/queue');
       await enqueueSettlement({ orderId: order._id.toString(), sellerId: req.user.id }, `settlement-${order._id}-${req.user.id}`);

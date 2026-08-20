@@ -21,7 +21,7 @@ type Product = {
   _id: string;
   id?: string;
   name: string;
-  image: string;
+  image?: string;
   price: number;
   oldPrice?: number;
   rating?: number;
@@ -112,20 +112,17 @@ export const ProductCard = ({
 
   const handleCardPress = () => {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+    const destination = `/(routes)/product/${item._id}` as any;
     if (imageRef.current) {
       const node = findNodeHandle(imageRef.current);
       if (node) {
         imageRef.current.measure((x, y, w, h, pageX, pageY) => {
           setSharedElement(item, { x: pageX, y: pageY, width: w, height: h });
-          router.push(`/(routes)/product/${item._id}` as any);
         });
-        return;
       }
     }
-    router.push(`/(routes)/product/${item._id}` as any);
+    router.push(destination);
   };
-
-  const placeholderImage = 'https://images.unsplash.com/photo-1523275335684-37898b6baf30?w=300';
 
   return (
     <Animated.View
@@ -141,12 +138,7 @@ export const ProductCard = ({
       >
         {/* Image */}
         <View style={styles.imageWrapper}>
-          <Image
-            ref={imageRef}
-            source={{ uri: item.image || placeholderImage }}
-            style={styles.image}
-            resizeMode="cover"
-          />
+          {item.image ? <Image ref={imageRef} source={{ uri: item.image }} style={styles.image} resizeMode="cover" /> : <View style={styles.imageFallback}><Ionicons name="image-outline" size={34} color="#9CA3AF" /><Text style={styles.imageFallbackText}>No image</Text></View>}
 
           {/* Wishlist Heart */}
           <Animated.View style={[styles.heartIcon, heartStyle]}>
@@ -232,6 +224,8 @@ const styles = StyleSheet.create({
     overflow: "hidden",
   },
   image: { width: "100%", height: "100%" },
+  imageFallback: { flex: 1, alignItems: 'center', justifyContent: 'center', backgroundColor: '#F3F4F6', gap: 5 },
+  imageFallbackText: { color: '#6B7280', fontSize: 11, fontWeight: '600' },
   heartIcon: {
     position: "absolute",
     top: 8,

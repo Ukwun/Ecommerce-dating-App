@@ -9,6 +9,22 @@ const { evaluateAbuseRisk } = require('./utils/fraudMonitor');
 const { createSettlementEntries, submitPayout } = require('./services/sellerSettlement');
 const { RekognitionClient, DetectModerationLabelsCommand } = require('@aws-sdk/client-rekognition');
 const UploadedAsset = require('./models/UploadedAsset');
+const Order = require('./models/Order');
+const Product = require('./models/Product');
+
+const releaseInventoryReservation = async ({ orderId }) => {
+  const order = await Order.findOneAndUpdate(
+    { _id: orderId, inventoryReservationStatus: 'reserved', 'payment.status': { $ne: 'completed' }, inventoryReservationExpiresAt: { $lte: new Date() } },
+    { $set: { inventoryReservationStatus: 'released' } },
+    { new: false }
+  );
+  if (!order) return { released: false };
+  await Promise.all(order.products.map(item => Product.updateOne(
+    { _id: item.product },
+    { $inc: { reservedStock: -item.quantity } }
+  )));
+  return { released: true, orderId };
+};
 
 const expo = new Expo();
 const processPush = async ({ message }) => {
@@ -40,6 +56,7 @@ const startWorker = async () => {
     if (job.name === 'moderate-image') return moderateImage(job.data);
     if (job.name === 'create-settlement') return createSettlementEntries(job.data);
     if (job.name === 'submit-payout') return submitPayout(job.data.payoutId);
+    if (job.name === 'release-inventory-reservation') return releaseInventoryReservation(job.data);
     throw new Error(`Unknown background job: ${job.name}`);
   }, { connection: bullConnection(), concurrency: Number(process.env.WORKER_CONCURRENCY || 10) });
   worker.on('failed', (job, error) => console.error(`Job ${job?.id || 'unknown'} failed:`, error.message));

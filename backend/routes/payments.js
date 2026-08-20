@@ -186,6 +186,7 @@ router.post('/payments/initialize', protect, async (req, res) => {
       {
         amount: amount * 100, // Paystack uses kobo
         email,
+        callback_url: process.env.PAYMENT_CALLBACK_URL || 'marketplace://payment-complete',
         metadata: {
           orderId,
           userId: req.user.id
@@ -271,6 +272,14 @@ router.post('/payments/verify', protect, async (req, res) => {
 
     if (!payment) {
       return res.status(404).json({ error: 'Payment not found' });
+    }
+
+    if (payment.user.toString() !== req.user.id) {
+      return res.status(403).json({ error: 'Not authorized to verify this payment' });
+    }
+
+    if (Number(paystackData.amount) !== Math.round(Number(payment.amount) * 100) || paystackData.currency !== 'NGN') {
+      return res.status(409).json({ error: 'Payment amount or currency does not match the order' });
     }
 
     if (paystackData.status === 'success') {

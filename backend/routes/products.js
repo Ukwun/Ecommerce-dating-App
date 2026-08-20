@@ -6,6 +6,7 @@ const { getJson, setJson, getProductCacheVersion, invalidateProductCache } = req
 const { seller } = require('../middleware/admin');
 const Review = require('../models/Review');
 const UploadedAsset = require('../models/UploadedAsset');
+const Order = require('../models/Order');
 
 // Create new product
 router.post('/products', protect, seller, async (req, res) => {
@@ -132,7 +133,9 @@ router.get('/products/:id', async (req, res) => {
     res.status(200).json({ 
       success: true, 
       data: { 
-        ...product, 
+        ...product,
+        inStock: product.inStock !== false && Number(product.stock) > 0,
+        reservedStock: Number(product.reservedStock || 0),
         latestReviews: reviews,
         similarProducts: similarItems,
         shippingInfo: { estimatedDays: "3-5 days", cost: "Calculated at checkout" }
@@ -210,6 +213,19 @@ router.post('/products/:id/reviews', protect, async (req, res) => {
     }
     const product = await Product.findById(req.params.id);
     if (!product) return res.status(404).json({ error: 'Product not found' });
+
+    const deliveredPurchase = await Order.exists({
+      user: req.user.id,
+      'products.product': product._id,
+      'payment.status': 'completed',
+      $or: [
+        { status: 'delivered' },
+        { fulfillments: { $elemMatch: { status: 'delivered', 'products.product': product._id } } }
+      ]
+    });
+    if (!deliveredPurchase) {
+      return res.status(403).json({ error: 'Only buyers with a delivered purchase can review this product' });
+    }
 
     // Check if user already reviewed this product
     const Review = require('../models/Review');

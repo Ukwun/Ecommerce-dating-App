@@ -8,20 +8,12 @@ import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
 import { router } from 'expo-router';
 import { useCart } from '@/hooks/CartContext';
-import { useAuth } from '@/hooks/AuthContext';
 import { useQuery, useMutation } from '@tanstack/react-query';
 import axiosInstance from '@/utils/axiosinstance';
 import Toast from 'react-native-toast-message';
 import Animated, { FadeInDown, FadeInRight } from 'react-native-reanimated';
 import * as Haptics from 'expo-haptics';
-
-let PaystackWebView: any = null;
-try {
-  const mod = require('react-native-paystack-webview');
-  PaystackWebView = mod.Paystack || mod.default;
-} catch (_) {}
-
-const PAYSTACK_KEY = process.env.EXPO_PUBLIC_PAYSTACK_PUBLIC_KEY || '';
+import * as WebBrowser from 'expo-web-browser';
 
 type Address = {
   _id: string; name: string; addressLine1: string;
@@ -39,10 +31,8 @@ const Section = ({ title, children, delay = 0 }: { title: string; children: Reac
 
 export default function CheckoutScreen() {
   const { items, clearCart } = useCart();
-  const { user } = useAuth();
   const [selectedAddress, setSelectedAddress] = useState<Address | null>(null);
   const [deliveryOption, setDeliveryOption] = useState<'home' | 'station'>('home');
-  const [showPaystack, setShowPaystack] = useState(false);
   const [showAddressPicker, setShowAddressPicker] = useState(false);
 
   const { data: addresses = [], isLoading: loadingAddresses } = useQuery<Address[]>({
@@ -61,8 +51,7 @@ export default function CheckoutScreen() {
   }, [addresses, selectedAddress]);
 
   const subtotal = items.reduce((s, i) => s + i.price * i.quantity, 0);
-  const shipping = deliveryOption === 'station' ? 0 :
-    (selectedAddress?.estimatedDeliveryPrice ?? 500);
+  const shipping: number = deliveryOption === 'station' ? 1000 : 2500;
   const total = subtotal + shipping;
 
   const orderMutation = useMutation({
@@ -85,15 +74,27 @@ export default function CheckoutScreen() {
         shippingCost: shipping,
         deliveryOption,
       };
-      const res = await axiosInstance.post('/marketplace/api/orders', payload);
-      return res.data;
+      const orderResponse = await axiosInstance.post('/marketplace/api/orders', payload);
+      const order = orderResponse.data?.data;
+      if (!order?._id) throw new Error('The order could not be created');
+
+      const paymentResponse = await axiosInstance.post('/marketplace/api/payments/initialize', { orderId: order._id });
+      const payment = paymentResponse.data?.data;
+      if (!payment?.authorizationUrl || !payment?.reference) throw new Error('Payment could not be initialized');
+
+      const browserResult = await WebBrowser.openAuthSessionAsync(payment.authorizationUrl, 'marketplace://payment-complete');
+      if (browserResult.type === 'cancel' || browserResult.type === 'dismiss') throw new Error('Payment was cancelled. Your order remains unpaid.');
+
+      const verification = await axiosInstance.post('/marketplace/api/payments/verify', { reference: payment.reference });
+      if (verification.data?.data?.status !== 'success') throw new Error('Payment has not been confirmed');
+      return { order, verification: verification.data };
     },
     onSuccess: (data) => {
       clearCart();
       Toast.show({ type: 'success', text1: '🎉 Order placed!', text2: 'Your order is being processed' });
       router.replace({
         pathname: '/(routes)/order-confirmation',
-        params: { orderId: data.data?._id || '', total: String(total) },
+        params: { orderId: data.order?._id || '', total: String(total) },
       } as any);
     },
     onError: (err: any) => {
@@ -107,40 +108,11 @@ export default function CheckoutScreen() {
     if (items.length === 0) return Alert.alert('Empty Cart', 'Add items to your cart first');
     if (deliveryOption === 'home' && !selectedAddress) return Alert.alert('No Address', 'Please add a delivery address');
 
-    if (PAYSTACK_KEY && PaystackWebView) {
-      setShowPaystack(true);
-    } else {
-      orderMutation.mutate();
-    }
+    orderMutation.mutate();
   };
 
   return (
     <LinearGradient colors={['#FF8C00', '#4B2E05']} style={{ flex: 1 }}>
-      {/* Paystack Modal */}
-      {showPaystack && PaystackWebView && user && (
-        <Modal visible={showPaystack} animationType="slide">
-          <SafeAreaView style={{ flex: 1 }}>
-            <TouchableOpacity onPress={() => setShowPaystack(false)} style={styles.closePaystack}>
-              <Ionicons name="close" size={28} color="#111" />
-              <Text style={{ color: '#111', marginLeft: 8, fontWeight: '600' }}>Cancel Payment</Text>
-            </TouchableOpacity>
-            <PaystackWebView
-              paystackKey={PAYSTACK_KEY}
-              amount={total}
-              billingEmail={user.email}
-              billingName={user.name}
-              currency="NGN"
-              onCancel={() => setShowPaystack(false)}
-              onSuccess={() => {
-                setShowPaystack(false);
-                orderMutation.mutate();
-              }}
-              activityIndicatorColor="#FF8C00"
-            />
-          </SafeAreaView>
-        </Modal>
-      )}
-
       {/* Address Picker Modal */}
       <Modal visible={showAddressPicker} animationType="slide" transparent>
         <View style={styles.modalOverlay}>

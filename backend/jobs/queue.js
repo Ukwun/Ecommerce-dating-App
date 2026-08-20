@@ -28,6 +28,7 @@ const enqueueFraudReview = (payload, idempotencyKey) => enqueue('fraud-review', 
 const enqueueImageModeration = (payload, idempotencyKey) => enqueue('moderate-image', payload, idempotencyKey ? { jobId: idempotencyKey } : {});
 const enqueueSettlement = (payload, idempotencyKey) => enqueue('create-settlement', payload, { delay: 1000, ...(idempotencyKey ? { jobId: idempotencyKey } : {}) });
 const enqueuePayout = (payoutId) => enqueue('submit-payout', { payoutId }, { jobId: `payout-${payoutId}` });
+const enqueueReservationRelease = (orderId, delay) => enqueue('release-inventory-reservation', { orderId }, { jobId: `reservation-${orderId}`, delay });
 
 const scheduleAnalyticsAggregation = async () => {
   const queue = getBackgroundQueue();
@@ -37,4 +38,4 @@ const scheduleAnalyticsAggregation = async () => {
   return true;
 };
 
-module.exports = { enqueueEmail, enqueuePush, enqueueFraudReview, enqueueImageModeration, enqueueSettlement, enqueuePayout, getBackgroundQueue, scheduleAnalyticsAggregation };
+module.exports = { enqueueEmail, enqueuePush, enqueueFraudReview, enqueueImageModeration, enqueueSettlement, enqueuePayout, enqueueReservationRelease, getBackgroundQueue, scheduleAnalyticsAggregation };

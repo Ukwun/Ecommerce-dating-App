@@ -6,7 +6,7 @@ interface Product {
   _id: string;
   name: string;
   price: number;
-  image: string;
+  image?: string;
 }
 
 interface CartItem extends Product {
