@@ -64,6 +64,10 @@ const productSchema = new mongoose.Schema({
     type: Number,
     default: 0
   },
+  moderationStatus: { type: String, enum: ['pending', 'approved', 'rejected'], default: 'pending', index: true },
+  moderationReason: String,
+  moderatedAt: Date,
+  moderatedBy: { type: mongoose.Schema.Types.ObjectId, ref: 'AdminUser' },
   createdAt: {
     type: Date,
     default: Date.now

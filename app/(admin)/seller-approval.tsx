@@ -14,8 +14,7 @@ import { useTheme } from '@react-navigation/native';
 import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
 import { useQuery, useMutation } from '@tanstack/react-query';
-import axios from 'axios';
-import AsyncStorage from '@react-native-async-storage/async-storage';
+import axiosInstance from '@/utils/axiosinstance';
 
 const API_BASE_URL =
   process.env.EXPO_PUBLIC_SERVER_URI ||
@@ -33,24 +32,15 @@ export default function SellerApprovalScreen() {
   const { data: sellers, isLoading, error, refetch } = useQuery({
     queryKey: ['pending-sellers'],
     queryFn: async () => {
-      const token = await AsyncStorage.getItem('userToken');
-      const response = await axios.get(
-        `${API_BASE_URL}/admin/api/sellers?status=pending&limit=50`,
-        { headers: { Authorization: `Bearer ${token}` } }
-      );
-      return response.data.sellers || [];
+      const response = await axiosInstance.get('/admin/api/sellers?status=pending&limit=50');
+      return response.data.data || [];
     },
   });
 
   // Approve mutation
   const approveMutation = useMutation({
     mutationFn: async (sellerId: string) => {
-      const token = await AsyncStorage.getItem('userToken');
-      return axios.post(
-        `${API_BASE_URL}/admin/api/sellers/${sellerId}/approve`,
-        {},
-        { headers: { Authorization: `Bearer ${token}` } }
-      );
+      return axiosInstance.post(`/admin/api/sellers/${sellerId}/approve`, {});
     },
     onSuccess: () => {
       refetch();
@@ -64,12 +54,7 @@ export default function SellerApprovalScreen() {
   // Reject mutation
   const rejectMutation = useMutation({
     mutationFn: async (sellerId: string) => {
-      const token = await AsyncStorage.getItem('userToken');
-      return axios.post(
-        `${API_BASE_URL}/admin/api/sellers/${sellerId}/reject`,
-        { reason: rejectReason || 'Seller does not meet requirements' },
-        { headers: { Authorization: `Bearer ${token}` } }
-      );
+      return axiosInstance.post(`/admin/api/sellers/${sellerId}/reject`, { reason: rejectReason || 'Seller does not meet requirements' });
     },
     onSuccess: () => {
       refetch();
@@ -225,7 +210,7 @@ function SellerCard({ seller, onApprove, onReject, loading }: any) {
         <DetailRow label="Registration Number:" value={seller.registrationNumber} />
         <DetailRow
           label="Seller Name:"
-          value={seller.userId?.firstName + ' ' + seller.userId?.lastName}
+          value={seller.legalFullName || seller.userId?.name}
         />
         <DetailRow label="Email:" value={seller.userId?.email} />
         <DetailRow label="Phone:" value={seller.userId?.phone} />
@@ -235,7 +220,7 @@ function SellerCard({ seller, onApprove, onReject, loading }: any) {
         <ThemedText style={styles.verificationTitle}>Verification Status</ThemedText>
         <VerificationItem label="BVN Verified" status={seller.bvnVerified} />
         <VerificationItem label="NIN Verified" status={seller.ninVerified} />
-        <VerificationItem label="Bank Details Verified" status={!!seller.bankDetails?.verified} />
+        <VerificationItem label="Bank Details Verified" status={!!seller.bankVerified} />
       </View>
 
       <View style={styles.actionContainer}>

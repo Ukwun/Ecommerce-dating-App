@@ -5,10 +5,7 @@ import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
 import { useTheme } from '@react-navigation/native';
 import { useQuery } from '@tanstack/react-query';
-import axios from 'axios';
-
-
-import AsyncStorage from '@react-native-async-storage/async-storage';
+import axiosInstance from '@/utils/axiosinstance';
 
 const API_BASE_URL =
   process.env.EXPO_PUBLIC_SERVER_URI ||
@@ -24,11 +21,8 @@ export default function AdminDashboard() {
   const { data: dashboard, isLoading, error, refetch } = useQuery({
     queryKey: ['admin-dashboard'],
     queryFn: async () => {
-      const token = await AsyncStorage.getItem('userToken');
-      const response = await axios.get(`${API_BASE_URL}/admin/api/analytics/dashboard`, {
-        headers: { Authorization: `Bearer ${token}` },
-      });
-      return response.data;
+      const response = await axiosInstance.get('/admin/api/analytics/dashboard');
+      return response.data?.data || {};
     },
   });
 
@@ -111,6 +105,9 @@ export default function AdminDashboard() {
           onPress={() => router.push('/(admin)/seller-approval')}
           highlight={dashboard?.pendingSellers > 0}
         />
+
+        <ActionButton label="Review Product Listings" icon="📦" onPress={() => router.push({ pathname: '/(admin)/commerce-approvals', params: { tab: 'products' } } as any)} highlight />
+        <ActionButton label="Review Withdrawals" icon="🏦" onPress={() => router.push({ pathname: '/(admin)/commerce-approvals', params: { tab: 'payouts' } } as any)} highlight />
 
         <ActionButton
           label={`Open Returns: ${dashboard?.openReturns || 0}`}

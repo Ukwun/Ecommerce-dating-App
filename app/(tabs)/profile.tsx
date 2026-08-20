@@ -118,9 +118,9 @@ export default function ProfileScreen() {
     }] : []),
     {
       icon: 'plus-square',
-      label: 'Sell on Marketplace',
-      description: 'List your products for sale',
-      route: '/(routes)/sell',
+      label: user?.roles?.seller?.status === 'approved' ? 'List a Product' : user?.roles?.seller ? 'Seller Application' : 'Become a Seller',
+      description: user?.roles?.seller?.status === 'approved' ? 'Submit a product for admin review' : user?.roles?.seller ? 'Check your approval status' : 'Apply to open your store',
+      route: user?.roles?.seller?.status === 'approved' ? '/(routes)/sell' : '/(routes)/seller-application',
       color: '#10B981',
       iconLib: Feather
     },

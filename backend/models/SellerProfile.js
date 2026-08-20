@@ -65,6 +65,13 @@ const sellerProfileSchema = new mongoose.Schema({
   // Contact Info
   contactEmail: String,
   contactPhone: String,
+  legalFullName: String,
+  businessAddress: {
+    addressLine1: String,
+    city: String,
+    state: String,
+    country: { type: String, default: 'Nigeria' }
+  },
   businessWebsite: String,
   
   // Store Info

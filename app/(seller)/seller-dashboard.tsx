@@ -5,8 +5,7 @@ import { useTheme } from '@react-navigation/native';
 import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
 import { useQuery } from '@tanstack/react-query';
-import axios from 'axios';
-import AsyncStorage from '@react-native-async-storage/async-storage';
+import axiosInstance from '@/utils/axiosinstance';
 
 const API_BASE_URL =
   process.env.EXPO_PUBLIC_SERVER_URI ||
@@ -22,11 +21,9 @@ export default function SellerDashboard() {
   const { data: dashboard, isLoading, error, refetch } = useQuery({
     queryKey: ['seller-dashboard'],
     queryFn: async () => {
-      const token = await AsyncStorage.getItem('userToken');
-      const response = await axios.get(`${API_BASE_URL}/seller/api/dashboard`, {
-        headers: { Authorization: `Bearer ${token}` },
-      });
-      return response.data;
+      const response = await axiosInstance.get('/seller/api/dashboard');
+      const data = response.data?.data || {};
+      return { ...data.analytics, ...data.lifetime, totalOrders: data.currentMonth?.orders || 0, monthRevenue: data.currentMonth?.revenue || 0, avgOrderValue: data.currentMonth?.averageOrderValue || 0, businessName: data.profile?.businessName, avgRating: data.profile?.averageRating || 0, netEarnings: data.profile?.totalEarnings || 0 };
     },
   });
 
@@ -107,7 +104,7 @@ export default function SellerDashboard() {
           value={dashboard?.totalProducts || 0}
           icon="🏷️"
           color="#8B5CF6"
-          onPress={() => router.push('/(seller)/analytics' as any)}
+          onPress={() => router.push('/(routes)/sell' as any)}
         />
       </View>
 
@@ -115,9 +112,12 @@ export default function SellerDashboard() {
       <View style={[styles.section, { backgroundColor: theme.colors.card }]}>
         <ThemedText style={styles.sectionTitle}>Quick Actions</ThemedText>
 
+        <ActionButton label="Add New Product" onPress={() => router.push('/(routes)/sell' as any)} />
+        <ActionButton label="Banks, Balance & Withdrawals" onPress={() => router.push('/(seller)/seller-finance' as any)} />
+
         <ActionButton
           label="📝 Add New Product"
-          onPress={() => router.push('/(seller)/analytics' as any)}
+          onPress={() => router.push('/(routes)/sell' as any)}
         />
         <ActionButton
           label="📊 View Analytics"
@@ -129,7 +129,7 @@ export default function SellerDashboard() {
         />
         <ActionButton
           label="💳 Manage Bank Details"
-          onPress={() => router.push('/(seller)/seller-profile' as any)}
+          onPress={() => router.push('/(seller)/seller-finance' as any)}
         />
       </View>
 

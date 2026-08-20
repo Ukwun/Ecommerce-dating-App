@@ -4,10 +4,11 @@ const SellerProfile = require('../models/SellerProfile');
 const SellerLedgerEntry = require('../models/SellerLedgerEntry');
 const SellerPayout = require('../models/SellerPayout');
 const Order = require('../models/Order');
+const SellerBankAccount = require('../models/SellerBankAccount');
 
 const paystack = axios.create({ baseURL: 'https://api.paystack.co', timeout: 20000 });
 const money = value => Math.round(Number(value || 0) * 100) / 100;
-const fingerprint = profile => crypto.createHash('sha256').update(`${profile.bankCode}:${profile.accountNumber}`).digest('hex');
+const fingerprint = account => crypto.createHash('sha256').update(`${account.bankCode}:${account.accountNumber}`).digest('hex');
 const auth = () => {
   if (!process.env.PAYSTACK_SECRET_KEY && !process.env.PAYSTACK_SECRET) throw new Error('Paystack transfers are not configured');
   return { Authorization: `Bearer ${process.env.PAYSTACK_SECRET_KEY || process.env.PAYSTACK_SECRET}` };
@@ -48,26 +49,30 @@ async function releaseMaturedEntries(sellerId) {
   await SellerLedgerEntry.updateMany({ seller: sellerId, status: 'pending', availableAt: { $lte: new Date() } }, { $set: { status: 'available' } });
 }
 
-async function ensureRecipient(profile) {
-  if (!profile.bankVerified || !profile.bankCode || !profile.accountNumber || !profile.accountName) throw new Error('Verified bank details are required');
-  const currentFingerprint = fingerprint(profile);
-  if (profile.paystackRecipientCode && profile.paystackRecipientAccountFingerprint === currentFingerprint) return profile.paystackRecipientCode;
-  const response = await paystack.post('/transferrecipient', { type: 'nuban', name: profile.accountName, account_number: profile.accountNumber, bank_code: profile.bankCode, currency: 'NGN' }, { headers: auth() });
-  profile.paystackRecipientCode = response.data.data.recipient_code;
-  profile.paystackRecipientAccountFingerprint = currentFingerprint;
-  await profile.save();
-  return profile.paystackRecipientCode;
+async function ensureRecipient(account) {
+  if (!account?.verified) throw new Error('A verified bank account is required');
+  const currentFingerprint = fingerprint(account);
+  if (account.recipientCode && account.recipientFingerprint === currentFingerprint) return account.recipientCode;
+  const response = await paystack.post('/transferrecipient', { type: 'nuban', name: account.accountName, account_number: account.accountNumber, bank_code: account.bankCode, currency: 'NGN' }, { headers: auth() });
+  account.recipientCode = response.data.data.recipient_code;
+  account.recipientFingerprint = currentFingerprint;
+  await account.save();
+  return account.recipientCode;
 }
 
-async function createPayout(sellerId) {
+async function createPayout(sellerId, bankAccountId) {
   await releaseMaturedEntries(sellerId);
   const entries = await SellerLedgerEntry.find({ seller: sellerId, status: 'available', payout: { $exists: false } });
   const amount = money(entries.reduce((sum, row) => sum + (row.direction === 'credit' ? row.amount : -row.amount), 0));
   if (amount < Number(process.env.PAYOUT_MINIMUM_NGN || 1000)) throw new Error('Available balance is below the payout minimum');
   const profile = await SellerProfile.findOne({ userId: sellerId, verificationStatus: 'approved' });
   if (!profile) throw new Error('Approved seller profile not found');
-  const recipientCode = await ensureRecipient(profile);
-  const payout = await SellerPayout.create({ seller: sellerId, amount, recipientCode, activeKey: String(sellerId), reference: `PO-${sellerId}-${Date.now()}-${crypto.randomBytes(4).toString('hex')}` });
+  const bankAccount = bankAccountId
+    ? await SellerBankAccount.findOne({ _id: bankAccountId, seller: sellerId, verified: true })
+    : await SellerBankAccount.findOne({ seller: sellerId, verified: true, isDefault: true });
+  if (!bankAccount) throw new Error('Select a verified payout bank account');
+  const recipientCode = await ensureRecipient(bankAccount);
+  const payout = await SellerPayout.create({ seller: sellerId, amount, bankAccount: bankAccount._id, recipientCode, activeKey: String(sellerId), status: 'requested', reference: `PO-${sellerId}-${Date.now()}-${crypto.randomBytes(4).toString('hex')}` });
   await SellerLedgerEntry.updateMany({ _id: { $in: entries.map(row => row._id) }, payout: { $exists: false } }, { $set: { payout: payout._id, status: 'held' } });
   return payout;
 }

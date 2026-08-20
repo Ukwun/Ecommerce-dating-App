@@ -15,7 +15,7 @@ export default function MyListingsScreen() {
   const fetchMyProducts = useCallback(async () => {
     try {
       setLoading(true);
-      const response = await axiosInstance.get(`/marketplace/api/products?seller=${user?.id}`);
+      const response = await axiosInstance.get('/seller/api/products?limit=100');
       setProducts(response.data.data || []);
     } catch (error) {
       console.error('Failed to fetch my products', error);
@@ -54,14 +54,12 @@ export default function MyListingsScreen() {
 
   const renderItem = ({ item }: { item: any }) => (
     <View style={styles.card}>
-      <Image 
-        source={{ uri: item.images?.[0]?.url || 'https://via.placeholder.com/150' }} 
-        style={styles.image} 
-      />
+      {item.images?.[0]?.url ? <Image source={{ uri: item.images[0].url }} style={styles.image} /> : <View style={[styles.image, styles.imageFallback]}><Ionicons name="image-outline" size={26} color="#9CA3AF" /></View>}
       <View style={styles.details}>
         <Text style={styles.title} numberOfLines={1}>{item.name}</Text>
         <Text style={styles.price}>₦{item.price.toLocaleString()}</Text>
         <Text style={styles.stock}>Stock: {item.stock}</Text>
+        <Text style={[styles.status, item.moderationStatus === 'approved' ? styles.approved : item.moderationStatus === 'rejected' ? styles.rejected : styles.pending]}>{item.moderationStatus === 'approved' ? 'Live' : item.moderationStatus === 'rejected' ? `Rejected${item.moderationReason ? `: ${item.moderationReason}` : ''}` : 'Awaiting admin approval'}</Text>
       </View>
       <View style={styles.actions}>
         <TouchableOpacity 
@@ -125,10 +123,13 @@ const styles = StyleSheet.create({
   list: { padding: 16 },
   card: { flexDirection: 'row', backgroundColor: '#fff', borderRadius: 12, padding: 12, marginBottom: 12, alignItems: 'center', shadowColor: '#000', shadowOffset: { width: 0, height: 1 }, shadowOpacity: 0.05, shadowRadius: 2, elevation: 2 },
   image: { width: 80, height: 80, borderRadius: 8, backgroundColor: '#F3F4F6' },
+  imageFallback: { alignItems: 'center', justifyContent: 'center' },
   details: { flex: 1, marginLeft: 12 },
   title: { fontSize: 16, fontWeight: '600', color: '#111827', marginBottom: 4 },
   price: { fontSize: 16, fontWeight: 'bold', color: '#FF8C00', marginBottom: 2 },
   stock: { fontSize: 12, color: '#6B7280' },
+  status: { fontSize: 11, fontWeight: '800', marginTop: 5 },
+  approved: { color: '#16A34A' }, pending: { color: '#D97706' }, rejected: { color: '#DC2626' },
   actions: { flexDirection: 'row', gap: 8 },
   actionButton: { width: 36, height: 36, borderRadius: 18, justifyContent: 'center', alignItems: 'center' },
   editButton: { backgroundColor: '#3B82F6' },

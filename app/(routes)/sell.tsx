@@ -107,17 +107,13 @@ export default function SellScreen() {
       // Create product with uploaded image URLs
       return createProduct({ ...data, images: uploadedImages });
     },
-    onSuccess: (data) => {
-      Toast.show({ 
-        type: 'success', 
-        text1: isEditing ? 'Product Updated!' : 'Product Listed!', 
-        text2: isEditing ? 'Your changes have been saved.' : 'Your product is now live.' 
+    onSuccess: () => {
+      Toast.show({
+        type: 'success',
+        text1: isEditing ? 'Changes submitted' : 'Listing submitted',
+        text2: 'An admin will review it before it becomes visible.',
       });
-      if (isEditing) {
-        router.back();
-      } else {
-        router.replace(`/(routes)/product/${data.product._id}` as any);
-      }
+      router.replace('/(routes)/my-listings' as any);
     },
     onError: (error: Error) => {
       Toast.show({ type: 'error', text1: 'Submission Failed', text2: error.message });
@@ -129,7 +125,7 @@ export default function SellScreen() {
       navigation.setOptions({ headerTitle: 'Edit Product' });
       const fetchProduct = async () => {
         try {
-          const response = await axiosInstance.get(`/marketplace/api/products/${id}`);
+          const response = await axiosInstance.get(`/seller/api/products/${id}`);
           const product = response.data.data;
           
           reset({

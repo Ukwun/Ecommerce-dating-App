@@ -6,12 +6,63 @@ const AdminUser = require('../models/AdminUser');
 const Order = require('../models/Order');
 const User = require('../models/User');
 const Payment = require('../models/Payment');
+const Product = require('../models/Product');
+const SellerPayout = require('../models/SellerPayout');
+const SellerLedgerEntry = require('../models/SellerLedgerEntry');
+const { enqueuePayout } = require('../jobs/queue');
+const { invalidateProductCache } = require('../config/cache');
 const axios = require('axios');
 const { protect, adminWithPermission, logSecurityAction } = require('../middleware/admin');
 const sendResendEmail = require('../utils/resendEmail');
 const { enqueueEmail } = require('../jobs/queue');
 
 const router = express.Router();
+
+router.get('/products', protect, adminWithPermission('manage_products'), async (req, res) => {
+  const status = req.query.status || 'pending';
+  const products = await Product.find({ moderationStatus: status }).populate('seller', 'name email').sort({ createdAt: -1 }).limit(100);
+  res.json({ success: true, data: products });
+});
+
+router.post('/products/:id/approve', protect, adminWithPermission('manage_products'), async (req, res) => {
+  const product = await Product.findOneAndUpdate({ _id: req.params.id, moderationStatus: 'pending' }, { moderationStatus: 'approved', moderationReason: undefined, moderatedAt: new Date(), moderatedBy: req.admin._id }, { new: true });
+  if (!product) return res.status(404).json({ error: 'Pending listing not found' });
+  await invalidateProductCache();
+  res.json({ success: true, data: product });
+});
+
+router.post('/products/:id/reject', protect, adminWithPermission('manage_products'), async (req, res) => {
+  const reason = String(req.body.reason || '').trim();
+  if (!reason) return res.status(422).json({ error: 'A rejection reason is required' });
+  const product = await Product.findOneAndUpdate({ _id: req.params.id, moderationStatus: 'pending' }, { moderationStatus: 'rejected', moderationReason: reason, moderatedAt: new Date(), moderatedBy: req.admin._id }, { new: true });
+  if (!product) return res.status(404).json({ error: 'Pending listing not found' });
+  await invalidateProductCache();
+  res.json({ success: true, data: product });
+});
+
+router.get('/payouts', protect, adminWithPermission('manage_payments'), async (req, res) => {
+  const payouts = await SellerPayout.find({ status: req.query.status || 'requested' }).populate('seller', 'name email').populate('bankAccount').sort({ createdAt: -1 }).limit(100);
+  res.json({ success: true, data: payouts.map(row => ({ ...row.toObject(), bankAccount: row.bankAccount ? { ...row.bankAccount.toObject(), accountNumber: `******${row.bankAccount.accountNumber.slice(-4)}` } : null })) });
+});
+
+router.post('/payouts/:id/approve', protect, adminWithPermission('manage_payments'), async (req, res) => {
+  const payout = await SellerPayout.findOneAndUpdate({ _id: req.params.id, status: 'requested' }, { status: 'queued', reviewedBy: req.admin._id, reviewedAt: new Date() }, { new: true });
+  if (!payout) return res.status(404).json({ error: 'Pending withdrawal not found' });
+  if (!(await enqueuePayout(String(payout._id)))) {
+    payout.status = 'requested'; await payout.save();
+    return res.status(503).json({ error: 'Payout queue is unavailable' });
+  }
+  res.json({ success: true, data: payout });
+});
+
+router.post('/payouts/:id/reject', protect, adminWithPermission('manage_payments'), async (req, res) => {
+  const reason = String(req.body.reason || '').trim();
+  if (!reason) return res.status(422).json({ error: 'A rejection reason is required' });
+  const payout = await SellerPayout.findOneAndUpdate({ _id: req.params.id, status: 'requested' }, { status: 'rejected', rejectionReason: reason, reviewedBy: req.admin._id, reviewedAt: new Date(), $unset: { activeKey: 1 } }, { new: true });
+  if (!payout) return res.status(404).json({ error: 'Pending withdrawal not found' });
+  await SellerLedgerEntry.updateMany({ payout: payout._id }, { $unset: { payout: 1 }, $set: { status: 'available' } });
+  res.json({ success: true, data: payout });
+});
 
 // ============================================================================
 // SELLER VERIFICATION MANAGEMENT
@@ -505,6 +556,9 @@ router.get('/analytics/dashboard', protect, adminWithPermission('view_analytics'
   try {
     const totalUsers = await User.countDocuments();
     const totalSellers = await SellerProfile.countDocuments({ verificationStatus: 'approved' });
+    const pendingSellers = await SellerProfile.countDocuments({ verificationStatus: 'pending' });
+    const pendingProducts = await Product.countDocuments({ moderationStatus: 'pending' });
+    const pendingPayouts = await SellerPayout.countDocuments({ status: 'requested' });
     const totalOrders = await Order.countDocuments();
     const pendingReturns = await Return.countDocuments({ status: 'requested' });
     const openTickets = await SupportTicket.countDocuments({ status: 'open' });
@@ -522,9 +576,14 @@ router.get('/analytics/dashboard', protect, adminWithPermission('view_analytics'
       data: {
         totalUsers,
         totalSellers,
+        activeSellers: totalSellers,
+        pendingSellers,
+        pendingProducts,
+        pendingPayouts,
         totalOrders,
         totalRevenue,
         pendingReturns,
+        openReturns: pendingReturns,
         openTickets
       }
     });

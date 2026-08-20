@@ -27,13 +27,15 @@ router.post('/products', protect, seller, async (req, res) => {
       stock,
       sizes,
       colors,
-      images
+      images,
+      moderationStatus: 'pending'
     });
     await invalidateProductCache();
 
     res.status(201).json({
       success: true,
-      product
+      product,
+      message: 'Listing submitted for admin approval'
     });
   } catch (error) {
     console.error(error);
@@ -48,7 +50,7 @@ router.post('/products', protect, seller, async (req, res) => {
 router.get('/products', async (req, res) => {
   try {
     const { seller, page = 1, limit = 20, sort, search, category, minPrice, maxPrice, color, size } = req.query;
-    const query = {};
+    const query = { $or: [{ moderationStatus: 'approved' }, { moderationStatus: { $exists: false } }] };
     if (seller) query.seller = seller;
 
     // Search filter
@@ -110,7 +112,7 @@ router.get('/products/:id', async (req, res) => {
       return res.status(400).json({ success: false, message: 'Invalid Product ID format' });
     }
 
-    const product = await Product.findById(req.params.id)
+    const product = await Product.findOne({ _id: req.params.id, $or: [{ moderationStatus: 'approved' }, { moderationStatus: { $exists: false } }] })
       .populate('seller', 'name avatar businessName averageRating verified joinedDate')
       .lean();
 
@@ -127,7 +129,8 @@ router.get('/products/:id', async (req, res) => {
     // Cross-sell logic: Find items in the same category
     const similarItems = await Product.find({
       category: product.category,
-      _id: { $ne: product._id }
+      _id: { $ne: product._id },
+      $or: [{ moderationStatus: 'approved' }, { moderationStatus: { $exists: false } }]
     }).limit(6).select('name price images ratings');
 
     res.status(200).json({ 
@@ -148,7 +151,7 @@ router.get('/products/:id', async (req, res) => {
 });
 
 // Update product
-router.put('/products/:id', protect, async (req, res) => {
+router.put('/products/:id', protect, seller, async (req, res) => {
   try {
     let product = await Product.findById(req.params.id);
 
@@ -161,7 +164,15 @@ router.put('/products/:id', protect, async (req, res) => {
       return res.status(401).json({ success: false, message: 'Not authorized to update this product' });
     }
 
-    product = await Product.findByIdAndUpdate(req.params.id, req.body, {
+    const allowedFields = ['name', 'description', 'price', 'oldPrice', 'category', 'stock', 'sizes', 'colors', 'images'];
+    const updates = Object.fromEntries(allowedFields.filter(field => req.body[field] !== undefined).map(field => [field, req.body[field]]));
+    if (updates.images) {
+      if (!Array.isArray(updates.images) || updates.images.length === 0) return res.status(422).json({ success: false, message: 'At least one approved product image is required' });
+      const fileIds = updates.images.map(image => image.fileId).filter(Boolean);
+      const approvedCount = await UploadedAsset.countDocuments({ owner: req.user.id, fileId: { $in: fileIds }, moderationStatus: 'approved' });
+      if (approvedCount !== fileIds.length) return res.status(422).json({ success: false, message: 'Every product image must pass safety review before listing' });
+    }
+    product = await Product.findByIdAndUpdate(req.params.id, { ...updates, moderationStatus: 'pending', $unset: { moderationReason: 1, moderatedAt: 1, moderatedBy: 1 } }, {
       new: true,
       runValidators: true
     });

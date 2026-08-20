@@ -74,7 +74,7 @@ const adminWithPermission = (permission) => {
         return res.status(403).json({ message: 'Admin access required' });
       }
 
-      if (!adminUser.permissions.includes(permission)) {
+      if (adminUser.role !== 'super_admin' && !adminUser.permissions.includes(permission)) {
         logSecurityAction(req, 'unauthorized_access_attempt', 'blocked', `Missing permission: ${permission}`);
         return res.status(403).json({ message: `Permission required: ${permission}` });
       }

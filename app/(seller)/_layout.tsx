@@ -17,6 +17,7 @@ export default function SellerLayout() {
       <Stack.Screen name="seller-profile" options={{ title: 'My Profile', headerBackTitle: 'Back' }} />
       <Stack.Screen name="orders" options={{ title: 'My Orders', headerBackTitle: 'Back' }} />
       <Stack.Screen name="analytics" options={{ title: 'Analytics', headerBackTitle: 'Back' }} />
+      <Stack.Screen name="seller-finance" options={{ title: 'Banks & Withdrawals', headerBackTitle: 'Back' }} />
     </Stack>
   );
 }
