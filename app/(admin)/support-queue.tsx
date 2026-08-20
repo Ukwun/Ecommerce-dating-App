@@ -14,13 +14,7 @@ import { useTheme } from '@react-navigation/native';
 import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
 import { useQuery, useMutation } from '@tanstack/react-query';
-import axios from 'axios';
-import AsyncStorage from '@react-native-async-storage/async-storage';
-
-const API_BASE_URL =
-  process.env.EXPO_PUBLIC_SERVER_URI ||
-  process.env.EXPO_PUBLIC_BACKEND_URL ||
-  'https://ecommerce-dating-app.onrender.com';
+import axiosInstance from '@/utils/axiosinstance';
 
 export default function SupportQueueScreen() {
   const theme = useTheme();
@@ -34,25 +28,16 @@ export default function SupportQueueScreen() {
   const { data: tickets, isLoading, refetch } = useQuery({
     queryKey: ['admin-tickets', priorityFilter],
     queryFn: async () => {
-      const token = await AsyncStorage.getItem('userToken');
       const params = priorityFilter !== 'all' ? `?priority=${priorityFilter}` : '';
-      const response = await axios.get(
-        `${API_BASE_URL}/admin/api/support-tickets${params}`,
-        { headers: { Authorization: `Bearer ${token}` } }
-      );
-      return response.data.tickets || [];
+      const response = await axiosInstance.get(`/admin/api/support-tickets${params}`);
+      return response.data.data || [];
     },
   });
 
   // Reply mutation
   const replyMutation = useMutation({
     mutationFn: async (payload: { ticketId: string; message: string }) => {
-      const token = await AsyncStorage.getItem('userToken');
-      return axios.post(
-        `${API_BASE_URL}/admin/api/support-tickets/${payload.ticketId}/reply`,
-        { message: payload.message },
-        { headers: { Authorization: `Bearer ${token}` } }
-      );
+      return axiosInstance.post(`/admin/api/support-tickets/${payload.ticketId}/reply`, { message: payload.message });
     },
     onSuccess: () => {
       refetch();
@@ -68,12 +53,7 @@ export default function SupportQueueScreen() {
   // Close ticket mutation
   const closeMutation = useMutation({
     mutationFn: async (ticketId: string) => {
-      const token = await AsyncStorage.getItem('userToken');
-      return axios.put(
-        `${API_BASE_URL}/admin/api/support-tickets/${ticketId}/close`,
-        {},
-        { headers: { Authorization: `Bearer ${token}` } }
-      );
+      return axiosInstance.put(`/admin/api/support-tickets/${ticketId}/close`, {});
     },
     onSuccess: () => {
       refetch();

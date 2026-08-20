@@ -4,13 +4,8 @@ import { useTheme } from '@react-navigation/native';
 import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
 import { useQuery, useMutation } from '@tanstack/react-query';
-import axios from 'axios';
-import AsyncStorage from '@react-native-async-storage/async-storage';
-
-const API_BASE_URL =
-  process.env.EXPO_PUBLIC_SERVER_URI ||
-  process.env.EXPO_PUBLIC_BACKEND_URL ||
-  'https://ecommerce-dating-app.onrender.com';
+import axiosInstance from '@/utils/axiosinstance';
+import { router } from 'expo-router';
 
 export default function SellerProfileScreen() {
   const theme = useTheme();
@@ -31,22 +26,16 @@ export default function SellerProfileScreen() {
   const { data: profile, isLoading, refetch } = useQuery({
     queryKey: ['seller-profile'],
     queryFn: async () => {
-      const token = await AsyncStorage.getItem('userToken');
-      const response = await axios.get(`${API_BASE_URL}/seller/api/profile`, {
-        headers: { Authorization: `Bearer ${token}` },
-      });
-      setFormData(response.data);
-      return response.data;
+      const response = await axiosInstance.get('/seller/api/profile');
+      setFormData(response.data.data);
+      return response.data.data;
     },
   });
 
   // Update profile mutation
   const updateMutation = useMutation({
     mutationFn: async () => {
-      const token = await AsyncStorage.getItem('userToken');
-      return axios.put(`${API_BASE_URL}/seller/api/profile`, formData, {
-        headers: { Authorization: `Bearer ${token}` },
-      });
+      return axiosInstance.put('/seller/api/profile', formData);
     },
     onSuccess: () => {
       refetch();
@@ -127,7 +116,7 @@ export default function SellerProfileScreen() {
       <View style={[styles.section, { backgroundColor: theme.colors.card }]}>
         <View style={styles.sectionHeader}>
           <ThemedText style={styles.sectionTitle}>Bank Details</ThemedText>
-          <TouchableOpacity onPress={() => setEditMode(!editMode)}>
+          <TouchableOpacity onPress={() => router.push('/(seller)/seller-finance' as any)}>
             <ThemedText style={styles.editButton}>{editMode ? '✓ Done' : '✏️ Edit'}</ThemedText>
           </TouchableOpacity>
         </View>
@@ -135,7 +124,7 @@ export default function SellerProfileScreen() {
         <ProfileField
           label="Bank Name"
           value={formData.bankDetails?.bankName || ''}
-          editable={editMode}
+          editable={false}
           onChangeText={(text: string) =>
             setFormData({
               ...formData,
@@ -146,7 +135,7 @@ export default function SellerProfileScreen() {
         <ProfileField
           label="Account Name"
           value={formData.bankDetails?.accountName || ''}
-          editable={editMode}
+          editable={false}
           onChangeText={(text: string) =>
             setFormData({
               ...formData,
@@ -157,7 +146,7 @@ export default function SellerProfileScreen() {
         <ProfileField
           label="Account Number"
           value={formData.bankDetails?.accountNumber || ''}
-          editable={editMode}
+          editable={false}
           onChangeText={(text: string) =>
             setFormData({
               ...formData,

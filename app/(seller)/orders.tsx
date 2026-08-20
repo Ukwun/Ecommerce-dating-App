@@ -4,13 +4,7 @@ import { useTheme } from '@react-navigation/native';
 import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
 import { useQuery } from '@tanstack/react-query';
-import axios from 'axios';
-import AsyncStorage from '@react-native-async-storage/async-storage';
-
-const API_BASE_URL =
-  process.env.EXPO_PUBLIC_SERVER_URI ||
-  process.env.EXPO_PUBLIC_BACKEND_URL ||
-  'https://ecommerce-dating-app.onrender.com';
+import axiosInstance from '@/utils/axiosinstance';
 
 export default function SellerOrdersScreen() {
   const theme = useTheme();
@@ -21,12 +15,9 @@ export default function SellerOrdersScreen() {
   const { data: orders, isLoading, refetch } = useQuery({
     queryKey: ['seller-orders', statusFilter],
     queryFn: async () => {
-      const token = await AsyncStorage.getItem('userToken');
       const params = statusFilter !== 'all' ? `?status=${statusFilter}` : '';
-      const response = await axios.get(`${API_BASE_URL}/seller/api/orders${params}`, {
-        headers: { Authorization: `Bearer ${token}` },
-      });
-      return response.data.orders || [];
+      const response = await axiosInstance.get(`/seller/api/orders${params}`);
+      return response.data.data || [];
     },
   });
 

@@ -97,7 +97,7 @@ export default function SellerDashboard() {
           value={`${(dashboard?.avgRating || 0).toFixed(1)}/5`}
           icon="⭐"
           color="#F59E0B"
-          onPress={() => {}}
+          onPress={() => router.push('/(seller)/analytics')}
         />
         <MetricCard
           label="Products"

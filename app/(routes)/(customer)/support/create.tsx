@@ -13,10 +13,7 @@ import { useTheme } from '@react-navigation/native';
 import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
 import { useMutation, useQuery } from '@tanstack/react-query';
-import axios from 'axios';
-import AsyncStorage from '@react-native-async-storage/async-storage';
-
-const API_BASE_URL = process.env.EXPO_PUBLIC_SERVER_URI || 'https://ecommerce-dating-app.onrender.com';
+import axiosInstance from '@/utils/axiosinstance';
 
 const CATEGORIES = [
   { id: 'order_issue', label: 'Order Issue', icon: '📦' },
@@ -41,32 +38,27 @@ export default function SupportCreateScreen() {
   const { data: orders } = useQuery({
     queryKey: ['user-orders'],
     queryFn: async () => {
-      const token = await AsyncStorage.getItem('userToken');
-      const response = await axios.get(`${API_BASE_URL}/marketplace/api/orders?limit=20`, {
-        headers: { Authorization: `Bearer ${token}` },
-      });
-      return response.data.orders || [];
+      const response = await axiosInstance.get('/marketplace/api/orders?limit=20');
+      return response.data.data || response.data.orders || [];
     },
   });
 
   // Create ticket mutation
   const createTicketMutation = useMutation({
     mutationFn: async () => {
-      const token = await AsyncStorage.getItem('userToken');
-      return axios.post(
-        `${API_BASE_URL}/support/api/tickets`,
+      return axiosInstance.post(
+        '/support/api/tickets',
         {
           category,
           subject,
-          message,
-        },
-        { headers: { Authorization: `Bearer ${token}` } }
+          description: message,
+        }
       );
     },
     onSuccess: (response) => {
       Alert.alert(
         'Success',
-        `Support ticket created. Ticket number: ${response.data.ticketNumber}`,
+        `Support ticket created. Ticket number: ${response.data.data?.ticketNumber}`,
         [
           {
             text: 'View Ticket',

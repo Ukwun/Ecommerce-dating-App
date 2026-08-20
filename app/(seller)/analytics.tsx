@@ -4,13 +4,7 @@ import { useTheme } from '@react-navigation/native';
 import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
 import { useQuery } from '@tanstack/react-query';
-import axios from 'axios';
-import AsyncStorage from '@react-native-async-storage/async-storage';
-
-const API_BASE_URL =
-  process.env.EXPO_PUBLIC_SERVER_URI ||
-  process.env.EXPO_PUBLIC_BACKEND_URL ||
-  'https://ecommerce-dating-app.onrender.com';
+import axiosInstance from '@/utils/axiosinstance';
 
 export default function SellerAnalyticsScreen() {
   const theme = useTheme();
@@ -21,12 +15,8 @@ export default function SellerAnalyticsScreen() {
   const { data: analytics, isLoading, refetch } = useQuery({
     queryKey: ['seller-analytics', timeRange],
     queryFn: async () => {
-      const token = await AsyncStorage.getItem('userToken');
-      const response = await axios.get(
-        `${API_BASE_URL}/seller/api/analytics?range=${timeRange}`,
-        { headers: { Authorization: `Bearer ${token}` } }
-      );
-      return response.data;
+      const response = await axiosInstance.get(`/seller/api/analytics?range=${timeRange}`);
+      return response.data.data;
     },
   });
 

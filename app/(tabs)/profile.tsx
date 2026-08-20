@@ -132,14 +132,14 @@ export default function ProfileScreen() {
       color: '#FFD700',
       iconLib: Feather
     }] : []),
-    {
+    ...(user?.roles?.seller?.status === 'approved' ? [{
       icon: 'list',
       label: 'My Listings',
       description: 'Manage your products',
       route: '/(routes)/my-listings',
       color: '#8B5CF6',
       iconLib: Feather
-    },
+    }] : []),
     {
       icon: 'shopping-bag',
       label: 'My Orders',
@@ -170,6 +170,22 @@ export default function ProfileScreen() {
       description: 'Delivery preferences',
       route: '/(routes)/shipping',
       color: '#10B981',
+      iconLib: Feather
+    },
+    {
+      icon: 'rotate-ccw',
+      label: 'Returns',
+      description: 'Request or track a return',
+      route: '/(routes)/(customer)/returns/status',
+      color: '#D97706',
+      iconLib: Feather
+    },
+    {
+      icon: 'help-circle',
+      label: 'Help & Support',
+      description: 'Contact support and view tickets',
+      route: '/(routes)/(customer)/support/chat',
+      color: '#0284C7',
       iconLib: Feather
     },
     {

@@ -13,13 +13,7 @@ import { useTheme } from '@react-navigation/native';
 import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
 import { useQuery, useMutation } from '@tanstack/react-query';
-import axios from 'axios';
-import AsyncStorage from '@react-native-async-storage/async-storage';
-
-const API_BASE_URL =
-  process.env.EXPO_PUBLIC_SERVER_URI ||
-  process.env.EXPO_PUBLIC_BACKEND_URL ||
-  'https://ecommerce-dating-app.onrender.com';
+import axiosInstance from '@/utils/axiosinstance';
 
 export default function ReturnsManagementScreen() {
   const theme = useTheme();
@@ -30,24 +24,15 @@ export default function ReturnsManagementScreen() {
   const { data: returns, isLoading, refetch } = useQuery({
     queryKey: ['admin-returns', statusFilter],
     queryFn: async () => {
-      const token = await AsyncStorage.getItem('userToken');
-      const response = await axios.get(
-        `${API_BASE_URL}/admin/api/returns?status=${statusFilter}&limit=50`,
-        { headers: { Authorization: `Bearer ${token}` } }
-      );
-      return response.data.returns || [];
+      const response = await axiosInstance.get(`/admin/api/returns?status=${statusFilter}&limit=50`);
+      return response.data.data || [];
     },
   });
 
   // Approve mutation
   const approveMutation = useMutation({
     mutationFn: async (returnId) => {
-      const token = await AsyncStorage.getItem('userToken');
-      return axios.post(
-        `${API_BASE_URL}/admin/api/returns/${returnId}/approve`,
-        {},
-        { headers: { Authorization: `Bearer ${token}` } }
-      );
+      return axiosInstance.post(`/admin/api/returns/${returnId}/approve`, {});
     },
     onSuccess: () => {
       refetch();
@@ -61,12 +46,7 @@ export default function ReturnsManagementScreen() {
   // Process refund
   const refundMutation = useMutation({
     mutationFn: async (returnId) => {
-      const token = await AsyncStorage.getItem('userToken');
-      return axios.post(
-        `${API_BASE_URL}/admin/api/returns/${returnId}/refund-approve`,
-        {},
-        { headers: { Authorization: `Bearer ${token}` } }
-      );
+      return axiosInstance.post(`/admin/api/returns/${returnId}/refund-approve`, {});
     },
     onSuccess: () => {
       refetch();

@@ -15,15 +15,13 @@ import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
 import * as ImagePicker from 'expo-image-picker';
 import { useMutation, useQuery } from '@tanstack/react-query';
-import axios from 'axios';
-import AsyncStorage from '@react-native-async-storage/async-storage';
-
-const API_BASE_URL = process.env.EXPO_PUBLIC_SERVER_URI || 'https://ecommerce-dating-app.onrender.com';
+import axiosInstance from '@/utils/axiosinstance';
 
 export default function ReturnRequestScreen() {
   const router = useRouter();
   const theme = useTheme();
   const [selectedOrder, setSelectedOrder] = useState(null);
+  const [selectedProduct, setSelectedProduct] = useState<any>(null);
   const [reason, setReason] = useState('');
   const [description, setDescription] = useState('');
   const [images, setImages] = useState<string[]>([]);
@@ -40,43 +38,27 @@ export default function ReturnRequestScreen() {
   const { data: orders, isLoading } = useQuery({
     queryKey: ['eligible-orders'],
     queryFn: async () => {
-      const token = await AsyncStorage.getItem('userToken');
-      const response = await axios.get(
-        `${API_BASE_URL}/marketplace/api/returns/eligible-orders`,
-        { headers: { Authorization: `Bearer ${token}` } }
-      );
-      return response.data.orders || [];
+      const response = await axiosInstance.get('/marketplace/api/orders?status=delivered&limit=50');
+      return response.data.data || [];
     },
   });
 
   // Create return request mutation
   const createReturnMutation = useMutation({
     mutationFn: async () => {
-      const token = await AsyncStorage.getItem('userToken');
-      const formData = new FormData();
-      formData.append('orderId', (selectedOrder as any)?._id);
-      formData.append('reason', reason);
-      formData.append('description', description);
-
-      images.forEach((image: any, index: number) => {
-        formData.append(`images[${index}]`, {
-          uri: image,
-          type: 'image/jpeg',
-          name: `return-${index}.jpg`,
-        } as any);
-      });
-
-      return axios.post(`${API_BASE_URL}/marketplace/api/returns/requests`, formData, {
-        headers: {
-          Authorization: `Bearer ${token}`,
-          'Content-Type': 'multipart/form-data',
-        },
+      const item = selectedProduct;
+      if (!item?.product?._id && !item?.product) throw new Error('This order has no returnable item');
+      return axiosInstance.post('/marketplace/api/returns/requests', {
+        orderId: (selectedOrder as any)?._id,
+        products: [{ productId: item.product?._id || item.product, quantity: item.quantity }],
+        reason,
+        detailedReason: description,
       });
     },
     onSuccess: (response) => {
       Alert.alert(
         'Success',
-        `Return request created. Return number: ${response.data.returnNumber}`,
+        `Return request created. Return number: ${response.data.data?.returnNumber}`,
         [
           {
             text: 'View Status',
@@ -173,18 +155,18 @@ export default function ReturnRequestScreen() {
                 styles.orderOption,
                 (selectedOrder as any)?._id === order._id && { backgroundColor: '#DBEAFE' },
               ]}
-              onPress={() => setSelectedOrder(order)}
+              onPress={() => { setSelectedOrder(order); setSelectedProduct(null); }}
             >
               <View style={styles.orderDetails}>
                 <ThemedText style={styles.orderId}>
-                  {(selectedOrder as any)?._id === order._id ? '✓ ' : ''}Order #{order._id}
+                  {(selectedOrder as any)?._id === order._id ? '✓ ' : ''}Order #{order.orderNumber || order._id}
                 </ThemedText>
-                <ThemedText style={styles.productName}>{order.productName}</ThemedText>
+                <ThemedText style={styles.productName}>{order.products?.length || 0} item(s)</ThemedText>
                 <ThemedText style={styles.orderDate}>
-                  Delivered: {new Date(order.deliveredDate).toLocaleDateString()}
+                  Delivered: {new Date(order.deliveredAt || order.updatedAt).toLocaleDateString()}
                 </ThemedText>
               </View>
-              <ThemedText style={styles.price}>₦{order.price}</ThemedText>
+              <ThemedText style={styles.price}>₦{Number(order.total || 0).toLocaleString()}</ThemedText>
             </TouchableOpacity>
           ))
         )}
@@ -192,6 +174,13 @@ export default function ReturnRequestScreen() {
 
       {selectedOrder && (
         <>
+          <View style={[styles.section, { backgroundColor: theme.colors.card }]}>
+            <ThemedText style={styles.stepTitle}>Choose the item to return</ThemedText>
+            {(selectedOrder as any).products?.map((item: any) => {
+              const productId = item.product?._id || item.product;
+              return <TouchableOpacity key={String(productId)} style={[styles.reasonButton, (selectedProduct?.product?._id || selectedProduct?.product) === productId && { backgroundColor: '#DBEAFE' }]} onPress={() => setSelectedProduct(item)}><View style={styles.radioButton}>{(selectedProduct?.product?._id || selectedProduct?.product) === productId && <View style={styles.radioDot} />}</View><ThemedText style={styles.reasonText}>{item.product?.name || 'Purchased item'} · Qty {item.quantity}</ThemedText></TouchableOpacity>;
+            })}
+          </View>
           {/* Step 2: Reason */}
           <View style={[styles.section, { backgroundColor: theme.colors.card }]}>
             <ThemedText style={styles.stepTitle}>Step 2: Reason for Return</ThemedText>
@@ -282,13 +271,17 @@ export default function ReturnRequestScreen() {
                 Alert.alert('Missing Field', 'Please select a reason for return');
                 return;
               }
+              if (!selectedProduct) {
+                Alert.alert('Missing Item', 'Please select the item you want to return');
+                return;
+              }
               if (!description.trim()) {
                 Alert.alert('Missing Field', 'Please provide a detailed description');
                 return;
               }
               createReturnMutation.mutate();
             }}
-            disabled={createReturnMutation.isPending || (!reason || !description.trim())}
+            disabled={createReturnMutation.isPending || (!selectedProduct || !reason || !description.trim())}
           >
             <ThemedText style={styles.submitButtonText}>
               {createReturnMutation.isPending ? '⏳ Processing...' : '✓ Submit Return Request'}

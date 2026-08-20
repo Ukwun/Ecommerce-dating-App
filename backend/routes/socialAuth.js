@@ -43,8 +43,8 @@ const serializeUser = async (user) => {
 
 const finishLogin = async (provider, identity) => {
   const providerPath = `authProviders.${provider}.id`;
-  let user = await User.findOne({ [providerPath]: identity.id });
-  if (!user && identity.emailVerified) user = await User.findOne({ email: identity.email.toLowerCase() });
+  let user = await User.findOne({ [providerPath]: identity.id, accountStatus: { $ne: 'deleted' } });
+  if (!user && identity.emailVerified) user = await User.findOne({ email: identity.email.toLowerCase(), accountStatus: { $ne: 'deleted' } });
   if (!user) {
     user = await User.create({
       name: identity.name || identity.email.split('@')[0],

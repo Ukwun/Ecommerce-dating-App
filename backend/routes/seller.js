@@ -113,9 +113,12 @@ router.post('/apply', protect, async (req, res) => {
 // ✅ Update seller profile
 router.put('/profile', protect, seller, async (req, res) => {
   try {
-    const { businessDescription, contactEmail, contactPhone, businessWebsite, storeDescription } = req.body;
+    const { businessName, businessCategory, registrationNumber, businessDescription, contactEmail, contactPhone, businessWebsite, storeDescription } = req.body;
 
     const updateData = {};
+    if (businessName) updateData.businessName = String(businessName).trim();
+    if (businessCategory) updateData.businessCategory = businessCategory;
+    if (registrationNumber !== undefined) updateData.registrationNumber = String(registrationNumber).trim();
     if (businessDescription) updateData.businessDescription = businessDescription;
     if (contactEmail) updateData.contactEmail = contactEmail;
     if (contactPhone) updateData.contactPhone = contactPhone;

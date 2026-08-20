@@ -58,9 +58,9 @@ const serializeUser = async (user) => {
 
 const finishSocialLogin = async (provider, identity) => {
   const providerPath = `authProviders.${provider}.id`;
-  let user = await User.findOne({ [providerPath]: identity.id });
+  let user = await User.findOne({ [providerPath]: identity.id, accountStatus: { $ne: 'deleted' } });
   if (!user && identity.emailVerified && identity.email) {
-    user = await User.findOne({ email: identity.email.toLowerCase() });
+    user = await User.findOne({ email: identity.email.toLowerCase(), accountStatus: { $ne: 'deleted' } });
   }
   if (!user) {
     user = await User.create({
@@ -129,7 +129,7 @@ router.post('/login', async (req, res) => {
     const { email, password } = req.body;
     if (!email || !password) return res.status(400).json({ success: false, error: "Email and password required" });
 
-    const user = await User.findOne({ email: email.trim().toLowerCase() }).select('+password +authVersion');
+    const user = await User.findOne({ email: email.trim().toLowerCase(), accountStatus: { $ne: 'deleted' } }).select('+password +authVersion');
     if (!user || !(await bcrypt.compare(password, user.password))) {
       return res.status(401).json({ success: false, error: "Invalid credentials" });
     }

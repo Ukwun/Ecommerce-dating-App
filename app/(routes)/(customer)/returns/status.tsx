@@ -12,13 +12,12 @@ import { useIsFocused , useTheme } from '@react-navigation/native';
 import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
 import { useQuery } from '@tanstack/react-query';
-import axios from 'axios';
-import AsyncStorage from '@react-native-async-storage/async-storage';
-
-const API_BASE_URL = process.env.EXPO_PUBLIC_SERVER_URI || 'https://ecommerce-dating-app.onrender.com';
+import axiosInstance from '@/utils/axiosinstance';
+import { useRouter } from 'expo-router';
 
 export default function ReturnStatusScreen() {
   const theme = useTheme();
+  const router = useRouter();
   const [refreshing, setRefreshing] = useState(false);
   const isFocused = useIsFocused();
 
@@ -26,11 +25,8 @@ export default function ReturnStatusScreen() {
   const { data: returns, isLoading, refetch } = useQuery({
     queryKey: ['my-returns'],
     queryFn: async () => {
-      const token = await AsyncStorage.getItem('userToken');
-      const response = await axios.get(`${API_BASE_URL}/marketplace/api/returns/my-returns`, {
-        headers: { Authorization: `Bearer ${token}` },
-      });
-      return response.data.returns || [];
+      const response = await axiosInstance.get('/marketplace/api/returns/my-returns');
+      return response.data.data || [];
     },
     enabled: isFocused,
   });
@@ -61,6 +57,7 @@ export default function ReturnStatusScreen() {
           <ThemedText style={styles.emptySubtext}>
             Your return requests will appear here
           </ThemedText>
+          <TouchableOpacity style={styles.newRequestButton} onPress={() => router.push('/(routes)/(customer)/returns/request' as any)}><ThemedText style={styles.newRequestText}>Request a return</ThemedText></TouchableOpacity>
         </View>
       ) : (
         returns?.map((returnItem: any) => (
@@ -364,4 +361,6 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     alignItems: 'center',
   },
+  newRequestButton: { marginTop: 18, backgroundColor: '#F97316', paddingHorizontal: 18, paddingVertical: 12, borderRadius: 12 },
+  newRequestText: { color: '#FFF', fontWeight: '700' },
 });

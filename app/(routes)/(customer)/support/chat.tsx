@@ -15,13 +15,12 @@ import { useIsFocused , useTheme } from '@react-navigation/native';
 import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
 import { useQuery, useMutation } from '@tanstack/react-query';
-import axios from 'axios';
-import AsyncStorage from '@react-native-async-storage/async-storage';
-
-const API_BASE_URL = process.env.EXPO_PUBLIC_SERVER_URI || 'https://ecommerce-dating-app.onrender.com';
+import axiosInstance from '@/utils/axiosinstance';
+import { useRouter } from 'expo-router';
 
 export default function SupportChatScreen() {
   const theme = useTheme();
+  const router = useRouter();
   const isFocused = useIsFocused();
   const [selectedTicket, setSelectedTicket] = useState(null);
   const [newMessage, setNewMessage] = useState('');
@@ -31,11 +30,8 @@ export default function SupportChatScreen() {
   const { data: tickets, isLoading, refetch } = useQuery({
     queryKey: ['my-tickets'],
     queryFn: async () => {
-      const token = await AsyncStorage.getItem('userToken');
-      const response = await axios.get(`${API_BASE_URL}/support/api/tickets`, {
-        headers: { Authorization: `Bearer ${token}` },
-      });
-      return response.data.tickets || [];
+      const response = await axiosInstance.get('/support/api/tickets');
+      return response.data.data || [];
     },
     enabled: isFocused,
   });
@@ -44,12 +40,8 @@ export default function SupportChatScreen() {
   const { data: ticketDetail, isLoading: ticketLoading, error: ticketError } = useQuery({
     queryKey: ['ticket-detail', (selectedTicket as any)?._id],
     queryFn: async () => {
-      const token = await AsyncStorage.getItem('userToken');
-      const response = await axios.get(
-        `${API_BASE_URL}/support/api/tickets/${(selectedTicket as any)?._id}`,
-        { headers: { Authorization: `Bearer ${token}` } }
-      );
-      return response.data;
+      const response = await axiosInstance.get(`/support/api/tickets/${(selectedTicket as any)?._id}`);
+      return response.data.data;
     },
     enabled: !!selectedTicket,
   });
@@ -57,12 +49,7 @@ export default function SupportChatScreen() {
   // Send message mutation
   const sendMessageMutation = useMutation({
     mutationFn: async (message: string) => {
-      const token = await AsyncStorage.getItem('userToken');
-      return axios.post(
-        `${API_BASE_URL}/support/api/tickets/${(selectedTicket as any)?._id}/messages`,
-        { message },
-        { headers: { Authorization: `Bearer ${token}` } }
-      );
+      return axiosInstance.post(`/support/api/tickets/${(selectedTicket as any)?._id}/messages`, { message });
     },
     onSuccess: () => {
       setNewMessage('');
@@ -76,12 +63,7 @@ export default function SupportChatScreen() {
   // Close ticket mutation
   const closeTicketMutation = useMutation({
     mutationFn: async () => {
-      const token = await AsyncStorage.getItem('userToken');
-      return axios.put(
-        `${API_BASE_URL}/support/api/tickets/${(selectedTicket as any)?._id}/close`,
-        {},
-        { headers: { Authorization: `Bearer ${token}` } }
-      );
+      return axiosInstance.put(`/support/api/tickets/${(selectedTicket as any)?._id}/close`, {});
     },
     onSuccess: () => {
       Alert.alert('Success', 'Ticket closed');
@@ -121,6 +103,7 @@ export default function SupportChatScreen() {
               <ThemedText style={styles.emptySubtext}>
                 Create a ticket if you need help
               </ThemedText>
+              <TouchableOpacity style={styles.createButton} onPress={() => router.push('/(routes)/(customer)/support/create' as any)}><ThemedText style={styles.createButtonText}>Create support ticket</ThemedText></TouchableOpacity>
             </View>
           ) : (
             tickets?.map((ticket: any) => (
@@ -505,4 +488,6 @@ const styles = StyleSheet.create({
     fontWeight: '600',
     fontSize: 13,
   },
+  createButton: { marginTop: 18, backgroundColor: '#F97316', paddingHorizontal: 18, paddingVertical: 12, borderRadius: 12 },
+  createButtonText: { color: '#FFF', fontWeight: '700' },
 });
