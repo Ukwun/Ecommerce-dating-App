@@ -16,8 +16,7 @@
     "ios": {
       "supportsTablet": true,
       "bundleIdentifier": "com.marketplace.app",
-      "buildNumber": "1",
-      "usesAppleSignIn": true
+      "buildNumber": "1"
     },
     "android": {
       "package": "com.marketplace.app",
@@ -52,7 +51,6 @@
         }
       ],
       "expo-web-browser",
-      "expo-apple-authentication",
       [
         "expo-notifications",
         {

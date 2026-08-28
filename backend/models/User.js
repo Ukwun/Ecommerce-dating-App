@@ -7,9 +7,7 @@ const userSchema = new mongoose.Schema({
   avatar: { type: String },
   emailVerified: { type: Boolean, default: false },
   authProviders: {
-    google: { id: String },
     facebook: { id: String },
-    apple: { id: String },
   },
   lastLoginAt: Date,
   resetPasswordToken: String,

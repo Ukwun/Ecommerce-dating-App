@@ -14,7 +14,7 @@ import Toast from 'react-native-toast-message';
 import { useRouter } from 'expo-router';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Controller, useForm } from 'react-hook-form';
-import { Ionicons, MaterialCommunityIcons, AntDesign } from '@expo/vector-icons';
+import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
 import { useMutation } from '@tanstack/react-query';
 import Animated, { FadeInDown, SlideInUp, ZoomIn } from 'react-native-reanimated';
 import useSocialAuth from '@/hooks/useSocialAuth';
@@ -59,7 +59,7 @@ export default function SignupScreen({ onSignIn }: { onSignIn?: () => void } = {
   const [showPassword, setShowPassword] = useState(false);
   const router = useRouter();
   const { login } = useAuth();
-  const { promptGoogle, promptFacebook, promptApple, isGoogleLoading, isFacebookLoading, isAppleLoading, isPending, availability } = useSocialAuth();
+  const { promptFacebook, isFacebookLoading, isPending, availability } = useSocialAuth();
 
   const signupForm = useForm<SignupFormData>({
     mode: 'onChange',
@@ -242,27 +242,10 @@ export default function SignupScreen({ onSignIn }: { onSignIn?: () => void } = {
 
           {/* OAuth Buttons */}
           <AnimatedView entering={SlideInUp.delay(400).springify()} style={styles.oauthContainer}>
-            {/* Google */}
-            <AnimatedButton
-              onPress={promptGoogle}
-              style={[styles.oauthButton, { marginBottom: 12 }]}
-              disabled={isGoogleLoading || isPending || !availability.google}
-              haptic="light"
-            >
-              {isGoogleLoading ? (
-                <ActivityIndicator size="small" color="#1F2937" />
-              ) : (
-                <>
-                  <Ionicons name="logo-google" size={20} color="#EA4335" />
-                  <Text style={styles.oauthText}>{availability.google ? 'Google' : 'Google unavailable'}</Text>
-                </>
-              )}
-            </AnimatedButton>
-
             {/* Facebook */}
             <AnimatedButton
               onPress={promptFacebook}
-              style={[styles.oauthButton, { marginBottom: 12 }]}
+              style={styles.oauthButton}
               disabled={isFacebookLoading || isPending || !availability.facebook}
               haptic="light"
             >
@@ -276,24 +259,6 @@ export default function SignupScreen({ onSignIn }: { onSignIn?: () => void } = {
               )}
             </AnimatedButton>
 
-            {/* Apple */}
-            {Platform.OS === 'ios' && (
-              <AnimatedButton
-                onPress={promptApple}
-                style={styles.oauthButton}
-                disabled={isAppleLoading || isPending || !availability.apple}
-                haptic="light"
-              >
-                {isAppleLoading ? (
-                  <ActivityIndicator size="small" color="#1F2937" />
-                ) : (
-                  <>
-                    <AntDesign name="apple" size={20} color="#000" style={{ marginRight: 8 }} />
-                    <Text style={styles.oauthText}>Apple</Text>
-                  </>
-                )}
-              </AnimatedButton>
-            )}
           </AnimatedView>
 
           {/* Sign In Link */}
