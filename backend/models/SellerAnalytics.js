@@ -102,7 +102,6 @@ const sellerAnalyticsSchema = new mongoose.Schema({
 });
 
 // Index for faster queries
-sellerAnalyticsSchema.index({ sellerId: 1 });
 sellerAnalyticsSchema.index({ lastUpdated: 1 });
 
 module.exports = mongoose.model('SellerAnalytics', sellerAnalyticsSchema);

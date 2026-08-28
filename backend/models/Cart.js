@@ -66,7 +66,4 @@ cartSchema.methods.calculateTotals = function() {
   return this;
 };
 
-// Indexes
-cartSchema.index({ user: 1 });
-
 module.exports = mongoose.model('Cart', cartSchema);

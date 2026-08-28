@@ -10,7 +10,8 @@
       },
       "env": {
         "EXPO_PUBLIC_BACKEND_URL": "https://ecommerce-dating-app.onrender.com",
-        "EXPO_PUBLIC_SERVER_URI": "https://ecommerce-dating-app.onrender.com"
+        "EXPO_PUBLIC_SERVER_URI": "https://ecommerce-dating-app.onrender.com",
+        "EXPO_PUBLIC_FACEBOOK_APP_ID": "1595550508751850"
       }
     },
     "preview2": {
@@ -19,7 +20,8 @@
       },
       "env": {
         "EXPO_PUBLIC_BACKEND_URL": "https://ecommerce-dating-app.onrender.com",
-        "EXPO_PUBLIC_SERVER_URI": "https://ecommerce-dating-app.onrender.com"
+        "EXPO_PUBLIC_SERVER_URI": "https://ecommerce-dating-app.onrender.com",
+        "EXPO_PUBLIC_FACEBOOK_APP_ID": "1595550508751850"
       }
     },
     "preview3": {
@@ -28,7 +30,8 @@
       },
       "env": {
         "EXPO_PUBLIC_BACKEND_URL": "https://ecommerce-dating-app.onrender.com",
-        "EXPO_PUBLIC_SERVER_URI": "https://ecommerce-dating-app.onrender.com"
+        "EXPO_PUBLIC_SERVER_URI": "https://ecommerce-dating-app.onrender.com",
+        "EXPO_PUBLIC_FACEBOOK_APP_ID": "1595550508751850"
       }
     },
     "production": {
@@ -37,7 +40,8 @@
       },
       "env": {
         "EXPO_PUBLIC_BACKEND_URL": "https://ecommerce-dating-app.onrender.com",
-        "EXPO_PUBLIC_SERVER_URI": "https://ecommerce-dating-app.onrender.com"
+        "EXPO_PUBLIC_SERVER_URI": "https://ecommerce-dating-app.onrender.com",
+        "EXPO_PUBLIC_FACEBOOK_APP_ID": "1595550508751850"
       }
     }
   },

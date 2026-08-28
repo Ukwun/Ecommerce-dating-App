@@ -47,8 +47,7 @@ const userActivitySchema = new mongoose.Schema({
   price: Number,
   timestamp: {
     type: Date,
-    default: Date.now,
-    index: true
+    default: Date.now
   },
   metadata: {
     duration: Number, // How long user viewed product (in seconds)

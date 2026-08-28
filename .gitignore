@@ -22,6 +22,7 @@ expo-env.d.ts
 .expo-production-check/
 .expo-auth-check*/
 .expo-*-check/
+.expo-*-audit/
 
 # Metro
 .metro-health-check*
