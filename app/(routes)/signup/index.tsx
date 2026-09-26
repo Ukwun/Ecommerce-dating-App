@@ -6,6 +6,7 @@ import {
   KeyboardAvoidingView,
   ScrollView,
   Platform,
+  Linking,
   TouchableOpacity,
   StyleSheet,
   ActivityIndicator,
@@ -201,12 +202,14 @@ export default function SignupScreen({ onSignIn }: { onSignIn?: () => void } = {
             name="acceptedTerms"
             rules={{ validate: (value) => value || 'You must accept the Terms and Privacy Policy' }}
             render={({ field: { value, onChange } }) => (
-              <TouchableOpacity onPress={() => onChange(!value)} style={{ flexDirection: 'row', alignItems: 'flex-start', marginTop: 22 }} accessibilityRole="checkbox" accessibilityState={{ checked: value }}>
-                <Ionicons name={value ? 'checkbox' : 'square-outline'} size={24} color={value ? '#2563EB' : '#6B7280'} />
+              <View style={{ flexDirection: 'row', alignItems: 'flex-start', marginTop: 22 }}>
+                <TouchableOpacity onPress={() => onChange(!value)} accessibilityRole="checkbox" accessibilityState={{ checked: value }}>
+                  <Ionicons name={value ? 'checkbox' : 'square-outline'} size={24} color={value ? '#2563EB' : '#6B7280'} />
+                </TouchableOpacity>
                 <Text style={{ flex: 1, marginLeft: 10, color: '#4B5563', lineHeight: 20 }}>
-                  I agree to the Terms of Service and Privacy Policy.
+                  I agree to the <Text style={styles.legalLink} onPress={() => Linking.openURL('https://com.bizmingle.app/terms')}>Terms of Service</Text> and acknowledge the <Text style={styles.legalLink} onPress={() => Linking.openURL('https://com.bizmingle.app/privacy-policy')}>Privacy Policy</Text>.
                 </Text>
-              </TouchableOpacity>
+              </View>
             )}
           />
           {signupForm.formState.errors.acceptedTerms && <Text style={styles.errorText}>{signupForm.formState.errors.acceptedTerms.message}</Text>}
@@ -312,4 +315,5 @@ const styles = StyleSheet.create({
   signinContainer: { flexDirection: 'row', justifyContent: 'center', marginVertical: 32, marginBottom: 48 },
   signinText: { color: '#6B7280', fontSize: 15 },
   signinLink: { color: '#2563EB', fontWeight: 'bold', fontSize: 15 },
+  legalLink: { color: '#2563EB', fontWeight: '700' },
 });

@@ -43,6 +43,14 @@ export default function CheckoutScreen() {
     },
   });
 
+  const { data: paymentReadiness, isLoading: checkingPayments } = useQuery({
+    queryKey: ['paymentReadiness'],
+    queryFn: async () => (await axiosInstance.get('/marketplace/api/payments/readiness', { timeout: 8000 })).data?.data,
+    staleTime: 5 * 60_000,
+    retry: 0,
+  });
+  const paymentsAvailable = paymentReadiness?.paymentsAvailable !== false;
+
   useEffect(() => {
     if (addresses.length > 0 && !selectedAddress) {
       const def = addresses.find(a => a.isDefault) || addresses[0];
@@ -51,7 +59,11 @@ export default function CheckoutScreen() {
   }, [addresses, selectedAddress]);
 
   const subtotal = items.reduce((s, i) => s + i.price * i.quantity, 0);
-  const shipping: number = deliveryOption === 'station' ? 1000 : 2500;
+  // Keep the displayed amount and the amount sent to the order API identical.
+  // The server accepts the two published delivery tiers only. Do not submit a
+  // distance estimate that the order API cannot safely validate.
+  const homeShipping = selectedAddress?.estimatedDeliveryPrice === 1000 ? 1000 : 2500;
+  const shipping: number = deliveryOption === 'station' ? 1000 : homeShipping;
   const total = subtotal + shipping;
 
   const orderMutation = useMutation({
@@ -107,6 +119,7 @@ export default function CheckoutScreen() {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
     if (items.length === 0) return Alert.alert('Empty Cart', 'Add items to your cart first');
     if (deliveryOption === 'home' && !selectedAddress) return Alert.alert('No Address', 'Please add a delivery address');
+    if (!paymentsAvailable) return Alert.alert('Payments temporarily unavailable', 'Online payments are being configured. Please try again later.');
 
     orderMutation.mutate();
   };
@@ -198,7 +211,7 @@ export default function CheckoutScreen() {
                 <Text style={[styles.deliveryOptTitle, deliveryOption === 'home' && { color: '#FF8C00' }]}>Home Delivery</Text>
                 <Text style={styles.deliveryOptSub}>Delivered to your door</Text>
               </View>
-              <Text style={styles.deliveryOptPrice}>₦{(selectedAddress?.estimatedDeliveryPrice ?? 500).toLocaleString()}</Text>
+              <Text style={styles.deliveryOptPrice}>₦{homeShipping.toLocaleString()}</Text>
               {deliveryOption === 'home' && <Ionicons name="checkmark-circle" size={18} color="#FF8C00" style={{ marginLeft: 6 }} />}
             </TouchableOpacity>
             <View style={styles.deliveryDivider} />
@@ -211,7 +224,7 @@ export default function CheckoutScreen() {
                 <Text style={[styles.deliveryOptTitle, deliveryOption === 'station' && { color: '#FF8C00' }]}>Pickup Station</Text>
                 <Text style={styles.deliveryOptSub}>Lagos Central Station</Text>
               </View>
-              <Text style={[styles.deliveryOptPrice, { color: '#10B981' }]}>FREE</Text>
+              <Text style={[styles.deliveryOptPrice, { color: '#10B981' }]}>₦1,000</Text>
               {deliveryOption === 'station' && <Ionicons name="checkmark-circle" size={18} color="#FF8C00" style={{ marginLeft: 6 }} />}
             </TouchableOpacity>
           </Section>
@@ -251,11 +264,11 @@ export default function CheckoutScreen() {
         {/* Place Order Footer */}
         <Animated.View entering={FadeInDown.delay(400).springify()} style={styles.footer}>
           <TouchableOpacity
-            style={[styles.payBtn, orderMutation.isPending && styles.payBtnDisabled]}
+            style={[styles.payBtn, (orderMutation.isPending || checkingPayments || !paymentsAvailable) && styles.payBtnDisabled]}
             onPress={handlePay}
-            disabled={orderMutation.isPending}
+            disabled={orderMutation.isPending || checkingPayments || !paymentsAvailable}
           >
-            {orderMutation.isPending ? (
+            {orderMutation.isPending || checkingPayments ? (
               <ActivityIndicator color="#fff" />
             ) : (
               <>
@@ -264,7 +277,7 @@ export default function CheckoutScreen() {
               </>
             )}
           </TouchableOpacity>
-          <Text style={styles.secureNote}>🔒 Secured by Paystack</Text>
+          <Text style={styles.secureNote}>{paymentsAvailable ? '🔒 Secured by Paystack' : 'Payments are temporarily unavailable'}</Text>
         </Animated.View>
       </SafeAreaView>
     </LinearGradient>

@@ -3,6 +3,8 @@ const Product = require('./models/Product');
 const User = require('./models/User');
 require('dotenv').config();
 
+const PRODUCT_IMAGE_BASE_URL = process.env.PUBLIC_API_URL || 'https://ecommerce-dating-app.onrender.com';
+
 // Sample products for Nigerian marketplace (Konga/Jumia style)
 const SAMPLE_PRODUCTS = [
   // Electronics
@@ -13,7 +15,7 @@ const SAMPLE_PRODUCTS = [
     price: 189999,
     oldPrice: 249999,
     stock: 45,
-    images: [{ url: 'https://via.placeholder.com/400x400?text=Samsung+Galaxy+A15', fileId: 'samsung-a15-001' }],
+    images: [{ url: `${PRODUCT_IMAGE_BASE_URL}/assets/products/samsung-a15-001.jpg`, fileId: 'samsung-a15-001' }],
     ratings: 4.5,
     numOfReviews: 128
   },
@@ -24,7 +26,7 @@ const SAMPLE_PRODUCTS = [
     price: 799999,
     oldPrice: 899999,
     stock: 15,
-    images: [{ url: 'https://via.placeholder.com/400x400?text=iPhone+15+Pro', fileId: 'iphone-15-001' }],
+    images: [{ url: `${PRODUCT_IMAGE_BASE_URL}/assets/products/iphone-15-001.jpg`, fileId: 'iphone-15-001' }],
     ratings: 4.8,
     numOfReviews: 342
   },
@@ -35,7 +37,7 @@ const SAMPLE_PRODUCTS = [
     price: 449999,
     oldPrice: 549999,
     stock: 28,
-    images: [{ url: 'https://via.placeholder.com/400x400?text=OnePlus+12', fileId: 'oneplus-12-001' }],
+    images: [{ url: `${PRODUCT_IMAGE_BASE_URL}/assets/products/oneplus-12-001.jpg`, fileId: 'oneplus-12-001' }],
     ratings: 4.6,
     numOfReviews: 215
   },
@@ -46,7 +48,7 @@ const SAMPLE_PRODUCTS = [
     price: 129999,
     oldPrice: 179999,
     stock: 62,
-    images: [{ url: 'https://via.placeholder.com/400x400?text=Sony+Headphones', fileId: 'sony-headphones-001' }],
+    images: [{ url: `${PRODUCT_IMAGE_BASE_URL}/assets/products/sony-headphones-001.jpg`, fileId: 'sony-headphones-001' }],
     ratings: 4.7,
     numOfReviews: 502
   },
@@ -57,7 +59,7 @@ const SAMPLE_PRODUCTS = [
     price: 649999,
     oldPrice: 749999,
     stock: 12,
-    images: [{ url: 'https://via.placeholder.com/400x400?text=iPad+Pro', fileId: 'ipad-pro-001' }],
+    images: [{ url: `${PRODUCT_IMAGE_BASE_URL}/assets/products/ipad-pro-001.jpg`, fileId: 'ipad-pro-001' }],
     ratings: 4.4,
     numOfReviews: 189
   },
@@ -70,7 +72,7 @@ const SAMPLE_PRODUCTS = [
     price: 34999,
     oldPrice: 49999,
     stock: 156,
-    images: [{ url: 'https://via.placeholder.com/400x400?text=Nike+Air+Max', fileId: 'nike-airmax-001' }],
+    images: [{ url: `${PRODUCT_IMAGE_BASE_URL}/assets/products/nike-airmax-001.jpg`, fileId: 'nike-airmax-001' }],
     ratings: 4.6,
     numOfReviews: 1204
   },
@@ -81,7 +83,7 @@ const SAMPLE_PRODUCTS = [
     price: 289999,
     oldPrice: 399999,
     stock: 8,
-    images: [{ url: 'https://via.placeholder.com/400x400?text=Gucci+Bag', fileId: 'gucci-bag-001' }],
+    images: [{ url: `${PRODUCT_IMAGE_BASE_URL}/assets/products/gucci-bag-001.jpg`, fileId: 'gucci-bag-001' }],
     ratings: 4.8,
     numOfReviews: 342
   },
@@ -92,7 +94,7 @@ const SAMPLE_PRODUCTS = [
     price: 44999,
     oldPrice: 59999,
     stock: 89,
-    images: [{ url: 'https://via.placeholder.com/400x400?text=Adidas+Ultraboost', fileId: 'adidas-ultraboost-001' }],
+    images: [{ url: `${PRODUCT_IMAGE_BASE_URL}/assets/products/adidas-ultraboost-001.jpg`, fileId: 'adidas-ultraboost-001' }],
     ratings: 4.7,
     numOfReviews: 876
   },
@@ -103,7 +105,7 @@ const SAMPLE_PRODUCTS = [
     price: 12999,
     oldPrice: 19999,
     stock: 203,
-    images: [{ url: 'https://via.placeholder.com/400x400?text=Tommy+Polo', fileId: 'tommy-polo-001' }],
+    images: [{ url: `${PRODUCT_IMAGE_BASE_URL}/assets/products/tommy-polo-001.jpg`, fileId: 'tommy-polo-001' }],
     ratings: 4.3,
     numOfReviews: 567
   },
@@ -114,7 +116,7 @@ const SAMPLE_PRODUCTS = [
     price: 16999,
     oldPrice: 24999,
     stock: 178,
-    images: [{ url: 'https://via.placeholder.com/400x400?text=Levis+Jeans', fileId: 'levis-jeans-001' }],
+    images: [{ url: `${PRODUCT_IMAGE_BASE_URL}/assets/products/levis-jeans-001.jpg`, fileId: 'levis-jeans-001' }],
     ratings: 4.5,
     numOfReviews: 2341
   },
@@ -127,7 +129,7 @@ const SAMPLE_PRODUCTS = [
     price: 24999,
     oldPrice: 34999,
     stock: 76,
-    images: [{ url: 'https://via.placeholder.com/400x400?text=Samsung+Rice+Cooker', fileId: 'samsung-rice-001' }],
+    images: [{ url: `${PRODUCT_IMAGE_BASE_URL}/assets/products/samsung-rice-001.jpg`, fileId: 'samsung-rice-001' }],
     ratings: 4.4,
     numOfReviews: 643
   },
@@ -138,7 +140,7 @@ const SAMPLE_PRODUCTS = [
     price: 289999,
     oldPrice: 399999,
     stock: 5,
-    images: [{ url: 'https://via.placeholder.com/400x400?text=LG+Fridge', fileId: 'lg-fridge-001' }],
+    images: [{ url: `${PRODUCT_IMAGE_BASE_URL}/assets/products/lg-fridge-001.jpg`, fileId: 'lg-fridge-001' }],
     ratings: 4.6,
     numOfReviews: 212
   },
@@ -149,7 +151,7 @@ const SAMPLE_PRODUCTS = [
     price: 8999,
     oldPrice: 12999,
     stock: 142,
-    images: [{ url: 'https://via.placeholder.com/400x400?text=Philips+Kettle', fileId: 'philips-kettle-001' }],
+    images: [{ url: `${PRODUCT_IMAGE_BASE_URL}/assets/products/philips-kettle-001.jpg`, fileId: 'philips-kettle-001' }],
     ratings: 4.2,
     numOfReviews: 1087
   },
@@ -160,7 +162,7 @@ const SAMPLE_PRODUCTS = [
     price: 14999,
     oldPrice: 22999,
     stock: 89,
-    images: [{ url: 'https://via.placeholder.com/400x400?text=Pan+Set', fileId: 'pan-set-001' }],
+    images: [{ url: `${PRODUCT_IMAGE_BASE_URL}/assets/products/pan-set-001.jpg`, fileId: 'pan-set-001' }],
     ratings: 4.3,
     numOfReviews: 756
   },
@@ -171,7 +173,7 @@ const SAMPLE_PRODUCTS = [
     price: 199999,
     oldPrice: 279999,
     stock: 11,
-    images: [{ url: 'https://via.placeholder.com/400x400?text=Dyson+Vacuum', fileId: 'dyson-vacuum-001' }],
+    images: [{ url: `${PRODUCT_IMAGE_BASE_URL}/assets/products/dyson-vacuum-001.jpg`, fileId: 'dyson-vacuum-001' }],
     ratings: 4.7,
     numOfReviews: 434
   },
@@ -184,7 +186,7 @@ const SAMPLE_PRODUCTS = [
     price: 79999,
     oldPrice: 119999,
     stock: 22,
-    images: [{ url: 'https://via.placeholder.com/400x400?text=Stationary+Bike', fileId: 'yamaha-bike-001' }],
+    images: [{ url: `${PRODUCT_IMAGE_BASE_URL}/assets/products/yamaha-bike-001.jpg`, fileId: 'yamaha-bike-001' }],
     ratings: 4.5,
     numOfReviews: 287
   },
@@ -195,7 +197,7 @@ const SAMPLE_PRODUCTS = [
     price: 99999,
     oldPrice: 149999,
     stock: 15,
-    images: [{ url: 'https://via.placeholder.com/400x400?text=Treadmill', fileId: 'decathlon-treadmill-001' }],
+    images: [{ url: `${PRODUCT_IMAGE_BASE_URL}/assets/products/decathlon-treadmill-001.jpg`, fileId: 'decathlon-treadmill-001' }],
     ratings: 4.4,
     numOfReviews: 198
   },
@@ -206,7 +208,7 @@ const SAMPLE_PRODUCTS = [
     price: 34999,
     oldPrice: 49999,
     stock: 31,
-    images: [{ url: 'https://via.placeholder.com/400x400?text=Tennis+Racket', fileId: 'wilson-tennis-001' }],
+    images: [{ url: `${PRODUCT_IMAGE_BASE_URL}/assets/products/wilson-tennis-001.jpg`, fileId: 'wilson-tennis-001' }],
     ratings: 4.6,
     numOfReviews: 145
   },
@@ -217,7 +219,7 @@ const SAMPLE_PRODUCTS = [
     price: 28999,
     oldPrice: 39999,
     stock: 56,
-    images: [{ url: 'https://via.placeholder.com/400x400?text=Dumbbells', fileId: 'dumbbell-set-001' }],
+    images: [{ url: `${PRODUCT_IMAGE_BASE_URL}/assets/products/dumbbell-set-001.jpg`, fileId: 'dumbbell-set-001' }],
     ratings: 4.3,
     numOfReviews: 412
   },
@@ -228,7 +230,7 @@ const SAMPLE_PRODUCTS = [
     price: 12999,
     oldPrice: 18999,
     stock: 74,
-    images: [{ url: 'https://via.placeholder.com/400x400?text=Game+Set', fileId: 'badminton-set-001' }],
+    images: [{ url: `${PRODUCT_IMAGE_BASE_URL}/assets/products/badminton-set-001.jpg`, fileId: 'badminton-set-001' }],
     ratings: 4.2,
     numOfReviews: 298
   },
@@ -241,7 +243,7 @@ const SAMPLE_PRODUCTS = [
     price: 5999,
     oldPrice: 8999,
     stock: 203,
-    images: [{ url: 'https://via.placeholder.com/400x400?text=Atomic+Habits', fileId: 'atomic-habits-001' }],
+    images: [{ url: `${PRODUCT_IMAGE_BASE_URL}/assets/products/atomic-habits-001.jpg`, fileId: 'atomic-habits-001' }],
     ratings: 4.8,
     numOfReviews: 3421
   },
@@ -252,7 +254,7 @@ const SAMPLE_PRODUCTS = [
     price: 4999,
     oldPrice: 7999,
     stock: 156,
-    images: [{ url: 'https://via.placeholder.com/400x400?text=Think+Like+Millionaire', fileId: 'think-millionaire-001' }],
+    images: [{ url: `${PRODUCT_IMAGE_BASE_URL}/assets/products/think-millionaire-001.jpg`, fileId: 'think-millionaire-001' }],
     ratings: 4.6,
     numOfReviews: 892
   },
@@ -263,7 +265,7 @@ const SAMPLE_PRODUCTS = [
     price: 5999,
     oldPrice: 8999,
     stock: 89,
-    images: [{ url: 'https://via.placeholder.com/400x400?text=7+Habits', fileId: '7habits-001' }],
+    images: [{ url: `${PRODUCT_IMAGE_BASE_URL}/assets/products/7habits-001.jpg`, fileId: '7habits-001' }],
     ratings: 4.7,
     numOfReviews: 1567
   },
@@ -274,7 +276,7 @@ const SAMPLE_PRODUCTS = [
     price: 4999,
     oldPrice: 7999,
     stock: 67,
-    images: [{ url: 'https://via.placeholder.com/400x400?text=Master+Emotions', fileId: 'master-emotions-001' }],
+    images: [{ url: `${PRODUCT_IMAGE_BASE_URL}/assets/products/master-emotions-001.jpg`, fileId: 'master-emotions-001' }],
     ratings: 4.5,
     numOfReviews: 534
   },
@@ -285,7 +287,7 @@ const SAMPLE_PRODUCTS = [
     price: 4999,
     oldPrice: 7999,
     stock: 112,
-    images: [{ url: 'https://via.placeholder.com/400x400?text=Search+Meaning', fileId: 'search-meaning-001' }],
+    images: [{ url: `${PRODUCT_IMAGE_BASE_URL}/assets/products/search-meaning-001.jpg`, fileId: 'search-meaning-001' }],
     ratings: 4.9,
     numOfReviews: 2103
   }

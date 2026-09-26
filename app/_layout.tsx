@@ -1,4 +1,6 @@
+import { useEffect } from 'react';
 import { Slot } from 'expo-router';
+import * as SplashScreen from 'expo-splash-screen';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import Toast from 'react-native-toast-message';
@@ -15,9 +17,24 @@ LogBox.ignoreLogs([
   'Non-serializable values were found in the navigation state'
 ]);
 
-const queryClient = new QueryClient();
+const queryClient = new QueryClient({
+  defaultOptions: {
+    queries: {
+      staleTime: 60_000,
+      gcTime: 10 * 60_000,
+      retry: 1,
+      refetchOnWindowFocus: false,
+      refetchOnReconnect: true,
+    },
+    mutations: { retry: false },
+  },
+});
 
 export default function RootLayout() {
+  useEffect(() => {
+    void SplashScreen.hideAsync();
+  }, []);
+
   return (
     <GestureHandlerRootView style={{ flex: 1 }}>
       <QueryClientProvider client={queryClient}>

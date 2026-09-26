@@ -1,10 +1,9 @@
 import React, { useCallback, useRef, useState } from 'react';
-import { ActivityIndicator, FlatList, Pressable, StatusBar, StyleSheet, Text, useWindowDimensions, View, ViewToken } from 'react-native';
+import { ActivityIndicator, FlatList, Image, Pressable, StatusBar, StyleSheet, Text, useWindowDimensions, View, ViewToken } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
 import Animated, { FadeInDown, FadeInUp, useAnimatedStyle, useSharedValue, withSpring } from 'react-native-reanimated';
 import * as Haptics from 'expo-haptics';
-import AsyncStorage from '@react-native-async-storage/async-storage';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 type IconName = React.ComponentProps<typeof Ionicons>['name'];
@@ -30,7 +29,6 @@ export default function OnboardingScreen({ onComplete }: { onComplete: () => voi
     if (finishing) return;
     setFinishing(true);
     onComplete();
-    void AsyncStorage.setItem('@onboarding_done', '1').catch(() => undefined);
   }, [finishing, onComplete]);
 
   const next = () => {
@@ -48,7 +46,7 @@ export default function OnboardingScreen({ onComplete }: { onComplete: () => voi
     <SafeAreaView style={styles.safe} edges={['top', 'bottom']}>
       <StatusBar barStyle="dark-content" backgroundColor="#FAFAF8" />
       <View style={styles.header}>
-        <View style={styles.brandRow}><View style={styles.brandMark}><Text style={styles.brandLetter}>B</Text></View><Text style={styles.brand}>BizMingle</Text></View>
+        <View style={styles.brandRow}><Image source={require('../../assets/images/icon.png')} style={styles.brandMark} /><Text style={styles.brand}>BizMingle</Text></View>
         <Pressable accessibilityRole="button" accessibilityLabel="Skip onboarding" hitSlop={12} onPress={finishOnboarding} disabled={finishing} style={styles.skipButton}>
           <Text style={styles.skipText}>Skip</Text><Ionicons name="arrow-forward" size={16} color="#374151" />
         </Pressable>
@@ -84,7 +82,7 @@ export default function OnboardingScreen({ onComplete }: { onComplete: () => voi
 
 const styles = StyleSheet.create({
   safe: { flex: 1, backgroundColor: '#FAFAF8' }, header: { height: 68, paddingHorizontal: 22, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
-  brandRow: { flexDirection: 'row', alignItems: 'center', gap: 10 }, brandMark: { width: 32, height: 32, borderRadius: 11, alignItems: 'center', justifyContent: 'center', backgroundColor: '#111827' }, brandLetter: { color: '#FFFFFF', fontWeight: '900', fontSize: 18 }, brand: { color: '#111827', fontSize: 18, fontWeight: '800', letterSpacing: -0.4 },
+  brandRow: { flexDirection: 'row', alignItems: 'center', gap: 10 }, brandMark: { width: 32, height: 32, borderRadius: 11 }, brand: { color: '#111827', fontSize: 18, fontWeight: '800', letterSpacing: -0.4 },
   skipButton: { minHeight: 44, flexDirection: 'row', alignItems: 'center', gap: 5, paddingHorizontal: 8 }, skipText: { color: '#374151', fontSize: 15, fontWeight: '700' },
   slide: { flex: 1, paddingHorizontal: 22, paddingTop: 12 }, visual: { flex: 1.12, maxHeight: 410, minHeight: 280, borderRadius: 32, overflow: 'hidden', alignItems: 'center', justifyContent: 'center' },
   orbit: { position: 'absolute', borderWidth: 1.5, borderRadius: 999 }, orbitLarge: { width: 330, height: 330 }, orbitSmall: { width: 230, height: 230 },

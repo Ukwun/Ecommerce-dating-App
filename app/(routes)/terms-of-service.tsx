@@ -17,14 +17,14 @@ export default function TermsOfService() {
       </View>
 
       <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
-        <Text style={styles.lastUpdated}>Last Updated: January 2025</Text>
+        <Text style={styles.lastUpdated}>Last Updated: September 16, 2026</Text>
 
         <Section title="1. Acceptance of Terms">
-          By accessing and using this Marketplace App, you accept and agree to be bound by the terms and provision of this agreement. If you do not agree to abide by the above, please do not use this service.
+          By accessing and using BizMingle, you accept and agree to be bound by these Terms. If you do not agree, please do not use this service.
         </Section>
 
         <Section title="2. Use License">
-          Permission is granted to temporarily download one copy of the materials (information or software) on the Marketplace App for personal, non-commercial transitory viewing only. This is the grant of a license, not a transfer of title, and under this license you may not:
+          Permission is granted to temporarily download one copy of the materials (information or software) on BizMingle for personal, non-commercial transitory viewing only. This is the grant of a license, not a transfer of title, and under this license you may not:
           <Bullet text="Modify or copy the materials" />
           <Bullet text="Use the materials for any commercial purpose or for any public display" />
           <Bullet text="Attempt to decompile or reverse engineer any software contained on the app" />
@@ -33,11 +33,11 @@ export default function TermsOfService() {
         </Section>
 
         <Section title="3. Disclaimer">
-          The materials on the Marketplace App are provided on an 'as is' basis. We make no warranties, expressed or implied, and hereby disclaim and negate all other warranties including, without limitation, implied warranties or conditions of merchantability, fitness for a particular purpose, or non-infringement of intellectual property or other violation of rights.
+          The materials on BizMingle are provided on an 'as is' basis. We make no warranties, expressed or implied, and hereby disclaim and negate all other warranties including, without limitation, implied warranties or conditions of merchantability, fitness for a particular purpose, or non-infringement of intellectual property or other violation of rights.
         </Section>
 
         <Section title="4. Limitations">
-          In no event shall the Marketplace App or its suppliers be liable for any damages (including, without limitation, damages for loss of data or profit, or due to business interruption) arising out of the use or inability to use the materials on the Marketplace App.
+          In no event shall BizMingle or its suppliers be liable for any damages (including, without limitation, damages for loss of data or profit, or due to business interruption) arising out of the use or inability to use the materials on BizMingle.
         </Section>
 
         <Section title="5. User Accounts">
@@ -91,7 +91,7 @@ export default function TermsOfService() {
         </Section>
 
         <Section title="11. Intellectual Property">
-          The content, features, and functionality of the Marketplace App, including but not limited to all information, software, text, displays, images, video, and audio, is owned by us, our licensors, or other providers of such material and is protected by international copyright laws.
+          The content, features, and functionality of BizMingle, including but not limited to all information, software, text, displays, images, video, and audio, is owned by us, our licensors, or other providers of such material and is protected by international copyright laws.
         </Section>
 
         <Section title="12. Limitation of Liability">
@@ -107,10 +107,10 @@ export default function TermsOfService() {
         </Section>
 
         <Section title="15. Contact Information">
-          If you have any questions about these Terms of Service, please contact us at: support@marketplace-app.com
+          If you have any questions about these Terms of Service, please contact us at: ayodeleogunyemi25@yahoo.co.uk
         </Section>
 
-        <Text style={styles.footer}>© 2025 Marketplace App. All rights reserved.</Text>
+        <Text style={styles.footer}>BizMingle is developed by John Solace.</Text>
       </ScrollView>
     </SafeAreaView>
   );

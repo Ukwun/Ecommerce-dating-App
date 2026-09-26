@@ -1,4 +1,4 @@
-import React, { useEffect, useState, useRef } from 'react';
+import React, { useEffect, useState } from 'react';
 import {
   View, Text, Image, StyleSheet, ScrollView, TouchableOpacity,
   ActivityIndicator, FlatList, Dimensions, Modal, Share,
@@ -16,8 +16,8 @@ import { useRecentlyViewed } from '@/hooks/useRecentlyViewed';
 import { useAuth } from '@/hooks/AuthContext';
 import Toast from 'react-native-toast-message';
 import Animated, {
-  useSharedValue, useAnimatedStyle, withSpring, withTiming,
-  FadeInDown, FadeInUp, ZoomIn, SlideInRight,
+  useSharedValue, useAnimatedStyle, withSpring,
+  FadeInDown, FadeInUp, SlideInRight,
 } from 'react-native-reanimated';
 import { LinearGradient } from 'expo-linear-gradient';
 import * as Haptics from 'expo-haptics';
@@ -30,27 +30,9 @@ const IMAGE_HEIGHT = 380;
 
 const AnimatedTouchable = Animated.createAnimatedComponent(TouchableOpacity);
 
-function PressBtn({ onPress, style, children, disabled }: any) {
-  const scale = useSharedValue(1);
-  const aStyle = useAnimatedStyle(() => ({ transform: [{ scale: scale.value }], opacity: disabled ? 0.6 : 1 }));
-  return (
-    <AnimatedTouchable
-      style={[aStyle, style]}
-      onPressIn={() => { if (!disabled) scale.value = withSpring(0.94); }}
-      onPressOut={() => { scale.value = withSpring(1); }}
-      onPress={disabled ? undefined : onPress}
-      activeOpacity={1}
-    >
-      {children}
-    </AnimatedTouchable>
-  );
-}
-
 export default function ProductDetail() {
   const { id } = useLocalSearchParams<{ id: string }>();
   const { user } = useAuth();
-  const [product, setProduct] = useState<any>(null);
-  const [loading, setLoading] = useState(true);
   const [selectedColor, setSelectedColor] = useState<string>('');
   const [selectedSize, setSelectedSize] = useState<string>('');
   const [isReviewModalVisible, setReviewModalVisible] = useState(false);
@@ -74,28 +56,31 @@ export default function ProductDetail() {
     footerY.value = withSpring(0, { damping: 18 });
   }, [footerY]);
 
+  const { data: product, isLoading: loading, isError: productLoadFailed } = useQuery({
+    queryKey: ['product', id],
+    enabled: Boolean(id),
+    queryFn: async () => {
+      const res = await axiosInstance.get(`/marketplace/api/products/${id}`, { timeout: 10000 });
+      const p = res.data?.data || res.data;
+      return {
+        ...p,
+        images: p.images?.length > 0 ? p.images : (p.image ? [{ url: p.image }] : []),
+        colors: p.colors || [],
+        sizes: p.sizes || [],
+        reviews: p.latestReviews || p.reviews || [],
+      };
+    },
+  });
+
   useEffect(() => {
-    if (!id) return;
-    let mounted = true;
-    setLoading(true);
-    axiosInstance.get(`/marketplace/api/products/${id}`)
-      .then(res => {
-        if (!mounted) return;
-        const p = res.data?.data || res.data;
-        p.images = p.images?.length > 0 ? p.images : (p.image ? [{ url: p.image }] : []);
-        p.colors = p.colors || [];
-        p.sizes = p.sizes || [];
-        p.reviews = p.latestReviews || p.reviews || [];
-        setProduct(p);
-        setSelectedColor(p.colors[0] || '');
-        setSelectedSize(p.sizes[0] || '');
-      })
-      .catch(() => setProduct(null))
-      .finally(() => { if (mounted) setLoading(false); });
-    return () => {
-      mounted = false;
-      if (id) addProductToRecentlyViewed(id);
-    };
+    if (product) {
+      setSelectedColor(product.colors[0] || '');
+      setSelectedSize(product.sizes[0] || '');
+    }
+  }, [product]);
+
+  useEffect(() => () => {
+    if (id) addProductToRecentlyViewed(id);
   }, [addProductToRecentlyViewed, id]);
 
   const { data: similarProducts, isLoading: isLoadingSimilar } = useQuery({
@@ -118,7 +103,7 @@ export default function ProductDetail() {
       // Refresh product reviews
       axiosInstance.get(`/marketplace/api/products/${id}`).then(res => {
         const p = res.data?.data || res.data;
-        setProduct((prev: any) => ({ ...prev, reviews: p.reviews || prev.reviews }));
+        queryClient.setQueryData(['product', id], (previous: any) => ({ ...previous, reviews: p.latestReviews || previous?.reviews || [] }));
       });
     },
     onError: () => {
@@ -166,10 +151,10 @@ export default function ProductDetail() {
       <Text style={{ color: '#888', marginTop: 12 }}>Loading product...</Text>
     </View>
   );
-  if (!product) return (
+  if (!product || productLoadFailed) return (
     <View style={styles.center}>
       <Ionicons name="alert-circle-outline" size={64} color="#ccc" />
-      <Text style={{ color: '#888', marginTop: 12 }}>Product not found</Text>
+      <Text style={{ color: '#888', marginTop: 12 }}>We could not load this product. Please try again.</Text>
       <TouchableOpacity onPress={() => router.back()} style={styles.backFallback}>
         <Text style={{ color: '#FF8C00', fontWeight: '600' }}>Go Back</Text>
       </TouchableOpacity>

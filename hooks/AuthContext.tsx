@@ -42,26 +42,42 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
 
     useEffect(() => {
         const loadUser = async () => {
-            try {
+            // Restoring a local session must never be held hostage by the network.
+            // The previous implementation awaited `/auth/api/me` here. That request
+            // has a 90s timeout and retry middleware, which left Android on the
+            // launch screen for minutes whenever the API was cold or unreachable.
+            const readStoredUser = async () => {
                 const userString = await SecureStore.getItemAsync('user');
-                if (userString) {
-                    const cachedUser = JSON.parse(userString);
+                return userString ? JSON.parse(userString) : null;
+            };
+
+            try {
+                const cachedUser = await readStoredUser();
+                if (cachedUser) {
                     setUser(cachedUser);
-                    try {
-                        const response = await axiosInstance.get('/auth/api/me');
-                        if (response.data?.user) {
-                            setUser(response.data.user);
-                            await SecureStore.setItemAsync('user', JSON.stringify(response.data.user));
-                        }
-                    } catch (error: any) {
-                        if (error?.response?.status === 401 || error?.response?.status === 403) setUser(null);
-                    }
                 }
             } catch (e) {
                 console.error("Failed to load user from storage", e);
             } finally {
                 setIsLoading(false);
             }
+
+            // Revalidate in the background. A valid cached session can enter the
+            // app immediately; an explicitly rejected token still signs out.
+            // Network failures leave the cached session intact so transient API
+            // outages cannot make a real user appear logged out.
+            void axiosInstance.get('/auth/api/me')
+                .then(async (response) => {
+                    if (!response.data?.user) return;
+                    setUser(response.data.user);
+                    await SecureStore.setItemAsync('user', JSON.stringify(response.data.user));
+                })
+                .catch((error: any) => {
+                    if (error?.response?.status === 401 || error?.response?.status === 403) {
+                        setUser(null);
+                        void SecureStore.deleteItemAsync('user');
+                    }
+                });
         };
         loadUser();
     }, []);

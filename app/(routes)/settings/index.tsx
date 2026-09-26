@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Alert, View, Text, StyleSheet, TouchableOpacity, Switch } from 'react-native';
+import { Alert, Linking, View, Text, StyleSheet, TouchableOpacity, Switch } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { LinearGradient } from 'expo-linear-gradient';
 import { router } from 'expo-router';
@@ -18,18 +18,18 @@ export default function SettingsScreen() {
   const [notificationsEnabled, setNotificationsEnabled] = useState<boolean>(true);
   const [deletingAccount, setDeletingAccount] = useState(false);
 
-  const deleteAccount = () => {
-    Alert.alert('Delete account permanently?', 'Your profile and personal identity will be removed. This cannot be undone.', [
+  const confirmAccountDeletion = () => {
+    Alert.alert('Final confirmation', 'This permanently deletes your BizMingle account. Continue only if you are certain.', [
       { text: 'Cancel', style: 'cancel' },
       {
-        text: 'Delete account',
+        text: 'Yes, permanently delete my account',
         style: 'destructive',
         onPress: async () => {
           try {
             setDeletingAccount(true);
             await axiosInstance.delete('/auth/api/account', { data: { confirmation: 'DELETE' } });
             await logout();
-            router.replace('/login');
+            router.replace('/');
           } catch (error: any) {
             Alert.alert('Deletion failed', error?.response?.data?.error || 'Please try again or contact support.');
           } finally {
@@ -38,6 +38,17 @@ export default function SettingsScreen() {
         },
       },
     ]);
+  };
+
+  const deleteAccount = () => {
+    Alert.alert('Delete account permanently?', 'Your profile and personal identity will be removed. This cannot be undone.', [
+      { text: 'Cancel', style: 'cancel' },
+      { text: 'Continue', style: 'destructive', onPress: confirmAccountDeletion },
+    ]);
+  };
+
+  const openLegalPage = (url: string) => {
+    Linking.openURL(url).catch(() => Alert.alert('Unable to open page', 'Please try again later.'));
   };
 
   useEffect(() => {
@@ -93,10 +104,28 @@ export default function SettingsScreen() {
                   <Text style={{ color: language === 'en' ? '#111827' : cardTextColor }}>English</Text>
                 </TouchableOpacity>
                 <TouchableOpacity onPress={() => setLanguage('fr')}>
-                  <Text style={{ color: language === 'fr' ? '#111827' : cardTextColor }}>Français</Text>
+                  <Text style={{ color: language === 'fr' ? '#111827' : cardTextColor }}>French</Text>
                 </TouchableOpacity>
               </View>
             </View>
+          </View>
+
+          <View style={[styles.settingCard, { backgroundColor: cardBackgroundColor, marginTop: 12 }]}>
+            <TouchableOpacity onPress={() => openLegalPage('https://com.bizmingle.app/privacy-policy')} style={[styles.settingRow, { paddingVertical: 14 }]}>
+              <Ionicons name="shield-checkmark-outline" size={20} color={cardTextColor} style={styles.icon} />
+              <Text style={[styles.settingLabel, { color: cardTextColor }]}>Privacy Policy</Text>
+              <Ionicons name="open-outline" size={20} color={cardTextColor} />
+            </TouchableOpacity>
+            <TouchableOpacity onPress={() => openLegalPage('https://com.bizmingle.app/terms')} style={[styles.settingRow, { paddingVertical: 14 }]}>
+              <Ionicons name="document-text-outline" size={20} color={cardTextColor} style={styles.icon} />
+              <Text style={[styles.settingLabel, { color: cardTextColor }]}>Terms of Service</Text>
+              <Ionicons name="open-outline" size={20} color={cardTextColor} />
+            </TouchableOpacity>
+            <TouchableOpacity onPress={() => openLegalPage('https://com.bizmingle.app/delete-account')} style={[styles.settingRow, { paddingVertical: 14 }]}>
+              <Ionicons name="trash-outline" size={20} color="#DC2626" style={styles.icon} />
+              <Text style={[styles.settingLabel, { color: '#DC2626' }]}>Delete Account</Text>
+              <Ionicons name="open-outline" size={20} color="#DC2626" />
+            </TouchableOpacity>
           </View>
 
           {/* Currency */}
@@ -140,13 +169,13 @@ export default function SettingsScreen() {
           </View>
 
           {/* Quick links: Addresses and Payment Methods */}
-          <View style={[styles.settingCard, { backgroundColor: cardBackgroundColor, marginTop: 12 }]}> 
-            <TouchableOpacity onPress={() => router.push('/shipping')} style={[styles.settingRow, { paddingVertical: 14 }]}> 
+          <View style={[styles.settingCard, { backgroundColor: cardBackgroundColor, marginTop: 12 }]}>
+            <TouchableOpacity onPress={() => router.push('/shipping')} style={[styles.settingRow, { paddingVertical: 14 }]}>
               <Ionicons name="location-outline" size={20} color={cardTextColor} style={styles.icon} />
               <Text style={[styles.settingLabel, { color: cardTextColor }]}>Manage Addresses</Text>
               <Ionicons name="chevron-forward" size={20} color={cardTextColor} />
             </TouchableOpacity>
-            <TouchableOpacity onPress={() => router.push('/(routes)/payment')} style={[styles.settingRow, { paddingVertical: 14 }]}> 
+            <TouchableOpacity onPress={() => router.push('/(routes)/payment')} style={[styles.settingRow, { paddingVertical: 14 }]}>
               <Ionicons name="card-outline" size={20} color={cardTextColor} style={styles.icon} />
               <Text style={[styles.settingLabel, { color: cardTextColor }]}>Payment Methods</Text>
               <Ionicons name="chevron-forward" size={20} color={cardTextColor} />
@@ -160,7 +189,7 @@ export default function SettingsScreen() {
             </TouchableOpacity>
           </View>
           <TouchableOpacity disabled={deletingAccount} onPress={deleteAccount} accessibilityRole="button" accessibilityLabel="Permanently delete account" style={{ paddingVertical: 16, alignItems: 'center', opacity: deletingAccount ? 0.5 : 1 }}>
-            <Text style={{ color: '#FCA5A5', fontWeight: '700' }}>{deletingAccount ? 'Deleting account…' : 'Delete account'}</Text>
+            <Text style={{ color: '#FCA5A5', fontWeight: '700' }}>{deletingAccount ? 'Deleting account...' : 'Delete account'}</Text>
           </TouchableOpacity>
         </View>
       </SafeAreaView>

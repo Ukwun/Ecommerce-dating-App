@@ -1,3 +1,4 @@
+import { useCallback } from 'react';
 import { useQuery, useMutation } from '@tanstack/react-query';
 import axiosInstance from '../utils/axiosinstance';
 
@@ -63,7 +64,7 @@ export const useMarketplaceDiscovery = () => {
   });
 
   // Helper: Log product view
-  const logProductView = (productId: string, category: string, duration: number = 0) => {
+  const logProductView = useCallback((productId: string, category: string, duration: number = 0) => {
     logActivityMutation.mutate({
       activityType: 'product_view',
       productId,
@@ -72,10 +73,10 @@ export const useMarketplaceDiscovery = () => {
         duration: duration
       }
     });
-  };
+  }, [logActivityMutation]);
 
   // Helper: Log product search
-  const logProductSearch = (searchQuery: string, results: number) => {
+  const logProductSearch = useCallback((searchQuery: string, results: number) => {
     logActivityMutation.mutate({
       activityType: 'product_search',
       searchQuery,
@@ -84,47 +85,47 @@ export const useMarketplaceDiscovery = () => {
         resultCount: results
       }
     });
-  };
+  }, [logActivityMutation]);
 
   // Helper: Log add to favorites
-  const logAddToFavorite = (productId: string, category: string) => {
+  const logAddToFavorite = useCallback((productId: string, category: string) => {
     logActivityMutation.mutate({
       activityType: 'add_favorite',
       productId,
       category
     });
-  };
+  }, [logActivityMutation]);
 
   // Helper: Log purchase
-  const logPurchase = (productId: string, category: string, price: number) => {
+  const logPurchase = useCallback((productId: string, category: string, price: number) => {
     logActivityMutation.mutate({
       activityType: 'purchase',
       productId,
       category,
       price
     });
-  };
+  }, [logActivityMutation]);
 
-  const logSessionStart = (surface: string = 'discover_tab') => {
+  const logSessionStart = useCallback((surface: string = 'discover_tab') => {
     logActivityMutation.mutate({
       activityType: 'session_start',
       metadata: { surface }
     });
-  };
+  }, [logActivityMutation]);
 
-  const logAppOpen = () => {
+  const logAppOpen = useCallback(() => {
     logActivityMutation.mutate({
       activityType: 'app_open',
       metadata: { source: 'mobile_client' }
     });
-  };
+  }, [logActivityMutation]);
 
-  const logRetentionHeartbeat = (surface: string = 'discover_tab') => {
+  const logRetentionHeartbeat = useCallback((surface: string = 'discover_tab') => {
     logActivityMutation.mutate({
       activityType: 'retention_heartbeat',
       metadata: { surface }
     });
-  };
+  }, [logActivityMutation]);
 
   // Search products
   const searchProductsMutation = useMutation({

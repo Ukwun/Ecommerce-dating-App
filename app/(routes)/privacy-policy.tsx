@@ -17,10 +17,10 @@ export default function PrivacyPolicy() {
       </View>
 
       <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
-        <Text style={styles.lastUpdated}>Last Updated: January 2025</Text>
+        <Text style={styles.lastUpdated}>Last Updated: September 16, 2026</Text>
 
         <Section title="1. Introduction">
-          Our Marketplace App ("Service") is committed to protecting your privacy. This Privacy Policy explains how we collect, use, disclose, and safeguard your information when you use our mobile application.
+          BizMingle ("Service") is committed to protecting your privacy. This Privacy Policy explains how we collect, use, disclose, and safeguard your information when you use our mobile application.
         </Section>
 
         <Section title="2. Information We Collect">
@@ -80,10 +80,10 @@ export default function PrivacyPolicy() {
         </Section>
 
         <Section title="10. Contact Us">
-          For privacy concerns or data requests, contact: privacy@marketplace-app.com
+          For privacy concerns or data requests, contact: ayodeleogunyemi25@yahoo.co.uk
         </Section>
 
-        <Text style={styles.footer}>© 2025 Marketplace App. All rights reserved.</Text>
+        <Text style={styles.footer}>BizMingle is developed by John Solace.</Text>
       </ScrollView>
     </SafeAreaView>
   );

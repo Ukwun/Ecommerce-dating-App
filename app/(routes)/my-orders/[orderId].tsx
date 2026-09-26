@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback } from 'react';
+﻿import React, { useState, useEffect, useCallback } from 'react';
 import {
   View,
   Text,
@@ -114,6 +114,9 @@ export default function OrderDetailsScreen() {
     );
   }
 
+  const orderItems = order.products || order.items || [];
+  const shippingCost = order.shippingCost ?? order.shippingFee;
+
   return (
     <SafeAreaView style={styles.container}>
       <ScrollView showsVerticalScrollIndicator={false} bounces={true}>
@@ -179,24 +182,31 @@ export default function OrderDetailsScreen() {
         </AnimatedView>
 
         {/* Items */}
-        {order.items && order.items.length > 0 && (
+        {orderItems.length > 0 && (
           <AnimatedView entering={FadeInDown.delay(300)} style={styles.card}>
             <Text style={styles.sectionTitle}>Items</Text>
-            {order.items.map((item: any, idx: number) => (
+            {orderItems.map((item: any, idx: number) => {
+              const product = typeof item.product === 'object' ? item.product : null;
+              const itemName = item.name || product?.name || 'Product';
+              const itemImage = item.image || product?.images?.[0]?.url;
+              const itemPrice = Number(item.price || product?.price || 0);
+              const itemTotal = Number(item.totalPrice ?? item.total ?? itemPrice * (item.quantity || 0));
+              return (
               <View key={idx} style={styles.itemRow}>
-                {item.image && (
-                  <Image source={{ uri: item.image }} style={styles.itemImage} />
+                {itemImage && (
+                  <Image source={{ uri: itemImage }} style={styles.itemImage} />
                 )}
                 <View style={styles.itemContent}>
                   <Text style={styles.itemName} numberOfLines={2}>
-                    {item.name}
+                    {itemName}
                   </Text>
-                  <Text style={styles.itemPrice}>₦{(item.price || 0).toLocaleString()}</Text>
+                  <Text style={styles.itemPrice}>₦{itemPrice.toLocaleString()}</Text>
                 </View>
                 <Text style={styles.itemQty}>x{item.quantity}</Text>
-                <Text style={styles.itemTotal}>₦{((item.price || 0) * item.quantity).toLocaleString()}</Text>
+                <Text style={styles.itemTotal}>₦{itemTotal.toLocaleString()}</Text>
               </View>
-            ))}
+              );
+            })}
           </AnimatedView>
         )}
 
@@ -209,10 +219,10 @@ export default function OrderDetailsScreen() {
               <Text>₦{(order.subtotal || 0).toLocaleString()}</Text>
             </View>
           )}
-          {order.shippingFee !== undefined && (
+          {shippingCost !== undefined && (
             <View style={styles.priceRow}>
               <Text style={styles.priceLabel}>Shipping</Text>
-              <Text>₦{(order.shippingFee || 0).toLocaleString()}</Text>
+              <Text>₦{Number(shippingCost || 0).toLocaleString()}</Text>
             </View>
           )}
           {order.tax !== undefined && (

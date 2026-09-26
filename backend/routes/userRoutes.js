@@ -1,4 +1,5 @@
 const express = require('express');
+const mongoose = require('mongoose');
 const User = require('../models/User');
 const bcrypt = require('bcryptjs');
 const jwt = require('jsonwebtoken');
@@ -13,19 +14,42 @@ const Cart = require('../models/Cart');
 const Conversation = require('../models/Conversation');
 const DatingProfile = require('../models/DatingProfile');
 const Message = require('../models/Message');
+const Match = require('../models/Match');
+const Swipe = require('../models/Swipe');
 const Order = require('../models/Order');
+const Payment = require('../models/Payment');
 const PaymentMethod = require('../models/PaymentMethod');
 const Product = require('../models/Product');
+const Review = require('../models/Review');
 const PushNotification = require('../models/PushNotification');
 const ShippingAddress = require('../models/ShippingAddress');
 const Subscription = require('../models/Subscription');
 const SupportTicket = require('../models/SupportTicket');
 const UserActivity = require('../models/UserActivity');
+const UploadedAsset = require('../models/UploadedAsset');
+const BiometricSession = require('../models/BiometricSession');
 const Wishlist = require('../models/Wishlist');
 
 const router = express.Router();
 if (!authMiddleware || typeof authMiddleware.protect !== 'function') throw new Error('Authentication middleware is unavailable');
 const authProtect = authMiddleware.protect;
+
+const SUPER_ADMIN_EMAIL = (process.env.SUPER_ADMIN_EMAIL || 'Ayodeleogunyemi25@yahoo.co.uk').trim().toLowerCase();
+const SUPER_ADMIN_PERMISSIONS = [
+  'approve_sellers', 'reject_sellers', 'suspend_sellers', 'view_seller_details',
+  'process_returns', 'approve_refunds', 'handle_disputes', 'respond_support_tickets',
+  'view_analytics', 'view_reports', 'manage_users', 'manage_admins', 'manage_products',
+  'manage_orders', 'manage_payments', 'manage_security', 'view_audit_logs', 'manage_promotions',
+];
+
+const ensureConfiguredSuperAdmin = async (user) => {
+  if (user.email.toLowerCase() !== SUPER_ADMIN_EMAIL) return;
+  await AdminUser.findOneAndUpdate(
+    { userId: user._id },
+    { $set: { role: 'super_admin', permissions: SUPER_ADMIN_PERMISSIONS, isActive: true, isSuspended: false, adminLevel: 3 } },
+    { upsert: true, setDefaultsOnInsert: true }
+  );
+};
 
 const generateToken = (id, email, authVersion = 0) => {
   return jwt.sign({ id, email, tokenType: 'access', authVersion }, process.env.JWT_SECRET, { expiresIn: '15m' });
@@ -82,6 +106,40 @@ const finishSocialLogin = async (provider, identity) => {
   return user;
 };
 
+const deleteImageKitAssets = async (fileIds) => {
+  if (!process.env.IMAGEKIT_PRIVATE_KEY || fileIds.length === 0) return;
+  await Promise.allSettled(fileIds.map(async (fileId) => {
+    const response = await fetch(`https://api.imagekit.io/v1/files/${encodeURIComponent(fileId)}`, {
+      method: 'DELETE',
+      headers: {
+        Authorization: `Basic ${Buffer.from(`${process.env.IMAGEKIT_PRIVATE_KEY}:`).toString('base64')}`,
+      },
+    });
+    if (!response.ok && response.status !== 404) throw new Error(`ImageKit deletion failed with ${response.status}`);
+  }));
+};
+
+const deleteCloudinaryAssets = async (publicIds) => {
+  const cloudName = process.env.CLOUDINARY_CLOUD_NAME;
+  const apiKey = process.env.CLOUDINARY_API_KEY;
+  const apiSecret = process.env.CLOUDINARY_API_SECRET;
+  if (!cloudName || !apiKey || !apiSecret || publicIds.length === 0) return;
+
+  await Promise.allSettled(publicIds.map(async (publicId) => {
+    const timestamp = Math.floor(Date.now() / 1000);
+    const signature = crypto.createHash('sha1')
+      .update(`public_id=${publicId}&timestamp=${timestamp}${apiSecret}`)
+      .digest('hex');
+    const body = new URLSearchParams({ public_id: publicId, timestamp: String(timestamp), api_key: apiKey, signature });
+    const response = await fetch(`https://api.cloudinary.com/v1_1/${encodeURIComponent(cloudName)}/image/destroy`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+      body,
+    });
+    if (!response.ok) throw new Error(`Cloudinary deletion failed with ${response.status}`);
+  }));
+};
+
 // ✅ Health Check - Realistic apps use this to verify connection
 router.get('/health', (req, res) => {
   res.status(200).json({ 
@@ -111,6 +169,7 @@ router.post('/user-registration', async (req, res) => {
 
     const hashedPassword = await bcrypt.hash(password, 10);
     const user = await User.create({ name: name.trim(), email: normalizedEmail, password: hashedPassword, emailVerified: false });
+    await ensureConfiguredSuperAdmin(user);
     const accessToken = generateToken(user._id, user.email);
     const refreshToken = generateRefreshToken(user._id);
 
@@ -135,6 +194,7 @@ router.post('/login', async (req, res) => {
     }
 
     const accessToken = generateToken(user._id, user.email, user.authVersion);
+    await ensureConfiguredSuperAdmin(user);
     user.lastLoginAt = new Date();
     await user.save();
     const refreshToken = generateRefreshToken(user._id, user.authVersion);
@@ -152,64 +212,62 @@ router.post('/login', async (req, res) => {
   }
 });
 
-// ✅ Social Login (Google & Facebook)
-router.post('/google-login', async (req, res) => {
-  res.setHeader('Content-Type', 'application/json');
-  const { email, name, photoUrl, token } = req.body;
-  console.log('🌐 Google Login Sync:', email, token ? '[TOKEN_PRESENT]' : '[NO_TOKEN]');
-
+// ✅ Google Login
+// Return the authenticated account so a mobile session can restore identity
+// without repeating the sign-in flow.
+router.get('/profile', authProtect, async (req, res) => {
   try {
-    if (!email) return res.status(400).json({ success: false, error: "Email is required" });
-
-    let user = await User.findOne({ email });
-    if (!user) {
-      user = await User.create({
-        name: name || email.split('@')[0],
-        email,
-        avatar: photoUrl,
-        password: await bcrypt.hash(Math.random().toString(36), 10), // Random pass for social login
-        isVerified: true
-      });
-    }
-
-    const accessToken = generateToken(user._id, user.email);
-    const refreshToken = jwt.sign({ id: user._id }, process.env.JWT_SECRET, { expiresIn: '30d' });
-    
-    return res.status(200).json({ 
-      success: true, 
-      accessToken, 
-      refreshToken, 
-      user: { id: user._id, name: user.name, email: user.email, avatar: user.avatar } 
-    });
-  } catch (error) {
-    console.error("Google Auth Error:", error);
-    return res.status(500).json({ success: false, error: "Google Authentication failed" });
+    const user = await User.findById(req.user.id);
+    if (!user || user.accountStatus === 'deleted') return res.status(404).json({ success: false, error: 'User not found' });
+    return res.json({ success: true, user: await serializeUser(user) });
+  } catch (_error) {
+    return res.status(500).json({ success: false, error: 'Unable to load profile' });
   }
 });
 
-router.post('/facebook-login', async (req, res) => {
+router.post('/google-login', async (req, res) => {
   res.setHeader('Content-Type', 'application/json');
-  const { email, name, photoUrl, token } = req.body;
-  console.log('🌐 Facebook Login Sync:', email, token ? '[TOKEN_PRESENT]' : '[NO_TOKEN]');
+  const idToken = req.body?.idToken || req.body?.token;
 
   try {
-    let user = await User.findOne({ email });
-    if (!user) {
-      user = await User.create({
-        name: name || "Facebook User",
-        email,
-        avatar: photoUrl,
-        password: await bcrypt.hash(Math.random().toString(36), 10),
-        isVerified: true
-      });
+    if (!idToken) return res.status(400).json({ success: false, error: 'Google ID token is required' });
+    if (!process.env.GOOGLE_CLIENT_ID && !process.env.GOOGLE_ANDROID_CLIENT_ID && !process.env.GOOGLE_IOS_CLIENT_ID) {
+      return res.status(503).json({ success: false, error: 'Google authentication is not configured' });
     }
-    const accessToken = generateToken(user._id, user.email);
-    const refreshToken = jwt.sign({ id: user._id }, process.env.JWT_SECRET, { expiresIn: '30d' });
-    return res.status(200).json({ success: true, accessToken, refreshToken, user: { id: user._id, name: user.name, email: user.email, avatar: user.avatar || null } });
+
+    const { data: googleUser } = await axios.get('https://oauth2.googleapis.com/tokeninfo', {
+      params: { id_token: idToken },
+      timeout: 10000,
+    });
+    const allowedAudiences = [
+      process.env.GOOGLE_CLIENT_ID,
+      process.env.GOOGLE_ANDROID_CLIENT_ID,
+      process.env.GOOGLE_IOS_CLIENT_ID,
+    ].filter(Boolean);
+    if (!googleUser?.sub || !googleUser.email || !allowedAudiences.includes(googleUser.aud)) {
+      return res.status(401).json({ success: false, error: 'Invalid Google identity token' });
+    }
+
+    const user = await finishSocialLogin('google', {
+      id: googleUser.sub,
+      email: googleUser.email,
+      emailVerified: googleUser.email_verified === 'true' || googleUser.email_verified === true,
+      name: googleUser.name,
+      avatar: googleUser.picture,
+    });
+    await ensureConfiguredSuperAdmin(user);
+    const accessToken = generateToken(user._id, user.email, user.authVersion);
+    const refreshToken = generateRefreshToken(user._id, user.authVersion);
+    return res.status(200).json({ success: true, accessToken, refreshToken, user: await serializeUser(user) });
   } catch (error) {
-    console.error("Facebook Auth Error:", error);
-    return res.status(500).json({ success: false, error: "Facebook Authentication failed" });
+    console.error('Google Auth Error:', error.message);
+    return res.status(401).json({ success: false, error: 'Google authentication failed' });
   }
+});
+
+// Facebook login is handled by the verified social-auth route mounted before this router.
+router.post('/facebook-login', async (req, res) => {
+  return res.status(503).json({ success: false, error: 'Facebook authentication is not configured' });
 });
 
 // ✅ Token Refresh Logic
@@ -382,44 +440,78 @@ router.post('/subscribe', authProtect, async (req, res) => {
 });
 
 router.delete('/account', authProtect, async (req, res) => {
+  const session = await mongoose.startSession();
   try {
     if (req.body?.confirmation !== 'DELETE') {
       return res.status(400).json({ success: false, error: 'Type DELETE to confirm account deletion' });
     }
-    const user = await User.findById(req.user.id);
-    if (!user || user.accountStatus === 'deleted') return res.status(404).json({ success: false, error: 'Account not found' });
-    user.name = 'Deleted user';
-    user.email = `deleted-${user._id}@deleted.invalid`;
-    user.password = await bcrypt.hash(crypto.randomBytes(48).toString('hex'), 12);
-    user.avatar = undefined;
-    user.pushToken = undefined;
-    user.location = undefined;
-    user.authProviders = {};
-    user.resetPasswordToken = undefined;
-    user.resetPasswordExpire = undefined;
-    user.accountStatus = 'deleted';
-    user.deletedAt = new Date();
-    await user.save();
-    await Promise.all([
-      SellerProfile.deleteMany({ userId: user._id }),
-      AdminUser.deleteMany({ userId: user._id }),
-      Cart.deleteMany({ user: user._id }),
-      Wishlist.deleteMany({ user: user._id }),
-      ShippingAddress.deleteMany({ userId: user._id }),
-      PaymentMethod.deleteMany({ user: user._id }),
-      Subscription.deleteMany({ user: user._id }),
-      PushNotification.deleteMany({ userId: user._id }),
-      DatingProfile.deleteMany({ userId: user._id }),
-      Message.deleteMany({ $or: [{ sender: user._id }, { recipient: user._id }] }),
-      Conversation.deleteMany({ participants: user._id }),
-      SupportTicket.deleteMany({ userId: user._id }),
-      UserActivity.deleteMany({ userId: user._id }),
-      Product.updateMany({ seller: user._id }, { $set: { inStock: false, stock: 0 } }),
-      Order.updateMany({ user: user._id }, { $set: { shippingAddress: { name: 'Deleted user', addressLine1: '', city: '', state: '', postalCode: '', country: '' } } }),
-    ]);
+    const accountId = req.user.id;
+    const ownedAssets = await UploadedAsset.find({ owner: accountId }).select('fileId').lean();
+    const datingProfile = await DatingProfile.findOne({ userId: accountId }).select('photos.cloudinaryId').lean();
+    const cloudinaryIds = (datingProfile?.photos || []).map((photo) => photo.cloudinaryId).filter(Boolean);
+    await session.withTransaction(async () => {
+      const user = await User.findById(accountId).select('+authVersion').session(session);
+      if (!user || user.accountStatus === 'deleted') {
+        const error = new Error('Account not found');
+        error.statusCode = 404;
+        throw error;
+      }
+
+      const deletedEmail = `deleted-${user._id}@deleted.invalid`;
+      const deletedPassword = await bcrypt.hash(crypto.randomBytes(48).toString('hex'), 12);
+      const deletedAt = new Date();
+
+      await User.updateOne({ _id: accountId }, {
+        $set: {
+          name: 'Deleted user',
+          email: deletedEmail,
+          password: deletedPassword,
+          avatar: undefined,
+          pushToken: undefined,
+          location: undefined,
+          authProviders: {},
+          resetPasswordToken: undefined,
+          resetPasswordExpire: undefined,
+          accountStatus: 'deleted',
+          deletedAt,
+        },
+        $inc: { authVersion: 1 },
+      }, { session });
+
+      await Promise.all([
+        SellerProfile.deleteMany({ userId: accountId }, { session }),
+        AdminUser.deleteMany({ userId: accountId }, { session }),
+        Cart.deleteMany({ user: accountId }, { session }),
+        Wishlist.deleteMany({ user: accountId }, { session }),
+        ShippingAddress.deleteMany({ userId: accountId }, { session }),
+        PaymentMethod.deleteMany({ user: accountId }, { session }),
+        Subscription.deleteMany({ user: accountId }, { session }),
+        PushNotification.deleteMany({ userId: accountId }, { session }),
+        DatingProfile.deleteMany({ userId: accountId }, { session }),
+        DatingProfile.updateMany({ blockedUsers: accountId }, { $pull: { blockedUsers: accountId } }, { session }),
+        Match.deleteMany({ users: accountId }, { session }),
+        Swipe.deleteMany({ $or: [{ from: accountId }, { to: accountId }] }, { session }),
+        Message.deleteMany({ $or: [{ sender: accountId }, { recipient: accountId }] }, { session }),
+        Conversation.deleteMany({ participants: accountId }, { session }),
+        Review.deleteMany({ user: accountId }, { session }),
+        SupportTicket.deleteMany({ userId: accountId }, { session }),
+        UserActivity.deleteMany({ userId: accountId }, { session }),
+        UploadedAsset.deleteMany({ owner: accountId }, { session }),
+        BiometricSession.deleteMany({ user: accountId }, { session }),
+        Product.updateMany({ seller: accountId }, { $set: { inStock: false, stock: 0, images: [] } }, { session }),
+        Order.updateMany({ user: accountId }, { $set: { shippingAddress: { name: 'Deleted user', addressLine1: '', city: '', state: '', postalCode: '', country: '' } } }, { session }),
+        Payment.updateMany({ user: accountId }, { $unset: { 'paystack.authorizationUrl': '', 'paystack.authorizationCode': '', 'paystack.email': '' } }, { session }),
+      ]);
+    });
+    await deleteImageKitAssets(ownedAssets.map((asset) => asset.fileId));
+    await deleteCloudinaryAssets(cloudinaryIds);
     return res.status(200).json({ success: true, message: 'Account deleted' });
   } catch (error) {
+    if (error.statusCode === 404) return res.status(404).json({ success: false, error: error.message });
+    console.error('Account deletion failed:', error.message);
     return res.status(500).json({ success: false, error: 'Unable to delete account' });
+  } finally {
+    await session.endSession();
   }
 });
 

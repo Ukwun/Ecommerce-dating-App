@@ -8,6 +8,15 @@ const Review = require('../models/Review');
 const UploadedAsset = require('../models/UploadedAsset');
 const Order = require('../models/Order');
 
+const updateProductRating = async (productId) => {
+  const summary = await Review.aggregate([
+    { $match: { product: new (require('mongoose').Types.ObjectId)(productId) } },
+    { $group: { _id: '$product', ratings: { $avg: '$rating' }, numOfReviews: { $sum: 1 } } },
+  ]);
+  const values = summary[0] || { ratings: 0, numOfReviews: 0 };
+  await Product.findByIdAndUpdate(productId, { ratings: Math.round(values.ratings * 10) / 10, numOfReviews: values.numOfReviews });
+};
+
 // Create new product
 router.post('/products', protect, seller, async (req, res) => {
   try {
@@ -147,6 +156,39 @@ router.get('/products/:id', async (req, res) => {
   } catch (error) {
     console.error(`Error fetching product ${req.params.id}:`, error);
     res.status(500).json({ success: false, message: 'Internal Server Error' });
+  }
+});
+
+// Only buyers with a delivered, paid order may review a product.
+router.post('/products/:productId/reviews', protect, async (req, res) => {
+  try {
+    const { rating, comment } = req.body;
+    const numericRating = Number(rating);
+    if (!Number.isInteger(numericRating) || numericRating < 1 || numericRating > 5 || typeof comment !== 'string' || comment.trim().length < 3) {
+      return res.status(422).json({ success: false, message: 'A rating from 1 to 5 and a review of at least 3 characters are required' });
+    }
+
+    const product = await Product.findOne({ _id: req.params.productId, $or: [{ moderationStatus: 'approved' }, { moderationStatus: { $exists: false } }] }).select('_id');
+    if (!product) return res.status(404).json({ success: false, message: 'Product not found' });
+
+    const eligibleOrder = await Order.findOne({
+      user: req.user.id,
+      status: 'delivered',
+      'payment.status': 'completed',
+      products: { $elemMatch: { product: product._id } },
+    }).select('_id');
+    if (!eligibleOrder) return res.status(403).json({ success: false, message: 'Reviews are available after a paid order is delivered' });
+
+    const existing = await Review.findOne({ user: req.user.id, product: product._id });
+    if (existing) return res.status(409).json({ success: false, message: 'You have already reviewed this product' });
+
+    const review = await Review.create({ user: req.user.id, product: product._id, rating: numericRating, comment: comment.trim() });
+    await updateProductRating(product._id);
+    await review.populate('user', 'name avatar');
+    res.status(201).json({ success: true, data: review });
+  } catch (error) {
+    console.error('Product review creation failed:', error);
+    res.status(500).json({ success: false, message: 'Server Error' });
   }
 });
 

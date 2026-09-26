@@ -38,12 +38,13 @@ console.log('🔌 [NETWORK] Current Base URL:', resolvedBase);
 const axiosInstance = axios.create({
     baseURL: resolvedBase,
     withCredentials: false,
-    timeout: 90000, // Increased to 90s for Render free tier cold starts
+    // Browsing must fail fast instead of leaving a mobile screen frozen.
+    timeout: 12000,
 });
 
 // Retry logic for network requests (handles Render backend wake-up)
 const retryCount = new Map<string, number>();
-const MAX_RETRIES = 2;
+const MAX_RETRIES = 1;
 
 const getRetryCount = (url: string): number => retryCount.get(url) || 0;
 const incrementRetryCount = (url: string): number => {
@@ -168,11 +169,12 @@ axiosInstance.interceptors.response.use(
         
         console.error(`🌐 [NETWORK ERROR] ${error.message} on path: ${url} (timeout: ${isTimeout}, network: ${isNetworkError})`);
 
-        // Retry logic for timeout/network errors (max 2 retries)
-        if ((isTimeout || isNetworkError) && error.config && getRetryCount(url) < MAX_RETRIES) {
+        // Never retry writes: retrying an order or payment can duplicate it.
+        const safeToRetry = String(error.config?.method || 'get').toLowerCase() === 'get';
+        if ((isTimeout || isNetworkError) && safeToRetry && error.config && getRetryCount(url) < MAX_RETRIES) {
             incrementRetryCount(url);
             const retryNum = getRetryCount(url);
-            const delayMs = Math.pow(2, retryNum) * 1000; // Exponential backoff: 2s, 4s
+            const delayMs = 750;
             
             console.log(`🔄 Retry attempt ${retryNum} for ${url} (waiting ${delayMs}ms for Render to wake up)...`);
             
@@ -187,8 +189,8 @@ axiosInstance.interceptors.response.use(
             resetRetryCount(url);
             const isRender = resolvedBase.includes('onrender.com');
             const msg = isRender 
-                ? "Server timeout (Render may be waking up from sleep). Please:\n1. Wait 30 seconds\n2. Check your WiFi/data\n3. Try again\n\nIf it persists, contact support@marketplace.app"
-                : "The server is unreachable. Please check your internet connection.";
+                ? "We could not reach BizMingle right now. Please check your connection and try again."
+                : "The server is unreachable. Please check your internet connection and try again.";
             
             console.warn(`⚠️ [${isRender ? 'RENDER' : 'NETWORK'}] Connection failed after retries`);
             return Promise.reject(new Error(msg));

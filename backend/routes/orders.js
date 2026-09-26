@@ -13,6 +13,7 @@ const router = express.Router();
 // ✅ Create order from cart
 router.post('/orders', protect, async (req, res) => {
   const reservedProducts = [];
+  let orderPersisted = false;
   const releaseReservations = () => Promise.all(
     reservedProducts.map(entry => Product.updateOne({ _id: entry.product }, { $inc: { reservedStock: -entry.quantity } }))
   );
@@ -108,6 +109,7 @@ router.post('/orders', protect, async (req, res) => {
     });
 
     await order.save();
+    orderPersisted = true;
 
     // Clear user's cart
     await Cart.findOneAndUpdate(
@@ -138,6 +140,7 @@ router.post('/orders', protect, async (req, res) => {
       },
     });
   } catch (error) {
+    if (!orderPersisted) await releaseReservations().catch(() => {});
     res.status(500).json({ error: error.message });
   }
 });
@@ -288,7 +291,6 @@ router.put('/orders/:id/fulfillments/status', protect, async (req, res) => {
     }
     res.json({ success: true, data: fulfillment, orderStatus: order.status });
   } catch (error) {
-    await releaseReservations().catch(() => {});
     res.status(500).json({ error: error.message });
   }
 });

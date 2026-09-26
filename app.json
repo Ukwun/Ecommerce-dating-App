@@ -2,7 +2,7 @@
   "expo": {
     "name": "BizMingle",
     "slug": "marketplace",
-    "version": "1.0.0",
+    "version": "1.0.3",
     "orientation": "default",
     "icon": "./assets/images/icon.png",
     "scheme": "marketplace",
@@ -16,11 +16,11 @@
     "ios": {
       "supportsTablet": true,
       "bundleIdentifier": "com.marketplace.app",
-      "buildNumber": "1"
+      "buildNumber": "4"
     },
     "android": {
-      "package": "com.marketplace.app",
-      "versionCode": 1,
+      "package": "com.bizmingle.app",
+      "versionCode": 4,
       "adaptiveIcon": {
         "backgroundColor": "#E6F4FE",
         "foregroundImage": "./assets/images/android-icon-foreground.png",
@@ -85,10 +85,10 @@
       "eas": {
         "projectId": "543f74ae-39ce-4609-a1a1-8ef032c3c7a7"
       },
-      "privacyPolicyUrl": "https://ecommerce-dating-app.onrender.com/privacy",
-      "termsOfServiceUrl": "https://ecommerce-dating-app.onrender.com/terms",
-      "accountDeletionUrl": "https://ecommerce-dating-app.onrender.com/account-deletion",
-      "childSafetyStandardsUrl": "https://ecommerce-dating-app.onrender.com/child-safety"
+      "privacyPolicyUrl": "https://com.bizmingle.app/privacy-policy",
+      "termsOfServiceUrl": "https://com.bizmingle.app/terms",
+      "accountDeletionUrl": "https://com.bizmingle.app/delete-account",
+      "childSafetyStandardsUrl": "https://com.bizmingle.app/child-safety"
     },
     "owner": "ukwun1",
     "runtimeVersion": {

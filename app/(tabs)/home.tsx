@@ -123,7 +123,7 @@ export default function HomeScreen() {
       if (filters.color) params.append('color', filters.color);
       if (filters.size) params.append('size', filters.size);
 
-      const response = await axiosInstance.get(`/marketplace/api/products?${params.toString()}`);
+      const response = await axiosInstance.get(`/marketplace/api/products?${params.toString()}`, { timeout: 10000 });
       const fetchedData = response.data.data || [];
       const mappedProducts = fetchedData.map((p: any) => ({
         ...p,

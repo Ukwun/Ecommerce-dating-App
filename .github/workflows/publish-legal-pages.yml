@@ -1,0 +1,46 @@
+name: Publish BizMingle legal pages
+
+on:
+  push:
+    branches: [master]
+    paths:
+      - 'legal/**'
+      - '.github/workflows/publish-legal-pages.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+concurrency:
+  group: pages
+  cancel-in-progress: true
+
+jobs:
+  deploy:
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+      - name: Build clean legal routes
+        run: |
+          mkdir -p _site/privacy-policy _site/terms _site/delete-account _site/child-safety
+          cp legal/privacy-policy.html _site/privacy-policy/index.html
+          cp legal/terms.html _site/terms/index.html
+          cp legal/delete-account.html _site/delete-account/index.html
+          cp legal/child-safety.html _site/child-safety/index.html
+          cp legal/styles.css _site/styles.css
+          cp legal/CNAME _site/CNAME
+      - name: Configure Pages
+        uses: actions/configure-pages@v5
+      - name: Upload Pages artifact
+        uses: actions/upload-pages-artifact@v3
+        with:
+          path: _site
+      - name: Deploy to GitHub Pages
+        id: deployment
+        uses: actions/deploy-pages@v4

@@ -1,7 +1,6 @@
 import React, { useCallback, useEffect, useState } from 'react';
 import { Image, StyleSheet, Text, View } from 'react-native';
 import { Redirect } from 'expo-router';
-import AsyncStorage from '@react-native-async-storage/async-storage';
 import Animated, { Easing, FadeIn, FadeOut, useAnimatedStyle, useSharedValue, withDelay, withSequence, withSpring, withTiming } from 'react-native-reanimated';
 import { useAuth } from '@/hooks/AuthContext';
 import OnboardingScreen from '../screens/onboarding/onboarding.screen';
@@ -10,21 +9,21 @@ import SignupScreen from './(routes)/signup';
 import ForgotPasswordScreen from './(routes)/forgot-password';
 
 function BrandIntro({ onDone }: { onDone: () => void }) {
-  const scale = useSharedValue(0.72); const opacity = useSharedValue(0); const lift = useSharedValue(12);
+  const scale = useSharedValue(0.92); const opacity = useSharedValue(1); const lift = useSharedValue(8);
   useEffect(() => {
-    opacity.value = withTiming(1, { duration: 350 }); scale.value = withSequence(withSpring(1.08, { damping: 10, stiffness: 150 }), withSpring(1, { damping: 13 })); lift.value = withDelay(350, withTiming(0, { duration: 450, easing: Easing.out(Easing.cubic) }));
+    scale.value = withSequence(withSpring(1.08, { damping: 10, stiffness: 150 }), withSpring(1, { damping: 13 })); lift.value = withDelay(180, withTiming(0, { duration: 450, easing: Easing.out(Easing.cubic) }));
     const timer = setTimeout(onDone, 1750); return () => clearTimeout(timer);
-  }, [lift, onDone, opacity, scale]);
+  }, [lift, onDone, scale]);
   const logoStyle = useAnimatedStyle(() => ({ opacity: opacity.value, transform: [{ scale: scale.value }, { translateY: lift.value }] }));
   return <Animated.View exiting={FadeOut.duration(260)} style={styles.intro}><View style={styles.glow} /><Animated.View style={[styles.logoShell, logoStyle]}><Image source={require('../assets/images/icon.png')} style={styles.logo} resizeMode="cover" /></Animated.View><Animated.View entering={FadeIn.delay(420).duration(450)} style={styles.wordmark}><Text style={styles.name}>BizMingle</Text><Text style={styles.tagline}>Shop. Connect. Belong.</Text></Animated.View></Animated.View>;
 }
 
 export default function Index() {
-  const { user, isLoading } = useAuth(); const [introComplete, setIntroComplete] = useState(false); const [onboardingComplete, setOnboardingComplete] = useState<boolean | null>(null);
+  const { user, isLoading } = useAuth(); const [introComplete, setIntroComplete] = useState(false); const [onboardingComplete, setOnboardingComplete] = useState(false);
   const [authPage, setAuthPage] = useState<'login' | 'signup' | 'forgot'>('login');
   const completeIntro = useCallback(() => setIntroComplete(true), []);
-  useEffect(() => { AsyncStorage.getItem('@onboarding_done').then(value => setOnboardingComplete(value === '1')).catch(() => setOnboardingComplete(false)); }, []);
   if (!introComplete || isLoading || onboardingComplete === null) return <BrandIntro onDone={completeIntro} />;
+  if (user?.roles?.admin?.role === 'super_admin') return <Redirect href={'/(admin)/admin-dashboard' as any} />;
   if (user) return <Redirect href={'/(tabs)/home' as any} />;
   if (onboardingComplete) {
     if (authPage === 'signup') return <SignupScreen onSignIn={() => setAuthPage('login')} />;

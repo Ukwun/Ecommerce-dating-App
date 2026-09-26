@@ -8,6 +8,8 @@ const userSchema = new mongoose.Schema({
   emailVerified: { type: Boolean, default: false },
   authProviders: {
     facebook: { id: String },
+    google: { id: String },
+    apple: { id: String },
   },
   lastLoginAt: Date,
   resetPasswordToken: String,

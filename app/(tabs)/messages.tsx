@@ -82,7 +82,9 @@ export default function MessagesScreen() {
     const replaced = raw.replace(/^ws:\/\/10\.0\.2\.2(:|\/|$)/, 'ws://10.0.2.2$1');
     return replaced;
   };
-  const WS_URL = normalizeDevHost(envWs) || (__DEV__ ? 'ws://10.0.2.2:8082' : undefined);
+  const apiBaseUrl = process.env.EXPO_PUBLIC_BACKEND_URL || process.env.EXPO_PUBLIC_SERVER_URI || 'https://ecommerce-dating-app.onrender.com';
+  const defaultWsUrl = apiBaseUrl.replace(/^http/, 'ws');
+  const WS_URL = normalizeDevHost(envWs) || (__DEV__ ? 'ws://10.0.2.2:8082' : defaultWsUrl);
 
   // Helper: validate WS_URL and avoid known placeholders used in examples.
   const isValidWsUrl = (u?: string) => {
@@ -323,6 +325,13 @@ export default function MessagesScreen() {
           )}
           ItemSeparatorComponent={() => <View style={styles.separator} />}
           contentContainerStyle={{ backgroundColor: isDark ? '#111827' : '#F3F4F6' }}
+          ListEmptyComponent={
+            <View style={styles.emptyState}>
+              <Ionicons name="chatbubbles-outline" size={42} color="#9CA3AF" />
+              <Text style={styles.emptyTitle}>{searchQuery ? 'No matching conversations' : 'No conversations yet'}</Text>
+              <Text style={styles.emptyText}>{searchQuery ? 'Try another search.' : 'Messages with sellers and connections will appear here.'}</Text>
+            </View>
+          }
         />
       </SafeAreaView>
     </LinearGradient>
@@ -452,5 +461,23 @@ const styles = StyleSheet.create({
   },
   clearButton: {
     padding: 4,
+  },
+  emptyState: {
+    alignItems: 'center',
+    paddingHorizontal: 32,
+    paddingTop: 80,
+  },
+  emptyTitle: {
+    color: '#374151',
+    fontSize: 17,
+    fontWeight: '800',
+    marginTop: 14,
+  },
+  emptyText: {
+    color: '#6B7280',
+    fontSize: 14,
+    lineHeight: 21,
+    marginTop: 7,
+    textAlign: 'center',
   },
 });

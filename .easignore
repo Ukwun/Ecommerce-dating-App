@@ -1,0 +1,16 @@
+# Keep the cloud build archive focused on source and runtime assets.
+.git
+node_modules
+.expo
+.expo-*
+android
+backend/dist
+backend/node_modules
+dist
+*.apk
+*.aab
+*.log
+*.md
+.env
+.env.*
+.vscode

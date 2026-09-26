@@ -1,5 +1,6 @@
 const express = require('express');
 const http = require('http');
+const path = require('path');
 const { Server } = require('socket.io');
 const mongoose = require('mongoose');
 const cors = require('cors');
@@ -74,6 +75,7 @@ app.use(express.json({
   }
 }));
 app.use(express.urlencoded({ extended: true }));
+app.use('/assets', express.static(path.join(__dirname, 'assets'), { maxAge: '7d', immutable: true }));
 
 // Health check endpoint (no auth required)
 app.get('/health', (req, res) => {

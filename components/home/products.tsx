@@ -22,6 +22,8 @@ type Product = {
   id?: string;
   name: string;
   image?: string;
+  imageUrl?: string;
+  images?: Array<string | { url?: string }>;
   price: number;
   oldPrice?: number;
   rating?: number;
@@ -42,6 +44,11 @@ type ProductCardProps = {
   wishlist?: string[];
   toggleWishlist?: (id: string) => void;
   index?: number;
+};
+
+const getProductImage = (product: Product) => {
+  const firstImage = product.images?.[0];
+  return typeof firstImage === 'string' ? firstImage : firstImage?.url || product.image || product.imageUrl;
 };
 
 export default function ProductSection({
@@ -87,6 +94,8 @@ export const ProductCard = ({
   const inWishlist = wishlist?.includes(item._id);
   const { setSharedElement } = useSharedElement();
   const imageRef = useRef<Image>(null);
+  const [imageUri] = React.useState(getProductImage(item));
+  const [imageFailed, setImageFailed] = React.useState(false);
 
   const cardScale = useSharedValue(1);
   const heartScale = useSharedValue(1);
@@ -138,7 +147,7 @@ export const ProductCard = ({
       >
         {/* Image */}
         <View style={styles.imageWrapper}>
-          {item.image ? <Image ref={imageRef} source={{ uri: item.image }} style={styles.image} resizeMode="cover" /> : <View style={styles.imageFallback}><Ionicons name="image-outline" size={34} color="#9CA3AF" /><Text style={styles.imageFallbackText}>No image</Text></View>}
+          {imageUri && !imageFailed ? <Image ref={imageRef} source={{ uri: imageUri }} style={styles.image} resizeMode="cover" onError={() => setImageFailed(true)} /> : <View style={styles.imageFallback}><Ionicons name="image-outline" size={34} color="#9CA3AF" /><Text style={styles.imageFallbackText}>Photo unavailable</Text></View>}
 
           {/* Wishlist Heart */}
           <Animated.View style={[styles.heartIcon, heartStyle]}>

@@ -21,6 +21,12 @@ const PAYSTACK_BASE_URL = 'https://api.paystack.co';
 
 const getClientIp = (req) => req.ip || req.connection?.remoteAddress || 'Unknown';
 
+// Safe operational preflight used by the mobile checkout. It exposes no secret
+// material and prevents a buyer from beginning a payment flow that cannot work.
+router.get('/payments/readiness', protect, (_req, res) => {
+  res.json({ success: true, data: { paymentsAvailable: Boolean(PAYSTACK_SECRET) } });
+});
+
 router.get('/payment-methods', protect, async (req, res) => {
   const methods = await PaymentMethod.find({ user: req.user.id }).sort({ isDefault: -1, createdAt: -1 });
   res.json({ success: true, data: methods });

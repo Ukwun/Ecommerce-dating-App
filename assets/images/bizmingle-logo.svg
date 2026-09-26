@@ -1,0 +1,19 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1024" height="1024" viewBox="0 0 1024 1024">
+  <defs>
+    <linearGradient id="mark" x1="245" y1="260" x2="790" y2="780" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#ff4f86"/>
+      <stop offset="0.52" stop-color="#f44791"/>
+      <stop offset="1" stop-color="#8f45e6"/>
+    </linearGradient>
+  </defs>
+  <rect width="1024" height="1024" rx="140" fill="#08091b"/>
+  <g fill="none" stroke="url(#mark)" stroke-linecap="round" stroke-linejoin="round">
+    <path d="M330 336v-48c0-72 55-126 128-126s128 54 128 126v48" stroke-width="32"/>
+    <path d="M268 319h394v242c-29-36-75-57-123-57-45 0-84 18-111 51-28-33-67-51-112-51-18 0-33 3-48 9V319z" stroke-width="0" fill="url(#mark)"/>
+    <path d="M268 319v500h180c83 0 141-54 141-129 0-56-35-98-91-123l-230-148" stroke-width="54"/>
+    <path d="M540 490c30-48 76-73 128-73 78 0 139 61 139 139 0 53-25 94-67 132L540 746 340 574c-42-38-67-79-67-132 0-78 61-139 139-139 52 0 98 25 128 73z" stroke-width="50"/>
+    <path d="M735 483v336H610" stroke-width="54"/>
+  </g>
+  <circle cx="688" cy="315" r="45" fill="url(#mark)"/>
+  <circle cx="490" cy="370" r="38" fill="url(#mark)"/>
+</svg>
