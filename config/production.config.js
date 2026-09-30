@@ -18,7 +18,7 @@ module.exports = {
   // Build Configuration
   build: {
     android: {
-      versionCode: 4,
+      versionCode: 5,
       minSdkVersion: 21,
       targetSdkVersion: 34,
       compileSdkVersion: 34,
