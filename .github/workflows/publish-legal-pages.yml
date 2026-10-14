@@ -29,6 +29,7 @@ jobs:
       - name: Build clean legal routes
         run: |
           mkdir -p _site/privacy-policy _site/terms _site/delete-account _site/child-safety
+          cp legal/index.html _site/index.html
           cp legal/privacy-policy.html _site/privacy-policy/index.html
           cp legal/terms.html _site/terms/index.html
           cp legal/delete-account.html _site/delete-account/index.html
