@@ -2,7 +2,7 @@
   "expo": {
     "name": "BizMingle",
     "slug": "marketplace",
-    "version": "1.0.8",
+    "version": "1.0.9",
     "orientation": "default",
     "icon": "./assets/images/icon.png",
     "scheme": "marketplace",
@@ -16,11 +16,11 @@
     "ios": {
       "supportsTablet": true,
       "bundleIdentifier": "com.marketplace.app",
-      "buildNumber": "9"
+      "buildNumber": "10"
     },
     "android": {
       "package": "com.bizmingle.app",
-      "versionCode": 9,
+      "versionCode": 10,
       "adaptiveIcon": {
         "backgroundColor": "#E6F4FE",
         "foregroundImage": "./assets/images/android-icon-foreground.png",

@@ -27,6 +27,7 @@ export default function DatingProfileScreen() {
   const [interests, setInterests] = useState<string[]>([]);
   const [interestInput, setInterestInput] = useState('');
   const [saving, setSaving] = useState(false);
+  const [uploadingPhoto, setUploadingPhoto] = useState(false);
 
   useEffect(() => {
     if (profile) {
@@ -57,10 +58,13 @@ export default function DatingProfileScreen() {
     });
     if (!result.canceled) {
       try {
+        setUploadingPhoto(true);
         await uploadPhoto(result.assets[0].uri, '', (profile?.photos?.length || 0) === 0);
         Alert.alert('Success', 'Photo added');
-      } catch {
-        Alert.alert('Error', 'Failed to upload photo');
+      } catch (error: any) {
+        Alert.alert('Photo not added', error?.message || 'Failed to upload photo');
+      } finally {
+        setUploadingPhoto(false);
       }
     }
   };
@@ -146,10 +150,16 @@ export default function DatingProfileScreen() {
       <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={{ padding: 20, paddingBottom: 60 }}>
         {/* Profile Photo */}
         <View style={styles.photoHeader}>
-          <Image
-            source={{ uri: profile.profilePhotoUrl || profile.photos?.[0]?.url || 'https://i.pravatar.cc/300' }}
-            style={styles.mainPhoto}
-          />
+          {profile.profilePhotoUrl || profile.photos?.[0]?.url ? (
+            <Image
+              source={{ uri: profile.profilePhotoUrl || profile.photos?.[0]?.url }}
+              style={styles.mainPhoto}
+            />
+          ) : (
+            <View style={[styles.mainPhoto, styles.emptyPhoto]}>
+              <Ionicons name="person-outline" size={40} color="#9CA3AF" />
+            </View>
+          )}
           <View style={styles.profileInfo}>
             <Text style={styles.profileName}>{profile.userId?.name || 'User'}</Text>
             {profile.age && <Text style={styles.profileAge}>{profile.age} years old</Text>}
@@ -193,9 +203,9 @@ export default function DatingProfileScreen() {
             </View>
           ))}
           {editing && (profile.photos?.length || 0) < 9 && (
-            <TouchableOpacity onPress={handleUploadPhoto} style={styles.addPhotoBtn}>
-              <Ionicons name="add" size={28} color="#FF1493" />
-              <Text style={{ fontSize: 10, color: '#FF1493', marginTop: 4 }}>Add</Text>
+            <TouchableOpacity onPress={handleUploadPhoto} disabled={uploadingPhoto} style={[styles.addPhotoBtn, uploadingPhoto && { opacity: 0.65 }]}>
+              {uploadingPhoto ? <ActivityIndicator color="#FF1493" /> : <Ionicons name="add" size={28} color="#FF1493" />}
+              <Text style={{ fontSize: 10, color: '#FF1493', marginTop: 4 }}>{uploadingPhoto ? 'Reviewing' : 'Add'}</Text>
             </TouchableOpacity>
           )}
         </View>
@@ -330,6 +340,7 @@ const styles = StyleSheet.create({
   editTextActive: { color: '#fff' },
   photoHeader: { flexDirection: 'row', alignItems: 'center', gap: 16, marginBottom: 20 },
   mainPhoto: { width: 90, height: 90, borderRadius: 45, borderWidth: 3, borderColor: '#FF1493' },
+  emptyPhoto: { alignItems: 'center', justifyContent: 'center', backgroundColor: '#F3F4F6' },
   profileInfo: { flex: 1, gap: 4 },
   profileName: { fontSize: 22, fontWeight: '900', color: '#111' },
   profileAge: { fontSize: 14, color: '#666' },
