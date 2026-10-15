@@ -1,4 +1,5 @@
 const express = require('express');
+const mongoose = require('mongoose');
 const Message = require('../models/Message');
 const User = require('../models/User');
 const { protect } = require('../middleware/auth');
@@ -121,13 +122,14 @@ router.get('/messages/:userId', protect, async (req, res) => {
 // ✅ Get all conversations (chat list)
 router.get('/conversations', protect, async (req, res) => {
   try {
+    const currentUserId = new mongoose.Types.ObjectId(req.user.id);
     // Get all unique users who have chatted with this user
     const conversations = await Message.aggregate([
       {
         $match: {
           $or: [
-            { sender: require('mongoose').Types.ObjectId(req.user.id) },
-            { recipient: require('mongoose').Types.ObjectId(req.user.id) }
+            { sender: currentUserId },
+            { recipient: currentUserId }
           ]
         }
       },
@@ -135,7 +137,7 @@ router.get('/conversations', protect, async (req, res) => {
         $group: {
           _id: {
             $cond: [
-              { $eq: ['$sender', require('mongoose').Types.ObjectId(req.user.id)] },
+              { $eq: ['$sender', currentUserId] },
               '$recipient',
               '$sender'
             ]
@@ -147,7 +149,7 @@ router.get('/conversations', protect, async (req, res) => {
               $cond: [
                 {
                   $and: [
-                    { $eq: ['$recipient', require('mongoose').Types.ObjectId(req.user.id)] },
+                    { $eq: ['$recipient', currentUserId] },
                     { $eq: ['$read', false] }
                   ]
                 },

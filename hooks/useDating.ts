@@ -43,10 +43,44 @@ export const useDatingProfile = () => {
     return res.data;
   };
 
-  const uploadPhoto = async (photoUrl: string, cloudinaryId: string, isProfilePhoto = false) => {
-    const res = await axiosInstance.post('/dating/api/profile/photo/upload', { photoUrl, cloudinaryId, isProfilePhoto });
-    setProfile(res.data?.profile || res.data);
-    return res.data?.photo;
+  const uploadPhoto = async (photoUri: string, _legacyCloudinaryId = '', isProfilePhoto = false) => {
+    const source = await fetch(photoUri);
+    const blob = await source.blob();
+    const base64 = await new Promise<string>((resolve, reject) => {
+      const reader = new FileReader();
+      reader.onerror = () => reject(new Error('Unable to read the selected photo'));
+      reader.onloadend = () => {
+        const result = String(reader.result || '');
+        const encoded = result.includes(',') ? result.split(',')[1] : result;
+        if (encoded) resolve(encoded);
+        else reject(new Error('Unable to encode the selected photo'));
+      };
+      reader.readAsDataURL(blob);
+    });
+
+    const upload = await axiosInstance.post('/upload/api/imagekit', {
+      base64,
+      fileName: `dating-${Date.now()}.jpg`,
+      folder: '/dating',
+    });
+    const { fileId } = upload.data || {};
+    if (!fileId) throw new Error('Photo upload did not return an asset ID');
+
+    const deadline = Date.now() + 45_000;
+    while (Date.now() < deadline) {
+      await new Promise(resolve => setTimeout(resolve, 1500));
+      const status = await axiosInstance.get(`/upload/api/imagekit/${encodeURIComponent(fileId)}/status`);
+      const asset = status.data?.data;
+      if (asset?.moderationStatus === 'approved') {
+        const res = await axiosInstance.post('/dating/api/profile/photo/upload', { fileId, isProfilePhoto });
+        setProfile(res.data?.profile || res.data);
+        return res.data?.photo;
+      }
+      if (asset?.moderationStatus === 'rejected' || asset?.moderationStatus === 'failed') {
+        throw new Error('This photo could not pass the safety review. Please choose another photo.');
+      }
+    }
+    throw new Error('Your photo is still being reviewed. Please try again shortly.');
   };
 
   const deletePhoto = async (photoIndex: number) => {

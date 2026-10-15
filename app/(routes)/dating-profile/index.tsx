@@ -17,7 +17,7 @@ export default function DatingProfileScreen() {
   const router = useRouter();
   const {
     profile, loading, updateProfile, uploadPhoto, deletePhoto,
-    updateLocation, enableTwoFactor, disableTwoFactor,
+    updateLocation,
   } = useDatingProfile();
 
   const { expoPushToken, requestAndRegister } = usePushNotifications();
@@ -82,25 +82,6 @@ export default function DatingProfileScreen() {
       const id = typeof profile?.userId === 'object' ? profile?.userId?._id : profile?.userId;
       await Share.share({ message: `Check out my dating profile! https://app.link/dating-profile/${id}` });
     } catch (e: any) { Alert.alert('Error', e.message); }
-  };
-
-  const handleToggle2FA = async () => {
-    if (profile?.isTwoFactorEnabled) {
-      try { await disableTwoFactor(); Alert.alert('Success', '2FA disabled'); }
-      catch { Alert.alert('Error', 'Failed to disable 2FA'); }
-    } else {
-      const perm = await ImagePicker.requestCameraPermissionsAsync();
-      if (perm.status !== 'granted') { Alert.alert('Permission needed', 'Camera permission required'); return; }
-      const result = await ImagePicker.launchCameraAsync({
-        mediaTypes: ImagePicker.MediaTypeOptions.Images,
-        allowsEditing: true, aspect: [1, 1], quality: 0.5,
-        cameraType: ImagePicker.CameraType.front,
-      });
-      if (!result.canceled) {
-        try { await enableTwoFactor(result.assets[0].uri); Alert.alert('Success', '2FA enabled'); }
-        catch { Alert.alert('Error', 'Failed to enable 2FA'); }
-      }
-    }
   };
 
   if (loading) {
@@ -311,23 +292,6 @@ export default function DatingProfileScreen() {
             <Text style={{ color: '#fff', fontWeight: '700', marginLeft: 8 }}>Enable Push Notifications</Text>
           </TouchableOpacity>
         )}
-
-        {/* 2FA */}
-        <Text style={styles.sectionTitle}>Security</Text>
-        <View style={styles.securityRow}>
-          <View style={{ flex: 1 }}>
-            <Text style={{ fontWeight: '700', color: '#111', marginBottom: 2 }}>2-Step Verification</Text>
-            <Text style={{ fontSize: 12, color: '#888' }}>Require selfie verification on new devices</Text>
-          </View>
-          <TouchableOpacity
-            onPress={handleToggle2FA}
-            style={[styles.toggleBtn, profile.isTwoFactorEnabled && styles.toggleBtnOn]}
-          >
-            <Text style={{ color: '#fff', fontWeight: 'bold', fontSize: 12 }}>
-              {profile.isTwoFactorEnabled ? 'ON' : 'OFF'}
-            </Text>
-          </TouchableOpacity>
-        </View>
 
         {/* Save */}
         {editing && (

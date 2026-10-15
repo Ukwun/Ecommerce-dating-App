@@ -46,13 +46,16 @@ module.exports = (io) => {
     });
 
     // Typing indicators
-    socket.on('user:typing', ({ conversationId }) => {
-      socket.to(conversationId).emit('user:typing', { conversationId, userId: socket.userId });
-    });
+    const relayTypingEvent = (eventName) => ({ conversationId } = {}) => {
+      const room = String(conversationId || '');
+      // A socket can only signal typing in a conversation it successfully joined.
+      // conversation:join verifies that the authenticated user is a participant.
+      if (!room || !socket.rooms.has(room)) return;
+      socket.to(room).emit(eventName, { conversationId: room, userId: socket.userId });
+    };
 
-    socket.on('user:stop-typing', ({ conversationId }) => {
-      socket.to(conversationId).emit('user:stop-typing', { conversationId, userId: socket.userId });
-    });
+    socket.on('user:typing', relayTypingEvent('user:typing'));
+    socket.on('user:stop-typing', relayTypingEvent('user:stop-typing'));
 
     // Handle disconnection
     socket.on('disconnect', async () => {

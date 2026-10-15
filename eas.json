@@ -43,6 +43,12 @@
         "EXPO_PUBLIC_SERVER_URI": "https://ecommerce-dating-app.onrender.com",
         "EXPO_PUBLIC_FACEBOOK_APP_ID": "1595550508751850"
       }
+    },
+    "production-apk": {
+      "extends": "production",
+      "android": {
+        "buildType": "apk"
+      }
     }
   },
   "submit": {

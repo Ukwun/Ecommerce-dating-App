@@ -7,10 +7,9 @@ import Constants from 'expo-constants';
 const isExpoGo = Constants.appOwnership === 'expo';
 import { Platform, Linking, Alert } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import axios from 'axios';
 import { router } from 'expo-router';
+import axiosInstance from '@/utils/axiosinstance';
 
-const API_BASE = process.env.EXPO_PUBLIC_SERVER_URI || 'http://10.0.2.2:8082';
 
 Notifications.setNotificationHandler({
   handleNotification: async () => ({
@@ -105,8 +104,8 @@ export const usePushNotifications = () => {
       } catch (_) {}
       const authToken = secureToken || userToken;
       if (authToken) {
-        await axios.post(
-          `${API_BASE}/auth/api/push-token`,
+        await axiosInstance.post(
+          '/auth/api/push-token',
           { token },
           { headers: { Authorization: `Bearer ${authToken}` } }
         );

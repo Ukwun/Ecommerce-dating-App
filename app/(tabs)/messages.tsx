@@ -1,13 +1,10 @@
 import React, { useEffect, useRef, useState } from 'react';
-import { View, StyleSheet, TouchableOpacity, Text, FlatList, Image, Alert, Animated, TextInput } from 'react-native';
+import { View, StyleSheet, TouchableOpacity, Text, FlatList, Image, Alert, TextInput } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { router } from 'expo-router';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useTheme } from '@/hooks/useTheme';
-import { Swipeable } from 'react-native-gesture-handler';
-
-import * as Haptics from 'expo-haptics';
 import * as SecureStore from 'expo-secure-store';
 import { io, Socket } from 'socket.io-client';
 import axiosInstance from '@/utils/axiosinstance';
@@ -22,23 +19,8 @@ type Conversation = {
   justUpdated?: boolean;
 };
 
-const ConversationItem = ({ item, onDelete, onAnimationComplete }: { item: Conversation; onDelete: (id: string) => void; onAnimationComplete: (id: string) => void; }) => {
+const ConversationItem = ({ item }: { item: Conversation }) => {
   const isUnread = item.unreadCount > 0;
-
-  const renderRightActions = (progress: Animated.AnimatedInterpolation<number>, dragX: Animated.AnimatedInterpolation<number>) => {
-    const trans = dragX.interpolate({
-      inputRange: [-80, 0],
-      outputRange: [0, 80],
-      extrapolate: 'clamp',
-    });
-    return (
-      <TouchableOpacity onPress={() => onDelete(item.id)} style={styles.deleteAction}>
-        <Animated.View style={{ transform: [{ translateX: trans }] }}>
-          <Ionicons name="trash-outline" size={24} color="white" />
-        </Animated.View>
-      </TouchableOpacity>
-    );
-  };
 
   return (
     <View
@@ -46,8 +28,7 @@ const ConversationItem = ({ item, onDelete, onAnimationComplete }: { item: Conve
         backgroundColor: item.justUpdated ? '#FEF3C7' : '#F3F4F6',
       }}
     >
-      <Swipeable renderRightActions={renderRightActions} overshootRight={false}>
-        <TouchableOpacity style={styles.conversationItem} onPress={() => router.push(`/chat/${item.id}`)} activeOpacity={1}>
+        <TouchableOpacity style={styles.conversationItem} onPress={() => router.push(`/chat/${item.id}`)} activeOpacity={0.8} accessibilityRole="button" accessibilityLabel={`Open conversation with ${item.userName}`}>
           <Image source={{ uri: item.userAvatar }} style={styles.avatar} />
           <View style={styles.conversationDetails}>
             <View style={styles.conversationHeader}>
@@ -66,7 +47,6 @@ const ConversationItem = ({ item, onDelete, onAnimationComplete }: { item: Conve
             </View>
           </View>
         </TouchableOpacity>
-      </Swipeable>
     </View>
   );
 };
@@ -224,40 +204,6 @@ export default function MessagesScreen() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  // Example: mark conversation read when user opens the chat screen.
-  // You would call this from the chat screen after navigation or via a messaging context.
-  const markAsRead = (conversationId: string) => {
-    setConversations(prev => prev.map(c => c.id === conversationId ? { ...c, unreadCount: 0 } : c));
-  };
-
-  const handleAnimationComplete = (id: string) => {
-    setConversations(prev => prev.map(c => c.id === id ? { ...c, justUpdated: false } : c));
-  };
-
-  const handleDelete = (id: string) => {
-    Alert.alert(
-      "Delete Conversation",
-      "Are you sure you want to permanently delete this conversation?",
-      [
-        { text: "Cancel", style: "cancel" },
-        { text: "Delete", style: "destructive", onPress: () => {
-          Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
-          setConversations(prev => prev.filter(c => c.id !== id));
-        }}
-      ]
-    );
-  };
-
-  // Simple UI action to test sending a ping/payload to the server (replace with real send)
-  const sendTestMessage = () => {
-    if (!wsRef.current || !wsRef.current.connected) {
-      Alert.alert('Connection', 'WebSocket not connected');
-      return;
-    }
-    // Emit a test event
-    wsRef.current.emit('ping', { ts: Date.now() });
-  };
-
   const handleRetry = () => {
     if (connectionState === 'disabled') {
       Alert.alert('WebSocket', 'WebSocket not configured. Set EXPO_PUBLIC_CHATTING_WEBSOCKET_URI to enable.');
@@ -291,11 +237,7 @@ export default function MessagesScreen() {
               )}
             </View>
           </View>
-          <View style={{ flexDirection: 'row', alignItems: 'center' }}>
-            <TouchableOpacity style={styles.searchButton} onPress={() => sendTestMessage()}>
-              <Ionicons name="send" size={22} color="#fff" />
-            </TouchableOpacity>
-          </View>
+          <View />
         </View>
 
         <View style={styles.searchContainer}>
@@ -321,7 +263,7 @@ export default function MessagesScreen() {
               
               
               
-            ><ConversationItem item={item} onDelete={handleDelete} onAnimationComplete={handleAnimationComplete} /></View>
+            ><ConversationItem item={item} /></View>
           )}
           ItemSeparatorComponent={() => <View style={styles.separator} />}
           contentContainerStyle={{ backgroundColor: isDark ? '#111827' : '#F3F4F6' }}

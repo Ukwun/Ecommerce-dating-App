@@ -71,8 +71,8 @@ export default function PrivacyPolicy() {
           We retain personal data as long as necessary for service provision and legal compliance. You can request deletion anytime, except where legally required to maintain records.
         </Section>
 
-        <Section title="8. Children's Privacy">
-          Our Service is not intended for children under 13. We do not knowingly collect data from children. If we discover such collection, we immediately delete it.
+        <Section title="8. Age Requirement and Children's Privacy">
+          BizMingle is intended for adults aged 18 and older because it includes dating and social discovery features. We do not knowingly permit children to use those features. If you believe a child has provided information, contact us so we can investigate and take appropriate action.
         </Section>
 
         <Section title="9. International Users">

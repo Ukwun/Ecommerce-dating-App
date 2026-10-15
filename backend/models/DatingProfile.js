@@ -17,7 +17,8 @@ const datingProfileSchema = new mongoose.Schema({
   photos: [{
     url: String,
     isProfilePhoto: Boolean,
-    cloudinaryId: String
+    cloudinaryId: String,
+    fileId: String
   }],
   location: {
     type: { type: String, enum: ['Point'], default: 'Point' },

@@ -47,10 +47,23 @@ const app = express();
 app.set('trust proxy', 1);
 const server = http.createServer(app);
 
+const allowedOrigins = new Set(
+  (process.env.CORS_ORIGINS || 'https://bizmingle.online,https://www.bizmingle.online')
+    .split(',')
+    .map(origin => origin.trim())
+    .filter(Boolean)
+);
+const allowOrigin = (origin, callback) => {
+  // Native mobile requests do not send an Origin header. Browser requests must
+  // come from an explicitly configured first-party origin.
+  if (!origin || allowedOrigins.has(origin)) return callback(null, true);
+  return callback(new Error('Origin is not allowed'));
+};
+
 // WebSocket Setup
 const io = new Server(server, {
   cors: {
-    origin: "*", // Allow connections from mobile app
+    origin: allowOrigin,
     methods: ["GET", "POST", "PUT", "DELETE"]
   }
 });
@@ -60,7 +73,7 @@ app.set('io', io);
 
 // Enhanced CORS configuration
 const corsOptions = {
-  origin: "*",
+  origin: allowOrigin,
   methods: ["GET", "POST", "PUT", "DELETE", "PATCH", "OPTIONS"],
   allowedHeaders: ["Content-Type", "Authorization", "X-Requested-With"],
   credentials: false,
@@ -139,6 +152,14 @@ app.use('/upload/api', uploadRoutes);
 app.get('/', (req, res) => {
   res.send('Facebook Marketplace + Dating API is running');
 });
+
+// The published policy pages are the canonical, public versions used in the
+// app and Play Console. Keep historic backend paths valid without serving the
+// obsolete policy text that used a different product name and contact address.
+app.get('/privacy', (_req, res) => res.redirect(302, 'https://bizmingle.online/privacy-policy'));
+app.get('/terms', (_req, res) => res.redirect(302, 'https://bizmingle.online/terms'));
+app.get('/account-deletion', (_req, res) => res.redirect(302, 'https://bizmingle.online/delete-account'));
+app.get('/child-safety', (_req, res) => res.redirect(302, 'https://bizmingle.online/child-safety'));
 
 // Privacy Policy page (required for Play Store)
 app.get('/privacy', (req, res) => {

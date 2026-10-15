@@ -4,8 +4,6 @@ const DatingProfile = require('../models/DatingProfile');
 const { protect } = require('../middleware/auth');
 const { configured, createLivenessSession, verifyLivenessSession } = require('../utils/faceRecognition');
 const BiometricSession = require('../models/BiometricSession');
-const { sendEmail } = require('../utils/emailService');
-const User = require('../models/User'); // Ensure you have this model
 
 // POST /dating/api/verification/enable
 // Enable 2FA and save the reference selfie
@@ -102,28 +100,12 @@ router.post('/verification/liveness/result', protect, async (req, res) => {
 });
 
 // POST /dating/api/verification/forgot
-// Initiate 2FA reset flow (e.g. send email)
-router.post('/verification/forgot', protect, async (req, res) => {
-  try {
-    const user = await User.findById(req.user.id);
-    if (!user || !user.email) {
-      return res.status(400).json({ message: 'User email not found' });
-    }
-
-    // In a real app, generate a crypto token here
-    const resetLink = `http://your-app-url/reset-2fa?userId=${req.user.id}`;
-    
-    await sendEmail(
-      user.email,
-      'Reset 2-Step Verification',
-      `You requested to reset your 2-step verification. Click here: ${resetLink}`
-    );
-    
-    res.json({ message: 'Reset link sent to your registered email address.' });
-  } catch (err) {
-    console.error(err);
-    res.status(500).json({ message: 'Server error' });
-  }
+// The old implementation emailed an untrusted placeholder URL. Do not claim a
+// recovery flow exists until it has a signed, one-time token and a complete UI.
+router.post('/verification/forgot', protect, (_req, res) => {
+  res.status(503).json({
+    message: 'Biometric verification recovery is not available yet. Please contact support from Settings.'
+  });
 });
 
 module.exports = router;

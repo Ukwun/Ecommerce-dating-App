@@ -207,7 +207,7 @@ export default function SignupScreen({ onSignIn }: { onSignIn?: () => void } = {
                   <Ionicons name={value ? 'checkbox' : 'square-outline'} size={24} color={value ? '#2563EB' : '#6B7280'} />
                 </TouchableOpacity>
                 <Text style={{ flex: 1, marginLeft: 10, color: '#4B5563', lineHeight: 20 }}>
-                  I agree to the <Text style={styles.legalLink} onPress={() => Linking.openURL('https://com.bizmingle.app/terms')}>Terms of Service</Text> and acknowledge the <Text style={styles.legalLink} onPress={() => Linking.openURL('https://com.bizmingle.app/privacy-policy')}>Privacy Policy</Text>.
+                  I agree to the <Text style={styles.legalLink} onPress={() => Linking.openURL('https://bizmingle.online/terms')}>Terms of Service</Text> and acknowledge the <Text style={styles.legalLink} onPress={() => Linking.openURL('https://bizmingle.online/privacy-policy')}>Privacy Policy</Text>.
                 </Text>
               </View>
             )}

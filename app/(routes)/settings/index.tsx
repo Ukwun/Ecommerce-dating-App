@@ -111,17 +111,17 @@ export default function SettingsScreen() {
           </View>
 
           <View style={[styles.settingCard, { backgroundColor: cardBackgroundColor, marginTop: 12 }]}>
-            <TouchableOpacity onPress={() => openLegalPage('https://com.bizmingle.app/privacy-policy')} style={[styles.settingRow, { paddingVertical: 14 }]}>
+            <TouchableOpacity onPress={() => openLegalPage('https://bizmingle.online/privacy-policy')} style={[styles.settingRow, { paddingVertical: 14 }]}>
               <Ionicons name="shield-checkmark-outline" size={20} color={cardTextColor} style={styles.icon} />
               <Text style={[styles.settingLabel, { color: cardTextColor }]}>Privacy Policy</Text>
               <Ionicons name="open-outline" size={20} color={cardTextColor} />
             </TouchableOpacity>
-            <TouchableOpacity onPress={() => openLegalPage('https://com.bizmingle.app/terms')} style={[styles.settingRow, { paddingVertical: 14 }]}>
+            <TouchableOpacity onPress={() => openLegalPage('https://bizmingle.online/terms')} style={[styles.settingRow, { paddingVertical: 14 }]}>
               <Ionicons name="document-text-outline" size={20} color={cardTextColor} style={styles.icon} />
               <Text style={[styles.settingLabel, { color: cardTextColor }]}>Terms of Service</Text>
               <Ionicons name="open-outline" size={20} color={cardTextColor} />
             </TouchableOpacity>
-            <TouchableOpacity onPress={() => openLegalPage('https://com.bizmingle.app/delete-account')} style={[styles.settingRow, { paddingVertical: 14 }]}>
+            <TouchableOpacity onPress={() => openLegalPage('https://bizmingle.online/delete-account')} style={[styles.settingRow, { paddingVertical: 14 }]}>
               <Ionicons name="trash-outline" size={20} color="#DC2626" style={styles.icon} />
               <Text style={[styles.settingLabel, { color: '#DC2626' }]}>Delete Account</Text>
               <Ionicons name="open-outline" size={20} color="#DC2626" />

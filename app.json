@@ -2,7 +2,7 @@
   "expo": {
     "name": "BizMingle",
     "slug": "marketplace",
-    "version": "1.0.4",
+    "version": "1.0.8",
     "orientation": "default",
     "icon": "./assets/images/icon.png",
     "scheme": "marketplace",
@@ -16,11 +16,11 @@
     "ios": {
       "supportsTablet": true,
       "bundleIdentifier": "com.marketplace.app",
-      "buildNumber": "5"
+      "buildNumber": "9"
     },
     "android": {
       "package": "com.bizmingle.app",
-      "versionCode": 5,
+      "versionCode": 9,
       "adaptiveIcon": {
         "backgroundColor": "#E6F4FE",
         "foregroundImage": "./assets/images/android-icon-foreground.png",
@@ -34,6 +34,9 @@
         "android.permission.ACCESS_FINE_LOCATION",
         "android.permission.INTERNET",
         "android.permission.CAMERA"
+      ],
+      "blockedPermissions": [
+        "android.permission.RECORD_AUDIO"
       ]
     },
     "plugins": [
@@ -85,10 +88,10 @@
       "eas": {
         "projectId": "543f74ae-39ce-4609-a1a1-8ef032c3c7a7"
       },
-      "privacyPolicyUrl": "https://com.bizmingle.app/privacy-policy",
-      "termsOfServiceUrl": "https://com.bizmingle.app/terms",
-      "accountDeletionUrl": "https://com.bizmingle.app/delete-account",
-      "childSafetyStandardsUrl": "https://com.bizmingle.app/child-safety"
+      "privacyPolicyUrl": "https://bizmingle.online/privacy-policy",
+      "termsOfServiceUrl": "https://bizmingle.online/terms",
+      "accountDeletionUrl": "https://bizmingle.online/delete-account",
+      "childSafetyStandardsUrl": "https://bizmingle.online/child-safety"
     },
     "owner": "ukwun1",
     "runtimeVersion": {

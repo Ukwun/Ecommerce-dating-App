@@ -4,6 +4,7 @@ const User = require('../models/User');
 const { protect } = require('../middleware/auth');
 
 const router = express.Router();
+const UploadedAsset = require('../models/UploadedAsset');
 
 /**
  * POST /dating/api/profile
@@ -163,10 +164,19 @@ router.get('/profile/:userId', protect, async (req, res) => {
  */
 router.post('/profile/photo/upload', protect, async (req, res) => {
   try {
-    const { photoUrl, cloudinaryId, isProfilePhoto } = req.body;
+    const { fileId, isProfilePhoto } = req.body;
 
-    if (!photoUrl) {
-      return res.status(400).json({ message: 'Photo URL is required' });
+    if (!fileId) {
+      return res.status(400).json({ message: 'An approved uploaded photo is required' });
+    }
+
+    const asset = await UploadedAsset.findOne({
+      owner: req.user.id,
+      fileId,
+      moderationStatus: 'approved',
+    }).select('url fileId');
+    if (!asset) {
+      return res.status(422).json({ message: 'This photo has not passed safety review' });
     }
 
     const profile = await DatingProfile.findOne({ userId: req.user._id });
@@ -181,8 +191,8 @@ router.post('/profile/photo/upload', protect, async (req, res) => {
     }
 
     const newPhoto = {
-      url: photoUrl,
-      cloudinaryId: cloudinaryId || null,
+      url: asset.url,
+      fileId: asset.fileId,
       uploadedAt: new Date(),
       isVerified: false,
       order: profile.photos.length,
@@ -193,7 +203,7 @@ router.post('/profile/photo/upload', protect, async (req, res) => {
 
     // Set as profile photo if first photo or explicitly marked
     if (isProfilePhoto || profile.photos.length === 1) {
-      profile.profilePhotoUrl = photoUrl;
+      profile.profilePhotoUrl = asset.url;
       profile.photos[profile.photos.length - 1].isProfilePhoto = true;
     }
 
